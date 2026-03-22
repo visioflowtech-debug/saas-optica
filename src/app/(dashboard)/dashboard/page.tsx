@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { fmtFecha } from "@/lib/date-sv";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -152,7 +153,7 @@ export default async function DashboardPage() {
                   {p.nombre}
                 </span>
                 <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {new Date(p.created_at).toLocaleDateString("es-SV")}
+                  {fmtFecha(p.created_at)}
                 </span>
               </Link>
             ))}

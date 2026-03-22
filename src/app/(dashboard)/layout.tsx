@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { signout } from "@/app/(auth)/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SucursalSwitcher } from "@/components/sucursal-switcher";
+import MobileNav from "@/components/mobile-nav";
 
 export default async function DashboardLayout({
   children,
@@ -62,11 +63,31 @@ export default async function DashboardLayout({
     laboratorio: "Laboratorio",
   };
 
+  const navItems = [
+    { href: "/dashboard", label: "Inicio", icon: "🏠" },
+    ...(campanasActivas ? [{ href: "/dashboard/campanas", label: "Campañas", icon: "📍" }] : []),
+    { href: "/dashboard/pacientes", label: "Pacientes", icon: "👥" },
+    { href: "/dashboard/examenes", label: "Exámenes", icon: "🔬" },
+    { href: "/dashboard/ventas", label: "Ventas", icon: "💰" },
+    { href: "/dashboard/laboratorio", label: "Laboratorio", icon: "🔧" },
+    { href: "/dashboard/inventario", label: "Inventario", icon: "📦" },
+    { href: "/dashboard/gastos", label: "Gastos", icon: "📋" },
+    { href: "/dashboard/configuracion", label: "Configuración", icon: "⚙️" },
+  ];
+
   return (
-    <div className="flex h-screen" style={{ background: "var(--bg-body)" }}>
-      {/* Sidebar */}
+    <div className="flex h-screen flex-col md:flex-row" style={{ background: "var(--bg-body)" }}>
+      {/* Mobile top bar + drawer */}
+      <MobileNav
+        navItems={navItems}
+        nombre={nombre}
+        rol={rolLabels[rol] || rol}
+        sucursalNombre={sucursalNombre}
+      />
+
+      {/* Sidebar — desktop only */}
       <aside
-        className="hidden md:flex w-64 flex-col"
+        className="hidden md:flex w-64 flex-col shrink-0"
         style={{
           background: "var(--bg-sidebar)",
           borderRight: "1px solid var(--border-default)",
@@ -92,17 +113,7 @@ export default async function DashboardLayout({
           />
         </div>
         <nav className="flex-1 p-4 space-y-1">
-          {[
-            { href: "/dashboard", label: "Inicio", icon: "🏠" },
-            ...(campanasActivas ? [{ href: "/dashboard/campanas", label: "Campañas", icon: "📍" }] : []),
-            { href: "/dashboard/pacientes", label: "Pacientes", icon: "👥" },
-            { href: "/dashboard/examenes", label: "Exámenes", icon: "🔬" },
-            { href: "/dashboard/ventas", label: "Ventas", icon: "💰" },
-            { href: "/dashboard/laboratorio", label: "Laboratorio", icon: "🔧" },
-            { href: "/dashboard/inventario", label: "Inventario", icon: "📦" },
-            { href: "/dashboard/gastos", label: "Gastos", icon: "📋" },
-            { href: "/dashboard/configuracion", label: "Configuración", icon: "⚙️" },
-          ].map((item) => (
+          {navItems.map((item) => (
             <a
               key={item.href}
               href={item.href}
@@ -150,8 +161,8 @@ export default async function DashboardLayout({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="p-6 md:p-8">{children}</div>
+      <main className="flex-1 overflow-auto min-h-0">
+        <div className="p-4 md:p-8">{children}</div>
       </main>
 
       <style>{`

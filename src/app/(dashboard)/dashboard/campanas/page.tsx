@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { obtenerCampanas } from "./actions";
 import Link from "next/link";
+import { fmtDate } from "@/lib/date-sv";
 
 export default async function CampanasPage({
   searchParams,
@@ -118,12 +119,12 @@ export default async function CampanasPage({
               <div className="flex gap-3 text-[10px] text-t-muted">
                 {camp.fecha_inicio && (
                   <span>
-                    Desde {new Date(camp.fecha_inicio).toLocaleDateString("es-SV")}
+                    Desde {fmtDate(camp.fecha_inicio)}
                   </span>
                 )}
                 {camp.fecha_fin && (
                   <span>
-                    Hasta {new Date(camp.fecha_fin).toLocaleDateString("es-SV")}
+                    Hasta {fmtDate(camp.fecha_fin)}
                   </span>
                 )}
               </div>

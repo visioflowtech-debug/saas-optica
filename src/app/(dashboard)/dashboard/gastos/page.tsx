@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { obtenerGastos, eliminarGasto } from "./actions";
 import { CATEGORIAS_GASTO } from "./types";
 import Link from "next/link";
+import CampanasBackLink from "@/components/campanas-back-link";
+import { fmtDate } from "@/lib/date-sv";
 
 export default async function GastosPage({
   searchParams,
@@ -32,12 +34,15 @@ export default async function GastosPage({
           <h1 className="text-2xl font-bold text-t-primary">Gastos</h1>
           <p className="text-t-secondary text-sm mt-1">Control de gastos operativos y de campaña</p>
         </div>
-        <Link
-          href="/dashboard/gastos/nuevo"
-          className="px-4 py-2 bg-[var(--accent-blue)] hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition"
-        >
-          + Registrar Gasto
-        </Link>
+        <div className="flex items-center gap-2">
+          <CampanasBackLink />
+          <Link
+            href="/dashboard/gastos/nuevo"
+            className="px-4 py-2 bg-[var(--accent-blue)] hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition"
+          >
+            + Registrar Gasto
+          </Link>
+        </div>
       </div>
 
       {params.error && (
@@ -102,7 +107,7 @@ export default async function GastosPage({
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   <div className="text-center min-w-[48px]">
                     <p className="text-xs font-bold text-t-primary">
-                      {new Date(g.fecha + "T12:00:00").toLocaleDateString("es-SV", { day: "2-digit", month: "short" })}
+                      {fmtDate(g.fecha, { year: undefined })}
                     </p>
                   </div>
                   <div className="flex-1 min-w-0">

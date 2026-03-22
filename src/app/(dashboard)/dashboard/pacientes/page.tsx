@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import CampanasBackLink from "@/components/campanas-back-link";
 
 function calculateAge(birthDate: string): number {
   const today = new Date();
@@ -47,12 +48,15 @@ export default async function PacientesPage({
             {count ?? 0} pacientes registrados
           </p>
         </div>
-        <Link
-          href="/dashboard/pacientes/nuevo"
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25"
-        >
-          + Nuevo paciente
-        </Link>
+        <div className="flex items-center gap-2">
+          <CampanasBackLink />
+          <Link
+            href="/dashboard/pacientes/nuevo"
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25"
+          >
+            + Nuevo paciente
+          </Link>
+        </div>
       </div>
 
       {params.error && (

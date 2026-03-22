@@ -1,12 +1,13 @@
-import { obtenerOrdenesLaboratorio } from "./actions";
-import { obtenerLaboratoriosActivos } from "./actions";
+import { obtenerOrdenesLaboratorio, obtenerLaboratoriosActivos, obtenerCampanasParaFiltro } from "./actions";
 import KanbanBoard, { LabItem, LabEstado } from "./kanban-board";
 import ListaPDFButton from "./lista-pdf-button";
+import CampanasBackLink from "@/components/campanas-back-link";
 
 export default async function LaboratorioPage() {
-  const [data, labs] = await Promise.all([
+  const [data, labs, campanas] = await Promise.all([
     obtenerOrdenesLaboratorio(),
     obtenerLaboratoriosActivos(),
+    obtenerCampanasParaFiltro(),
   ]);
 
   const items: LabItem[] = data.map((d: any) => ({
@@ -16,6 +17,7 @@ export default async function LaboratorioPage() {
     total: Number(d.total),
     estadoLab: (d.laboratorio?.estado as LabEstado) || "pendiente",
     laboratorioExterno: d.laboratorio?.laboratorio_externo || null,
+    laboratorioNombre: d.laboratorioNombre || null,
   }));
 
   return (
@@ -25,7 +27,10 @@ export default async function LaboratorioPage() {
           <h1 className="text-2xl font-bold text-t-primary">Laboratorio</h1>
           <p className="text-t-muted text-sm mt-1">Seguimiento de órdenes en laboratorio (Kanban)</p>
         </div>
-        <ListaPDFButton laboratorios={labs} />
+        <div className="flex items-center gap-2">
+          <CampanasBackLink />
+          <ListaPDFButton laboratorios={labs} campanas={campanas} />
+        </div>
       </div>
 
       <KanbanBoard items={items} />

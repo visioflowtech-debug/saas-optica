@@ -21,6 +21,7 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { actualizarEstadoLaboratorio, obtenerDatosSobreLaboratorio } from "./actions";
+import { fmtFechaCorta } from "@/lib/date-sv";
 import { generarSobreLaboratorioPDF } from "./sobre-pdf";
 import KanbanModal from "./kanban-modal";
 
@@ -34,6 +35,7 @@ export interface LabItem {
   total: number;
   estadoLab: LabEstado;
   laboratorioExterno: string | null;
+  laboratorioNombre: string | null;
 }
 
 const COLUMNAS: { id: LabEstado; title: string; color: string; icon: string }[] = [
@@ -179,7 +181,7 @@ function Column({ id, title, color, icon, items, onCardClick }: { id: string; ti
         </span>
       </div>
 
-      <div className="flex-1 flex flex-col gap-3">
+      <div className="flex-1 flex flex-col gap-1.5">
         <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
           {items.map((item) => (
             <SortableItem key={item.id} item={item} onCardClick={onCardClick} />
@@ -242,9 +244,9 @@ function PrintEnvelopeButton({ ordenId, isOverlay }: { ordenId: string, isOverla
       onClick={handlePrint}
       onPointerDown={(e) => e.stopPropagation()} // prevent DnD start
       disabled={loading || isOverlay}
-      className="ml-2 px-2 py-1 text-[10px] font-medium bg-card border border-b-default rounded-md text-t-secondary hover:text-t-primary hover:bg-input transition disabled:opacity-50"
+      className="ml-1.5 px-1.5 py-0.5 text-[9px] font-medium bg-card border border-b-default rounded text-t-secondary hover:text-t-primary hover:bg-input transition disabled:opacity-50 shrink-0"
     >
-      {loading ? "..." : "🖨️ Sobre"}
+      {loading ? "..." : "🖨️"}
     </button>
   );
 }
@@ -257,24 +259,30 @@ function ItemCard({ item, isOverlay, onClick }: { item: LabItem; isOverlay?: boo
   return (
     <div
       onClick={isOverlay ? undefined : onClick}
-      className={`bg-card border border-b-default p-4 rounded-lg cursor-grab active:cursor-grabbing hover:border-blue-500/50 transition-colors ${
+      className={`bg-card border border-b-default px-3 py-2 rounded-lg cursor-grab active:cursor-grabbing hover:border-blue-500/50 transition-colors ${
         isOverlay ? "shadow-xl rotate-2 scale-105 border-blue-500 ring-2 ring-blue-500/20" : "shadow-sm"
       }`}
     >
-      <div className="flex justify-between items-start mb-2">
-        <span className="text-xs font-medium text-t-muted">
-          {new Date(item.createdAt).toLocaleDateString("es-SV", { month: "short", day: "numeric" })}
+      {/* Row 1: date + amount */}
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] text-t-muted">
+          {fmtFechaCorta(item.createdAt)}
         </span>
-        <span className="text-xs font-mono font-bold text-t-blue">{fmtCurrency(item.total)}</span>
+        <span className="text-[10px] font-mono font-bold text-t-blue">{fmtCurrency(item.total)}</span>
       </div>
-      <p className="text-sm font-bold text-t-primary line-clamp-1">{item.paciente}</p>
-      
-      <div className="flex justify-between items-end mt-2">
-        {item.laboratorioExterno ? (
-          <p className="text-[10px] text-t-secondary bg-input px-2 py-1 rounded w-fit uppercase font-medium">
-            Lab: {item.laboratorioExterno}
-          </p>
-        ) : <div />}
+
+      {/* Row 2: patient name */}
+      <p className="text-xs font-bold text-t-primary line-clamp-1 mt-0.5">{item.paciente}</p>
+
+      {/* Row 3: lab name + print button */}
+      <div className="flex justify-between items-center mt-1">
+        <p className="text-[10px] text-t-muted line-clamp-1 flex-1 min-w-0">
+          {item.laboratorioNombre
+            ? `🔬 ${item.laboratorioNombre}`
+            : item.laboratorioExterno
+            ? item.laboratorioExterno
+            : ""}
+        </p>
         <PrintEnvelopeButton ordenId={item.id} isOverlay={isOverlay} />
       </div>
     </div>

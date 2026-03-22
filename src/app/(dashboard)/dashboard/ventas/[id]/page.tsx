@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import OrdenAcciones from "./orden-acciones";
 import PagosSection from "./pagos-section";
+import { fmtFecha } from "@/lib/date-sv";
 
 export default async function OrdenDetallePage({
   params,
@@ -86,7 +87,7 @@ export default async function OrdenDetallePage({
               Paciente: <span className="font-medium text-t-primary">{paciente}</span>
             </p>
             <p className="text-t-muted text-xs mt-1">
-              Asesor: {asesor} · {new Date(orden.created_at).toLocaleDateString("es-SV", { year: "numeric", month: "long", day: "numeric" })}
+              Asesor: {asesor} · {fmtFecha(orden.created_at, { month: "long" })}
             </p>
           </div>
           <div className="text-right">

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { obtenerDatosReceta, anularExamen } from "../../examenes/actions";
+import { fmtFecha } from "@/lib/date-sv";
 import { eliminarExamen } from "../../eliminar-actions";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { generarRecetaPDF } from "../../examenes/receta-pdf";
@@ -104,7 +105,7 @@ function TabDemograficos({ paciente, edad }: { paciente: Paciente; edad: number 
             {paciente.acepta_marketing ? "✓ Sí" : "✗ No"}
           </span>
         } />
-        <InfoRow label="Paciente desde" value={new Date(paciente.created_at).toLocaleDateString("es-SV", { year: "numeric", month: "long", day: "numeric" })} />
+        <InfoRow label="Paciente desde" value={fmtFecha(paciente.created_at, { month: "long" })} />
       </div>
     </div>
   );
@@ -125,7 +126,7 @@ function TabClinico({ examenes }: { examenes: Examen[] }) {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className={`font-medium ${ex.anulado ? "text-t-muted line-through" : "text-t-primary"}`}>
-                  {new Date(ex.fecha_examen).toLocaleDateString("es-SV", { year: "numeric", month: "long", day: "numeric" })}
+                  {fmtFecha(ex.fecha_examen, { month: "long" })}
                 </span>
                 {ex.anulado && <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-red-500/10 text-red-500 rounded border border-red-500/20">Anulado</span>}
                 {!ex.anulado && i === 0 && <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-blue-600 text-white rounded">Más reciente</span>}
@@ -227,7 +228,7 @@ function TabCompras({ ordenes, labEstados }: { ordenes: Orden[]; labEstados: Rec
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-t-primary font-medium">
-                  {new Date(ord.created_at).toLocaleDateString("es-SV", { year: "numeric", month: "short", day: "numeric" })}
+                  {fmtFecha(ord.created_at)}
                 </span>
                 <StatusBadge estado={ord.estado} />
                 {lab && <LabBadge estado={lab.estado} lab={lab.laboratorio_externo || ""} />}
@@ -370,7 +371,7 @@ function VerDetalleExamenModal({ examen, onClose }: { examen: Examen, onClose: (
               {examen.anulado && <span className="ml-3 px-2 py-0.5 text-xs font-bold uppercase bg-red-500/10 text-red-500 rounded border border-red-500/20">Anulado</span>}
             </h2>
             <p className="text-xs text-t-muted mt-1">
-              Realizado el {new Date(examen.fecha_examen).toLocaleDateString("es-SV", { year: "numeric", month: "long", day: "numeric" })} por {optNombre}
+              Realizado el {fmtFecha(examen.fecha_examen, { month: "long" })} por {optNombre}
             </p>
           </div>
           <button onClick={onClose} className="text-t-muted hover:text-red-500 font-bold px-2 py-1 rounded hover:bg-red-500/10 transition">✕</button>

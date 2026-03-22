@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import CampanasBackLink from "@/components/campanas-back-link";
+import { fmtFecha } from "@/lib/date-sv";
 
 export default async function VentasPage({
   searchParams,
@@ -45,12 +47,15 @@ export default async function VentasPage({
           <h1 className="text-2xl font-bold text-t-primary">Ventas</h1>
           <p className="text-t-muted text-sm mt-1">Gestión de proformas y órdenes de trabajo</p>
         </div>
-        <Link
-          href="/dashboard/ventas/nueva"
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25"
-        >
-          + Nueva Proforma
-        </Link>
+        <div className="flex items-center gap-2">
+          <CampanasBackLink />
+          <Link
+            href="/dashboard/ventas/nueva"
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25"
+          >
+            + Nueva Proforma
+          </Link>
+        </div>
       </div>
 
       {/* Search */}
@@ -121,7 +126,7 @@ export default async function VentasPage({
                   </td>
                   <td className="px-5 py-3 text-t-secondary">{getNested(o.asesor)}</td>
                   <td className="px-5 py-3 text-t-muted text-xs">
-                    {new Date(o.created_at).toLocaleDateString("es-SV", { day: "2-digit", month: "short", year: "numeric" })}
+                    {fmtFecha(o.created_at)}
                   </td>
                   <td className="px-5 py-3">
                     <Link href={`/dashboard/ventas/${o.id}`} className="text-xs text-t-blue hover:underline">

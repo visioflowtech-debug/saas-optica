@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { editarGasto } from "../../eliminar-actions";
 import { eliminarGasto } from "../../gastos/actions";
+import { fmtDate } from "@/lib/date-sv";
 import { CATEGORIAS_GASTO } from "../../gastos/types";
 
 interface Gasto {
@@ -27,7 +28,7 @@ export default function CampanaGastosTabla({ gastos, campanaId, campanaActiva }:
   const [error, setError] = useState("");
 
   const fmtMoney = (n: number) => `$${Number(n).toLocaleString("es-SV", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const fmtDate = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("es-SV", { day: "2-digit", month: "short", year: "numeric" });
+  // fmtDate imported from @/lib/date-sv
 
   function startEdit(g: Gasto) {
     setEditingId(g.id);

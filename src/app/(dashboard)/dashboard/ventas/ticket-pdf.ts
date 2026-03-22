@@ -133,10 +133,10 @@ export async function generarTicketPDF(data: TicketData) {
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   const fechaStr = new Date(data.orden.created_at).toLocaleDateString("es-SV", {
-    year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: "America/El_Salvador", year: "numeric", month: "2-digit", day: "2-digit",
   });
   const horaStr = new Date(data.orden.created_at).toLocaleTimeString("es-SV", {
-    hour: "2-digit", minute: "2-digit",
+    timeZone: "America/El_Salvador", hour: "2-digit", minute: "2-digit",
   });
   doc.text(`Fecha: ${fechaStr}  ${horaStr}`, margin, y);
   y += 3.5;
@@ -241,7 +241,7 @@ export async function generarTicketPDF(data: TicketData) {
     const metodoLabels: Record<string, string> = { efectivo: "Efect.", tarjeta: "Tarj.", transferencia: "Transf.", cheque: "Cheque" };
 
     for (const pago of data.pagos) {
-      const fecha = new Date(pago.created_at).toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit" });
+      const fecha = new Date(pago.created_at).toLocaleDateString("es-SV", { timeZone: "America/El_Salvador", day: "2-digit", month: "2-digit" });
       const metod = metodoLabels[pago.metodo_pago] ?? pago.metodo_pago;
       doc.text(`${fecha} ${metod}`, margin, y);
       doc.text(fmtCurrency(Number(pago.monto)), ticketWidth - margin, y, { align: "right" });

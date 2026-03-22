@@ -131,7 +131,7 @@ export async function generarRecetaPDF(data: RecetaData) {
 
   // ── Date right-aligned ──────────────────────────────────
   const fechaStr = new Date(data.examen.fecha_examen).toLocaleDateString("es-SV", {
-    year: "numeric", month: "long", day: "numeric",
+    timeZone: "America/El_Salvador", year: "numeric", month: "long", day: "numeric",
   });
   doc.setTextColor(120, 120, 120);
   doc.setFontSize(7);
@@ -256,7 +256,7 @@ export async function generarRecetaPDF(data: RecetaData) {
   doc.setTextColor(140, 140, 140);
   doc.setFontSize(6);
   doc.text(
-    `${empresaNombre} — Receta generada el ${new Date().toLocaleDateString("es-SV")}`,
+    `${empresaNombre} — Receta generada el ${new Date().toLocaleDateString("es-SV", { timeZone: "America/El_Salvador" })}`,
     pageWidth / 2,
     pageHeight - 3,
     { align: "center" }

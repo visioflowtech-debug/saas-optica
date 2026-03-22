@@ -3,6 +3,7 @@ import { CATEGORIAS_GASTO } from "../../gastos/types";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import CampanaGastosTabla from "./campana-gastos-tabla";
+import { fmtFecha } from "@/lib/date-sv";
 
 export default async function CampanaDetallePage({
   params,
@@ -58,7 +59,7 @@ export default async function CampanaDetallePage({
     gastosPorCategoria,
   };
 
-  const fmt = (d: string) => new Date(d).toLocaleDateString("es-SV", { day: "2-digit", month: "short", year: "numeric" });
+  const fmt = (d: string) => fmtFecha(d);
   const fmtMoney = (n: number) => `$${n.toLocaleString("es-SV", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const estadoBadge: Record<string, { label: string; cls: string }> = {
@@ -375,7 +376,7 @@ export default async function CampanaDetallePage({
                   <p className="text-xs text-t-muted">{p.telefono || p.email || "Sin contacto"}</p>
                 </div>
                 <span className="text-xs text-t-muted">
-                  {new Date(p.created_at).toLocaleDateString("es-SV")}
+                  {fmtFecha(p.created_at)}
                 </span>
               </Link>
             ))}

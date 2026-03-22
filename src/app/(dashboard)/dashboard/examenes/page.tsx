@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import CampanasBackLink from "@/components/campanas-back-link";
+import { fmtFecha } from "@/lib/date-sv";
 
 export default async function ExamenesPage() {
   const supabase = await createClient();
@@ -34,10 +36,13 @@ export default async function ExamenesPage() {
           <h1 className="text-2xl font-bold text-t-primary">Exámenes Clínicos</h1>
           <p className="text-t-muted text-sm mt-1">{examenes?.length ?? 0} exámenes registrados</p>
         </div>
-        <Link href="/dashboard/examenes/nuevo"
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25">
-          + Nuevo examen
-        </Link>
+        <div className="flex items-center gap-2">
+          <CampanasBackLink />
+          <Link href="/dashboard/examenes/nuevo"
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25">
+            + Nuevo examen
+          </Link>
+        </div>
       </div>
 
       <div className="bg-card border border-b-default rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
@@ -60,7 +65,7 @@ export default async function ExamenesPage() {
                 return (
                   <tr key={ex.id} className="hover:bg-card-hover transition">
                     <td className="px-6 py-4 text-sm text-t-primary">
-                      {new Date(ex.fecha_examen).toLocaleDateString("es-SV", { year: "numeric", month: "short", day: "numeric" })}
+                      {fmtFecha(ex.fecha_examen)}
                     </td>
                     <td className="px-6 py-4">
                       {pacNombre ? (

@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { fmtFecha, fmtDate, fmtHoy } from "@/lib/date-sv";
 
 interface OrdenListaItem {
   id: string;
@@ -13,6 +14,8 @@ interface OrdenListaItem {
   tratamiento_lente: string;
   color_lente: string;
   marca_aro: string;
+  color_aro: string;
+  tamano_aro: string;
   tipo_aro: string;
   observaciones: string;
   total: number;
@@ -27,59 +30,104 @@ const ESTADO_LABEL: Record<string, string> = {
 
 export function generarListaOrdenesLaboratorioPDF(
   ordenes: OrdenListaItem[],
-  filtros: { laboratorio?: string; campana?: string }
+  filtros: {
+    laboratorio?: string;
+    campana?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
+  }
 ) {
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "letter" });
+  // A4 landscape gives ~277mm usable width — enough for 14 columns
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
-  const now = new Date().toLocaleDateString("es-SV", { day: "2-digit", month: "short", year: "numeric" });
+  const now = fmtHoy();
 
   // ── Header ──────────────────────────────────────────────
-  doc.setFontSize(16);
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("LISTA DE ÓRDENES DE LABORATORIO", pw / 2, 14, { align: "center" });
-
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  const subtitulo = [
-    filtros.laboratorio ? `Laboratorio: ${filtros.laboratorio}` : "Todos los laboratorios",
-    filtros.campana ? `Campaña: ${filtros.campana}` : null,
-    `Generado: ${now}`,
-  ].filter(Boolean).join("   |   ");
-  doc.text(subtitulo, pw / 2, 20, { align: "center" });
+  doc.text("LISTA DE ÓRDENES DE LABORATORIO", pw / 2, 13, { align: "center" });
 
   doc.setFontSize(8);
-  doc.setTextColor(120);
-  doc.text(`Total órdenes: ${ordenes.length}`, pw / 2, 25, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  const partes: string[] = [
+    filtros.laboratorio ? `Lab: ${filtros.laboratorio}` : "Todos los laboratorios",
+  ];
+  if (filtros.campana) partes.push(`Campaña: ${filtros.campana}`);
+  if (filtros.fechaDesde || filtros.fechaHasta) {
+    const desde = filtros.fechaDesde ? fmtDate(filtros.fechaDesde) : "—";
+    const hasta = filtros.fechaHasta ? fmtDate(filtros.fechaHasta) : "—";
+    partes.push(`Período: ${desde} al ${hasta}`);
+  }
+  partes.push(`Generado: ${now}`);
+  doc.text(partes.join("   |   "), pw / 2, 19, { align: "center" });
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(100);
+  doc.text(`Total: ${ordenes.length} órdenes`, pw / 2, 24, { align: "center" });
   doc.setTextColor(0);
 
   // ── Tabla ────────────────────────────────────────────────
   const rows = ordenes.map((o, idx) => [
     String(idx + 1),
-    new Date(o.created_at).toLocaleDateString("es-SV", { day: "2-digit", month: "short" }),
+    fmtFecha(o.created_at, { year: "2-digit" }),
     o.paciente,
     o.laboratorio,
-    [o.tipo_lente, o.material_lente, o.color_lente, o.tratamiento_lente].filter(Boolean).join(" / ") || "—",
-    [o.tipo_aro, o.marca_aro].filter(Boolean).join(" / ") || "—",
     ESTADO_LABEL[o.estadoLab] || o.estadoLab,
     o.observaciones || "",
+    o.tipo_lente || "",
+    o.color_lente || "",
+    o.material_lente || "",
+    o.tratamiento_lente || "",
+    o.tipo_aro || "",
+    o.marca_aro || "",
+    o.color_aro || "",
+    o.tamano_aro || "",
   ]);
 
   autoTable(doc, {
-    startY: 30,
-    head: [["#", "Fecha", "Paciente", "Laboratorio", "Lentes", "Aro", "Estado", "Obs."]],
+    startY: 28,
+    margin: { left: 8, right: 8 },
+    head: [[
+      "#",
+      "Fecha",
+      "Paciente",
+      "Laboratorio",
+      "Estado",
+      "Observaciones",
+      "Tipo Lentes",
+      "Color Lentes",
+      "Material",
+      "Tratamiento",
+      "Tipo Aro",
+      "Marca",
+      "Color",
+      "Tamaño",
+    ]],
     body: rows,
-    styles: { fontSize: 7.5, cellPadding: 2 },
-    headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold", fontSize: 8 },
+    styles: { fontSize: 6.5, cellPadding: 1.5, overflow: "linebreak" },
+    headStyles: {
+      fillColor: [30, 64, 175],
+      textColor: 255,
+      fontStyle: "bold",
+      fontSize: 7,
+      cellPadding: 2,
+    },
     alternateRowStyles: { fillColor: [245, 247, 250] },
     columnStyles: {
-      0: { cellWidth: 8, halign: "center" },
-      1: { cellWidth: 18 },
-      2: { cellWidth: 40 },
-      3: { cellWidth: 35 },
-      4: { cellWidth: 55 },
-      5: { cellWidth: 40 },
-      6: { cellWidth: 22, halign: "center" },
-      7: { cellWidth: "auto" },
+      0:  { cellWidth: 5,  halign: "center" },
+      1:  { cellWidth: 14 },
+      2:  { cellWidth: 32 },
+      3:  { cellWidth: 24 },
+      4:  { cellWidth: 17, halign: "center" },
+      5:  { cellWidth: "auto" },  // Observaciones takes remaining space
+      6:  { cellWidth: 20 },
+      7:  { cellWidth: 16 },
+      8:  { cellWidth: 18 },
+      9:  { cellWidth: 18 },
+      10: { cellWidth: 17 },
+      11: { cellWidth: 18 },
+      12: { cellWidth: 15 },
+      13: { cellWidth: 13 },
     },
   });
 
@@ -87,9 +135,14 @@ export function generarListaOrdenesLaboratorioPDF(
   const totalPages = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.setTextColor(150);
-    doc.text(`Página ${i} de ${totalPages}`, pw - 15, doc.internal.pageSize.getHeight() - 8, { align: "right" });
+    doc.text(
+      `Página ${i} de ${totalPages}`,
+      pw - 10,
+      doc.internal.pageSize.getHeight() - 6,
+      { align: "right" }
+    );
   }
 
   doc.save(`ordenes_laboratorio_${Date.now()}.pdf`);

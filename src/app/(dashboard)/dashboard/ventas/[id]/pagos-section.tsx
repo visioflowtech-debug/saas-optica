@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { registrarPago } from "../actions";
+import { fmtFechaCorta } from "@/lib/date-sv";
 
 interface Pago {
   id: string;
@@ -164,7 +165,7 @@ export default function PagosSection({ ordenId, totalOrden, pagos: initialPagos 
                   {p.referencia && <span className="text-xs text-t-muted ml-2">· {p.referencia}</span>}
                 </div>
                 <span className="text-xs text-t-muted">
-                  {new Date(p.created_at).toLocaleDateString("es-SV", { day: "2-digit", month: "short" })}
+                  {fmtFechaCorta(p.created_at)}
                   {" "}
                   {new Date(p.created_at).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit" })}
                 </span>

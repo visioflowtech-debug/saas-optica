@@ -127,7 +127,7 @@ export async function generarSobreLaboratorioPDF(data: SobreData) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   const fechaStr = new Date(data.orden.created_at).toLocaleDateString("es-SV", {
-    year: "numeric", month: "long", day: "numeric",
+    timeZone: "America/El_Salvador", year: "numeric", month: "long", day: "numeric",
   });
   doc.text(`Fecha: ${fechaStr}`, marginLeft, y);
   doc.text(`Orden #: ${data.orden.id.split("-")[0].toUpperCase()}`, rightEdge, y, { align: "right" });

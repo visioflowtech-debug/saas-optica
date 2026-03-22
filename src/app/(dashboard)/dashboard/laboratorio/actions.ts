@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { svFechaInicioUTC, svFechaFinUTC } from "@/lib/date-sv";
 
 export async function obtenerOrdenesLaboratorio() {
   const supabase = await createClient();
@@ -47,9 +48,23 @@ export async function obtenerOrdenesLaboratorio() {
     }
   }
 
+  // Get lab name from orden_laboratorio_datos joined with laboratorios
+  const { data: labDatos } = await supabase
+    .from("orden_laboratorio_datos")
+    .select("orden_id, laboratorio:laboratorios(nombre)")
+    .in("orden_id", ordenIds);
+
+  const labNombreMap = new Map<string, string | null>();
+  for (const ld of (labDatos || [])) {
+    const lab = ld.laboratorio;
+    const nombre = Array.isArray(lab) ? lab[0]?.nombre : (lab as any)?.nombre ?? null;
+    labNombreMap.set(ld.orden_id, nombre);
+  }
+
   return ordenes.map((orden) => ({
     ...orden,
     laboratorio: latestStates.get(orden.id) || null,
+    laboratorioNombre: labNombreMap.get(orden.id) ?? null,
   }));
 }
 
@@ -197,6 +212,8 @@ export async function obtenerOrdenesParaListaPDF(filtros: {
   laboratorio_id?: string;
   campana_id?: string;
   estado?: string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -208,7 +225,7 @@ export async function obtenerOrdenesParaListaPDF(filtros: {
   // Obtener datos de laboratorio con laboratorio_id
   let labQuery = supabase
     .from("orden_laboratorio_datos")
-    .select("orden_id, laboratorio_id, tipo_lente, material_lente, tratamiento_lente, color_lente, marca_aro, tipo_aro, observaciones, laboratorio:laboratorios(nombre)")
+    .select("orden_id, laboratorio_id, tipo_lente, material_lente, tratamiento_lente, color_lente, marca_aro, color_aro, tamano_aro, tipo_aro, observaciones, laboratorio:laboratorios(nombre)")
     .eq("tenant_id", usuario.tenant_id);
 
   if (filtros.laboratorio_id) {
@@ -229,7 +246,12 @@ export async function obtenerOrdenesParaListaPDF(filtros: {
     .in("id", ordenIds);
 
   if (filtros.campana_id) ordenQuery = ordenQuery.eq("campana_id", filtros.campana_id);
-  if (filtros.estado) ordenQuery = ordenQuery.eq("estado", filtros.estado);
+  // El Salvador = UTC-6 (fijo, sin horario de verano).
+  // Supabase guarda en UTC, así que convertimos las fechas SV → UTC antes de filtrar.
+  // Inicio del día SV (00:00 SV) = 06:00 UTC mismo día
+  // Fin del día SV (23:59:59 SV) = 05:59:59 UTC del día siguiente
+  if (filtros.fecha_desde) ordenQuery = ordenQuery.gte("created_at", svFechaInicioUTC(filtros.fecha_desde));
+  if (filtros.fecha_hasta) ordenQuery = ordenQuery.lte("created_at", svFechaFinUTC(filtros.fecha_hasta));
 
   const { data: ordenes } = await ordenQuery.order("created_at", { ascending: false });
 
@@ -247,7 +269,11 @@ export async function obtenerOrdenesParaListaPDF(filtros: {
 
   const labMap = new Map(labDatos.map((l) => [l.orden_id, l]));
 
-  return (ordenes || []).map((o) => {
+  return (ordenes || []).filter((o) => {
+    if (!filtros.estado) return true;
+    const estadoLab = latestEstado.get(o.id) || "pendiente";
+    return estadoLab === filtros.estado;
+  }).map((o) => {
     const ld = labMap.get(o.id);
     const lab = ld?.laboratorio;
     return {
@@ -262,11 +288,30 @@ export async function obtenerOrdenesParaListaPDF(filtros: {
       tratamiento_lente: ld?.tratamiento_lente || "",
       color_lente: ld?.color_lente || "",
       marca_aro: ld?.marca_aro || "",
+      color_aro: (ld as any)?.color_aro || "",
+      tamano_aro: (ld as any)?.tamano_aro || "",
       tipo_aro: ld?.tipo_aro || "",
       observaciones: ld?.observaciones || "",
       total: Number(o.total),
     };
   });
+}
+
+/* ── Lista de campañas para selector PDF ────────────────── */
+export async function obtenerCampanasParaFiltro() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data: usuario } = await supabase
+    .from("usuarios").select("tenant_id, sucursal_id").eq("id", user.id).single();
+  if (!usuario) return [];
+  const { data } = await supabase
+    .from("campanas")
+    .select("id, nombre")
+    .eq("tenant_id", usuario.tenant_id)
+    .eq("sucursal_id", usuario.sucursal_id)
+    .order("fecha_inicio", { ascending: false });
+  return data || [];
 }
 
 /* ── Fetch all data to show in Kanban Card Modal ───────── */
