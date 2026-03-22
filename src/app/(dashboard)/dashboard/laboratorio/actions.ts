@@ -160,16 +160,11 @@ export async function guardarDatosLaboratorio(ordenId: string, datos: any) {
   if (!user) throw new Error("No autenticado");
 
   const { data: usuario } = await supabase
-    .from("usuarios")
-    .select("tenant_id")
-    .eq("id", user.id)
-    .single();
-
+    .from("usuarios").select("tenant_id").eq("id", user.id).single();
   if (!usuario) throw new Error("Usuario no encontrado");
 
   const payload = { ...datos, orden_id: ordenId, tenant_id: usuario.tenant_id };
 
-  // upsert
   const { error } = await supabase
     .from("orden_laboratorio_datos")
     .upsert(payload, { onConflict: "orden_id" });
@@ -177,6 +172,101 @@ export async function guardarDatosLaboratorio(ordenId: string, datos: any) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/dashboard/laboratorio");
+  revalidatePath(`/dashboard/ventas/${ordenId}`);
+}
+
+/* ── Laboratorios activos para selección ───────────────── */
+export async function obtenerLaboratoriosActivos() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data: usuario } = await supabase
+    .from("usuarios").select("tenant_id").eq("id", user.id).single();
+  if (!usuario) return [];
+  const { data } = await supabase
+    .from("laboratorios")
+    .select("id, nombre")
+    .eq("tenant_id", usuario.tenant_id)
+    .eq("activo", true)
+    .order("nombre");
+  return data || [];
+}
+
+/* ── Órdenes para generar lista PDF ────────────────────── */
+export async function obtenerOrdenesParaListaPDF(filtros: {
+  laboratorio_id?: string;
+  campana_id?: string;
+  estado?: string;
+}) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data: usuario } = await supabase
+    .from("usuarios").select("tenant_id").eq("id", user.id).single();
+  if (!usuario) return [];
+
+  // Obtener datos de laboratorio con laboratorio_id
+  let labQuery = supabase
+    .from("orden_laboratorio_datos")
+    .select("orden_id, laboratorio_id, tipo_lente, material_lente, tratamiento_lente, color_lente, marca_aro, tipo_aro, observaciones, laboratorio:laboratorios(nombre)")
+    .eq("tenant_id", usuario.tenant_id);
+
+  if (filtros.laboratorio_id) {
+    labQuery = labQuery.eq("laboratorio_id", filtros.laboratorio_id);
+  }
+
+  const { data: labDatos } = await labQuery;
+  if (!labDatos || labDatos.length === 0) return [];
+
+  const ordenIds = labDatos.map((l) => l.orden_id);
+
+  // Obtener las órdenes correspondientes
+  let ordenQuery = supabase
+    .from("ordenes")
+    .select("id, created_at, estado, total, paciente:pacientes(nombre), campana:campanas(nombre)")
+    .eq("tipo", "orden_trabajo")
+    .eq("tenant_id", usuario.tenant_id)
+    .in("id", ordenIds);
+
+  if (filtros.campana_id) ordenQuery = ordenQuery.eq("campana_id", filtros.campana_id);
+  if (filtros.estado) ordenQuery = ordenQuery.eq("estado", filtros.estado);
+
+  const { data: ordenes } = await ordenQuery.order("created_at", { ascending: false });
+
+  // Obtener últimos estados de laboratorio
+  const { data: estados } = await supabase
+    .from("laboratorio_estados")
+    .select("orden_id, estado")
+    .in("orden_id", ordenIds)
+    .order("updated_at", { ascending: false });
+
+  const latestEstado = new Map<string, string>();
+  for (const e of estados || []) {
+    if (!latestEstado.has(e.orden_id)) latestEstado.set(e.orden_id, e.estado);
+  }
+
+  const labMap = new Map(labDatos.map((l) => [l.orden_id, l]));
+
+  return (ordenes || []).map((o) => {
+    const ld = labMap.get(o.id);
+    const lab = ld?.laboratorio;
+    return {
+      id: o.id,
+      created_at: o.created_at,
+      paciente: Array.isArray(o.paciente) ? o.paciente[0]?.nombre : (o.paciente as any)?.nombre || "—",
+      campana: Array.isArray(o.campana) ? o.campana[0]?.nombre : (o.campana as any)?.nombre || null,
+      laboratorio: Array.isArray(lab) ? lab[0]?.nombre : (lab as any)?.nombre || "Sin asignar",
+      estadoLab: latestEstado.get(o.id) || "pendiente",
+      tipo_lente: ld?.tipo_lente || "",
+      material_lente: ld?.material_lente || "",
+      tratamiento_lente: ld?.tratamiento_lente || "",
+      color_lente: ld?.color_lente || "",
+      marca_aro: ld?.marca_aro || "",
+      tipo_aro: ld?.tipo_aro || "",
+      observaciones: ld?.observaciones || "",
+      total: Number(o.total),
+    };
+  });
 }
 
 /* ── Fetch all data to show in Kanban Card Modal ───────── */

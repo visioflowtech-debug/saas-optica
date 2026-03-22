@@ -2,64 +2,67 @@
 
 import { useState, useTransition } from "react";
 import { actualizarEmpresa, actualizarSucursal, toggleCampanasActivas } from "./actions";
+import {
+  crearLaboratorio, actualizarLaboratorio, toggleLaboratorioActivo, eliminarLaboratorio,
+} from "./laboratorio-actions";
+import {
+  crearCategoriaGasto, toggleCategoriaGasto, eliminarCategoriaGasto,
+} from "./categorias-actions";
+import type { CategoriaItem } from "./categorias-actions";
+import { createClient } from "@/lib/supabase/client";
 
-interface Empresa {
-  id: string;
-  nombre: string;
-  nit: string | null;
-  logo_url: string | null;
-  email: string | null;
-}
-
-interface Sucursal {
-  id: string;
-  nombre: string;
-  direccion: string | null;
-  telefono: string | null;
-  campanas_activas: boolean;
-}
+interface Empresa  { id: string; nombre: string; nit: string | null; logo_url: string | null; email: string | null; }
+interface Sucursal { id: string; nombre: string; direccion: string | null; telefono: string | null; campanas_activas: boolean; }
+interface Laboratorio { id: string; nombre: string; contacto: string | null; telefono: string | null; email: string | null; activo: boolean; }
 
 interface Props {
   empresa: Empresa;
   sucursales: Sucursal[];
+  laboratorios: Laboratorio[];
+  categoriasGasto: CategoriaItem[];
 }
 
-type TabMode = "empresa" | "sucursales";
+type TabMode = "empresa" | "sucursales" | "laboratorios" | "categorias";
 
-export default function ConfiguracionTabs({ empresa, sucursales }: Props) {
+export default function ConfiguracionTabs({ empresa, sucursales, laboratorios, categoriasGasto }: Props) {
   const [activeTab, setActiveTab] = useState<TabMode>("empresa");
+
+  const tabs: { key: TabMode; label: string }[] = [
+    { key: "empresa",      label: "Empresa" },
+    { key: "sucursales",   label: `Sucursales (${sucursales.length})` },
+    { key: "laboratorios", label: `Laboratorios (${laboratorios.length})` },
+    { key: "categorias",   label: "Categorías" },
+  ];
 
   return (
     <>
-      {/* Tabs */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setActiveTab("empresa")}
-          className={`flex-1 px-4 py-3 text-sm font-semibold border-b-2 transition ${
-            activeTab === "empresa" ? "border-t-blue text-t-blue" : "border-transparent text-t-muted hover:text-t-primary"
-          }`}
-        >
-          Empresa
-        </button>
-        <button
-          onClick={() => setActiveTab("sucursales")}
-          className={`flex-1 px-4 py-3 text-sm font-semibold border-b-2 transition ${
-            activeTab === "sucursales" ? "border-t-blue text-t-blue" : "border-transparent text-t-muted hover:text-t-primary"
-          }`}
-        >
-          Sucursales ({sucursales.length})
-        </button>
+      <div className="flex gap-0 border-b border-b-default">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`px-5 py-3 text-sm font-semibold border-b-2 transition ${
+              activeTab === t.key
+                ? "border-t-blue text-t-blue"
+                : "border-transparent text-t-muted hover:text-t-primary"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Pages */}
-      {activeTab === "empresa" && <EmpresaForm empresa={empresa} />}
-      {activeTab === "sucursales" && <SucursalesList sucursales={sucursales} />}
+      <div className="mt-4">
+        {activeTab === "empresa"      && <EmpresaForm empresa={empresa} />}
+        {activeTab === "sucursales"   && <SucursalesList sucursales={sucursales} />}
+        {activeTab === "laboratorios" && <LaboratoriosTab laboratorios={laboratorios} />}
+        {activeTab === "categorias"   && <CategoriasTab categoriasGasto={categoriasGasto} />}
+      </div>
     </>
   );
 }
 
-import { createClient } from "@/lib/supabase/client";
-
+/* ─── EmpresaForm ──────────────────────────────────────── */
 function EmpresaForm({ empresa }: { empresa: Empresa }) {
   const [isPending, startTransition] = useTransition();
   const [successMsg, setSuccessMsg] = useState("");
@@ -69,48 +72,32 @@ function EmpresaForm({ empresa }: { empresa: Empresa }) {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const nombre = formData.get("nombre") as string;
-    const nit = formData.get("nit") as string;
-    const email = formData.get("email") as string;
-    // We get the stored state url, not from FormData since the file input doesn't carry the URL
-    const logo_url = logoUrl;
-
+    const fd = new FormData(e.currentTarget);
     startTransition(async () => {
       setSuccessMsg("");
-      const result = await actualizarEmpresa(empresa.id, { nombre, nit, logo_url, email });
-      if (result.success) {
-        setSuccessMsg("Datos de empresa guardados correctamente.");
-      } else {
-        alert(result.error);
-      }
+      const result = await actualizarEmpresa(empresa.id, {
+        nombre: fd.get("nombre") as string,
+        nit: fd.get("nit") as string,
+        email: fd.get("email") as string,
+        logo_url: logoUrl,
+      });
+      if (result.success) setSuccessMsg("Datos de empresa guardados correctamente.");
+      else alert(result.error);
     });
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsUploading(true);
-    setSuccessMsg("");
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `logo_${Date.now()}.${fileExt}`;
-      const filePath = `${empresa.id}/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('logos')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('logos')
-        .getPublicUrl(filePath);
-
+      const filePath = `${empresa.id}/logo_${Date.now()}.${file.name.split(".").pop()}`;
+      const { error } = await supabase.storage.from("logos").upload(filePath, file);
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from("logos").getPublicUrl(filePath);
       setLogoUrl(publicUrl);
-    } catch (error: any) {
-      alert("Error subiendo el logo: " + error.message);
+    } catch (err: unknown) {
+      alert("Error subiendo el logo: " + (err instanceof Error ? err.message : "Desconocido"));
     } finally {
       setIsUploading(false);
     }
@@ -120,85 +107,44 @@ function EmpresaForm({ empresa }: { empresa: Empresa }) {
     <div className="bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)] p-6">
       <h2 className="text-sm font-semibold text-t-primary uppercase tracking-wider mb-6">Información General</h2>
       <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
-        {successMsg && (
-          <div className="p-3 bg-a-green-bg border border-a-green-border text-t-green rounded-lg text-sm">
-            ✓ {successMsg}
-          </div>
-        )}
-        
+        {successMsg && <div className="p-3 bg-a-green-bg border border-a-green-border text-t-green rounded-lg text-sm">✓ {successMsg}</div>}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="space-y-1">
-            <label htmlFor="nombre" className="block text-xs font-semibold text-t-secondary">Nombre de la Empresa</label>
-            <input
-              required
-              id="nombre"
-              name="nombre"
-              type="text"
-              defaultValue={empresa.nombre}
-              className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
-              placeholder="Ej: Óptica Visión Brillante"
-            />
+            <label className="block text-xs font-semibold text-t-secondary">Nombre de la Empresa</label>
+            <input required name="nombre" type="text" defaultValue={empresa.nombre}
+              className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]" placeholder="Ej: Óptica Visión Brillante" />
           </div>
           <div className="space-y-1">
-            <label htmlFor="nit" className="block text-xs font-semibold text-t-secondary">NIT / Registro Fiscal (Opcional)</label>
-            <input
-              id="nit"
-              name="nit"
-              type="text"
-              defaultValue={empresa.nit || ""}
-              className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
-              placeholder="0000-000000-000-0"
-            />
+            <label className="block text-xs font-semibold text-t-secondary">NIT / Registro Fiscal</label>
+            <input name="nit" type="text" defaultValue={empresa.nit || ""}
+              className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]" placeholder="0000-000000-000-0" />
           </div>
           <div className="space-y-1">
-            <label htmlFor="email" className="block text-xs font-semibold text-t-secondary">Correo Electrónico (Opcional)</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              defaultValue={empresa.email || ""}
-              className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
-              placeholder="contacto@optica.com"
-            />
-            <p className="text-[10px] text-t-muted mt-1">Saldrá impreso bajo el nombre en tus PDFs.</p>
+            <label className="block text-xs font-semibold text-t-secondary">Correo Electrónico</label>
+            <input name="email" type="email" defaultValue={empresa.email || ""}
+              className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]" placeholder="contacto@optica.com" />
+            <p className="text-[10px] text-t-muted">Saldrá impreso en tus PDFs.</p>
           </div>
         </div>
-
         <div className="space-y-1">
           <label className="block text-xs font-semibold text-t-secondary">Logo de la Empresa</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleLogoUpload}
-            disabled={isUploading || isPending}
-            className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-[var(--accent-blue)] file:text-white hover:file:bg-blue-600 transition"
-          />
-          {isUploading && <p className="text-xs text-t-blue mt-1">Subiendo imagen, por favor espera...</p>}
-          <p className="text-[10px] text-t-muted mt-1">Este logo se imprimirá en los encabezados del Ticket térmico, Recetas médica y Sobres de laboratorio.</p>
+          <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={isUploading || isPending}
+            className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-t-primary text-sm focus:outline-none file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-[var(--accent-blue)] file:text-white hover:file:bg-blue-600 transition" />
+          {isUploading && <p className="text-xs text-t-blue">Subiendo imagen...</p>}
+          <p className="text-[10px] text-t-muted">Se imprime en Tickets, Recetas y Sobres de laboratorio.</p>
         </div>
-
         {logoUrl && (
           <div className="p-4 bg-empty border border-dashed border-b-strong rounded-xl inline-block relative">
-            <span className="text-xs text-t-muted block mb-2 uppercase tracking-wide">Vista Previa Visual:</span>
+            <span className="text-xs text-t-muted block mb-2 uppercase tracking-wide">Vista previa:</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={logoUrl} alt="Logo empresa" className="max-h-24 object-contain rounded" />
-            <button
-              type="button"
-              onClick={() => setLogoUrl("")}
-              className="absolute top-2 right-2 text-xs bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
-              title="Quitar logo"
-            >
-              ×
-            </button>
+            <button type="button" onClick={() => setLogoUrl("")}
+              className="absolute top-2 right-2 text-xs bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600">×</button>
           </div>
         )}
-
         <div className="pt-4 border-t border-b-subtle flex justify-end">
-          <button
-            type="submit"
-            disabled={isPending}
-            className="px-6 py-2 bg-[var(--accent-blue)] hover:bg-blue-600 text-white font-semibold rounded-lg transition disabled:opacity-50"
-          >
+          <button type="submit" disabled={isPending}
+            className="px-6 py-2 bg-[var(--accent-blue)] hover:bg-blue-600 text-white font-semibold rounded-lg transition disabled:opacity-50">
             {isPending ? "Guardando..." : "Guardar Cambios"}
           </button>
         </div>
@@ -207,49 +153,35 @@ function EmpresaForm({ empresa }: { empresa: Empresa }) {
   );
 }
 
+/* ─── SucursalesList ───────────────────────────────────── */
 function SucursalesList({ sucursales }: { sucursales: Sucursal[] }) {
   return (
     <div className="space-y-4">
-      {sucursales.map((suc, idx) => (
-        <SucursalCard key={suc.id} sucursal={suc} index={idx + 1} />
-      ))}
+      {sucursales.map((suc, idx) => <SucursalCard key={suc.id} sucursal={suc} index={idx + 1} />)}
     </div>
   );
 }
 
-function SucursalCard({ sucursal, index }: { sucursal: Sucursal, index: number }) {
+function SucursalCard({ sucursal, index }: { sucursal: Sucursal; index: number }) {
   const [isPending, startTransition] = useTransition();
   const [successMsg, setSuccessMsg] = useState("");
   const [campanas, setCampanas] = useState(sucursal.campanas_activas);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const nombre = formData.get("nombre") as string;
-    const direccion = formData.get("direccion") as string;
-    const telefono = formData.get("telefono") as string;
-
+    const fd = new FormData(e.currentTarget);
     startTransition(async () => {
       setSuccessMsg("");
-      const result = await actualizarSucursal(sucursal.id, { nombre, direccion, telefono });
-      if (result.success) {
-        setSuccessMsg("Sucursal actualizada.");
-        setTimeout(() => setSuccessMsg(""), 3000);
-      } else {
-        alert(result.error);
-      }
+      const r = await actualizarSucursal(sucursal.id, { nombre: fd.get("nombre") as string, direccion: fd.get("direccion") as string, telefono: fd.get("telefono") as string });
+      if (r.success) { setSuccessMsg("✓"); setTimeout(() => setSuccessMsg(""), 3000); } else alert(r.error);
     });
   };
 
   const handleToggleCampanas = () => {
-    const nuevo = !campanas;
-    setCampanas(nuevo);
+    const nuevo = !campanas; setCampanas(nuevo);
     startTransition(async () => {
-      const result = await toggleCampanasActivas(sucursal.id, nuevo);
-      if (!result.success) {
-        setCampanas(!nuevo); // revert
-        alert(result.error);
-      }
+      const r = await toggleCampanasActivas(sucursal.id, nuevo);
+      if (!r.success) { setCampanas(!nuevo); alert(r.error); }
     });
   };
 
@@ -260,75 +192,310 @@ function SucursalCard({ sucursal, index }: { sucursal: Sucursal, index: number }
         <h3 className="text-base font-bold text-t-primary uppercase tracking-wide">Configuración Sucursal</h3>
         {successMsg && <span className="ml-auto text-xs font-semibold text-t-green">✓ Guardado</span>}
       </div>
-
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
             <label className="block text-[10px] uppercase font-semibold text-t-muted">Nombre</label>
-            <input
-              required
-              name="nombre"
-              defaultValue={sucursal.nombre}
-              className="w-full px-3 py-1.5 text-sm bg-input border border-b-strong rounded focus:ring-2 focus:ring-[var(--accent-blue)] text-t-primary"
-            />
+            <input required name="nombre" defaultValue={sucursal.nombre}
+              className="w-full px-3 py-1.5 text-sm bg-input border border-b-strong rounded focus:ring-2 focus:ring-[var(--accent-blue)] text-t-primary" />
           </div>
           <div className="space-y-1">
             <label className="block text-[10px] uppercase font-semibold text-t-muted">Teléfono</label>
-            <input
-              name="telefono"
-              defaultValue={sucursal.telefono || ""}
-              placeholder="Ej. +503 2222-2222"
-              className="w-full px-3 py-1.5 text-sm bg-input border border-b-strong rounded focus:ring-2 focus:ring-[var(--accent-blue)] text-t-primary"
-            />
+            <input name="telefono" defaultValue={sucursal.telefono || ""} placeholder="Ej. +503 2222-2222"
+              className="w-full px-3 py-1.5 text-sm bg-input border border-b-strong rounded focus:ring-2 focus:ring-[var(--accent-blue)] text-t-primary" />
           </div>
           <div className="space-y-1">
-            <label className="block text-[10px] uppercase font-semibold text-t-muted">Dirección en Impresiones</label>
-            <textarea
-              name="direccion"
-              defaultValue={sucursal.direccion || ""}
-              placeholder="Dirección física completa..."
-              rows={2}
-              className="w-full px-3 py-1.5 text-sm bg-input border border-b-strong rounded focus:ring-2 focus:ring-[var(--accent-blue)] text-t-primary resize-none"
-            />
+            <label className="block text-[10px] uppercase font-semibold text-t-muted">Dirección</label>
+            <textarea name="direccion" defaultValue={sucursal.direccion || ""} rows={2}
+              className="w-full px-3 py-1.5 text-sm bg-input border border-b-strong rounded focus:ring-2 focus:ring-[var(--accent-blue)] text-t-primary resize-none" />
           </div>
         </div>
         <div className="mt-4 flex items-center justify-between">
-          {/* Toggle Campañas */}
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleToggleCampanas}
-              disabled={isPending}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] focus:ring-offset-1 disabled:opacity-50 ${
-                campanas ? "bg-[var(--accent-blue)]" : "bg-gray-600"
-              }`}
-              aria-pressed={campanas}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                  campanas ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
+            <button type="button" onClick={handleToggleCampanas} disabled={isPending}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${campanas ? "bg-[var(--accent-blue)]" : "bg-gray-600"}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${campanas ? "translate-x-6" : "translate-x-1"}`} />
             </button>
             <div>
               <p className="text-xs font-semibold text-t-primary">Módulo de Campañas</p>
-              <p className="text-[10px] text-t-muted">
-                {campanas
-                  ? "Activo — puedes crear campañas en esta sucursal"
-                  : "Inactivo — activa para gestionar campañas por zona"}
-              </p>
+              <p className="text-[10px] text-t-muted">{campanas ? "Activo" : "Inactivo"}</p>
             </div>
           </div>
-
-          <button
-            type="submit"
-            disabled={isPending}
-            className="px-4 py-1.5 text-xs bg-input border border-b-strong text-t-primary hover:bg-card hover:border-[var(--accent-blue)] font-semibold rounded transition disabled:opacity-50"
-          >
+          <button type="submit" disabled={isPending}
+            className="px-4 py-1.5 text-xs bg-input border border-b-strong text-t-primary hover:border-[var(--accent-blue)] font-semibold rounded transition disabled:opacity-50">
             {isPending ? "Guardando..." : "Actualizar"}
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/* ─── LaboratoriosTab ──────────────────────────────────── */
+function LaboratoriosTab({ laboratorios: initial }: { laboratorios: Laboratorio[] }) {
+  const [labs, setLabs] = useState(initial);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ nombre: "", contacto: "", telefono: "", email: "" });
+  const [newForm, setNewForm] = useState({ nombre: "", contacto: "", telefono: "", email: "" });
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState("");
+
+  const handleCreate = () => {
+    if (!newForm.nombre.trim()) { setError("El nombre es requerido"); return; }
+    setError("");
+    const fd = new FormData();
+    Object.entries(newForm).forEach(([k, v]) => fd.set(k, v));
+    startTransition(async () => {
+      const r = await crearLaboratorio(fd);
+      if (r.error) { setError(r.error); return; }
+      setShowForm(false);
+      setNewForm({ nombre: "", contacto: "", telefono: "", email: "" });
+      // Optimistic: add placeholder, page will revalidate
+      setLabs((prev) => [...prev, { id: crypto.randomUUID(), ...newForm, activo: true }]);
+    });
+  };
+
+  const handleUpdate = (id: string) => {
+    startTransition(async () => {
+      const r = await actualizarLaboratorio(id, editForm);
+      if (r.error) { setError(r.error); return; }
+      setLabs((prev) => prev.map((l) => l.id === id ? { ...l, ...editForm } : l));
+      setEditingId(null);
+    });
+  };
+
+  const handleToggle = (id: string, activo: boolean) => {
+    startTransition(async () => {
+      await toggleLaboratorioActivo(id, !activo);
+      setLabs((prev) => prev.map((l) => l.id === id ? { ...l, activo: !activo } : l));
+    });
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm("¿Eliminar este laboratorio? Se desvinculará de las órdenes existentes.")) return;
+    startTransition(async () => {
+      const r = await eliminarLaboratorio(id);
+      if (r.error) { alert(r.error); return; }
+      setLabs((prev) => prev.filter((l) => l.id !== id));
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-t-primary">Proveedores de Laboratorio</h2>
+          <p className="text-xs text-t-muted mt-0.5">Laboratorios a los que envías órdenes de trabajo óptico</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)}
+          className="px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition">
+          + Agregar Laboratorio
+        </button>
+      </div>
+
+      {error && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2 rounded-lg">{error}</p>}
+
+      {/* Form nuevo */}
+      {showForm && (
+        <div className="p-5 bg-a-blue-bg border border-[var(--accent-blue)] rounded-xl space-y-3">
+          <p className="text-sm font-semibold text-t-primary">Nuevo Laboratorio</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[["nombre", "Nombre *"], ["contacto", "Persona de contacto"], ["telefono", "Teléfono"], ["email", "Email"]].map(([key, label]) => (
+              <div key={key}>
+                <label className="text-[10px] text-t-muted uppercase block mb-0.5">{label}</label>
+                <input type={key === "email" ? "email" : "text"} value={newForm[key as keyof typeof newForm]}
+                  onChange={(e) => setNewForm((f) => ({ ...f, [key]: e.target.value }))}
+                  className="w-full px-3 py-1.5 text-sm bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500" />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleCreate} disabled={isPending}
+              className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50">
+              {isPending ? "Guardando..." : "Guardar"}
+            </button>
+            <button onClick={() => setShowForm(false)}
+              className="px-4 py-1.5 text-xs text-t-muted border border-b-default rounded-lg hover:text-t-primary transition">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista */}
+      <div className="bg-card border border-b-default rounded-xl overflow-hidden">
+        {labs.length === 0 ? (
+          <div className="py-10 text-center text-t-muted text-sm">
+            No hay laboratorios registrados. Agrega los primeros proveedores.
+            <div className="mt-2 text-xs text-t-muted/60">Ej: Lomed, Servilens, Vicar Vision</div>
+          </div>
+        ) : (
+          <div className="divide-y divide-b-subtle">
+            {labs.map((lab) => (
+              <div key={lab.id}>
+                {editingId === lab.id ? (
+                  <div className="px-5 py-4 bg-a-blue-bg/30 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      {[["nombre", "Nombre *"], ["contacto", "Contacto"], ["telefono", "Teléfono"], ["email", "Email"]].map(([key, label]) => (
+                        <div key={key}>
+                          <label className="text-[10px] text-t-muted uppercase block mb-0.5">{label}</label>
+                          <input type={key === "email" ? "email" : "text"} value={editForm[key as keyof typeof editForm]}
+                            onChange={(e) => setEditForm((f) => ({ ...f, [key]: e.target.value }))}
+                            className="w-full px-3 py-1.5 text-sm bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleUpdate(lab.id)} disabled={isPending}
+                        className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50">
+                        {isPending ? "..." : "Guardar"}
+                      </button>
+                      <button onClick={() => setEditingId(null)}
+                        className="px-4 py-1.5 text-xs text-t-muted border border-b-default rounded-lg hover:text-t-primary transition">
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-4 px-5 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold ${lab.activo ? "text-t-primary" : "text-t-muted line-through"}`}>{lab.nombre}</p>
+                      <p className="text-[10px] text-t-muted">
+                        {[lab.contacto, lab.telefono, lab.email].filter(Boolean).join(" · ") || "Sin datos de contacto"}
+                      </p>
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${lab.activo ? "bg-green-500/15 text-green-400" : "bg-gray-500/15 text-t-muted"}`}>
+                      {lab.activo ? "Activo" : "Inactivo"}
+                    </span>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setEditingId(lab.id); setEditForm({ nombre: lab.nombre, contacto: lab.contacto || "", telefono: lab.telefono || "", email: lab.email || "" }); }}
+                        className="px-2 py-1 text-[10px] border border-b-default rounded text-t-muted hover:text-t-primary hover:border-blue-500/50 transition">
+                        Editar
+                      </button>
+                      <button onClick={() => handleToggle(lab.id, lab.activo)} disabled={isPending}
+                        className="px-2 py-1 text-[10px] border border-b-default rounded text-t-muted hover:text-t-primary transition">
+                        {lab.activo ? "Desactivar" : "Activar"}
+                      </button>
+                      <button onClick={() => handleDelete(lab.id)} disabled={isPending}
+                        className="px-2 py-1 text-[10px] border border-red-500/30 rounded text-t-red hover:bg-red-500/10 transition">
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── CategoriasTab ────────────────────────────────────── */
+function CategoriasTab({ categoriasGasto: initial }: { categoriasGasto: CategoriaItem[] }) {
+  const [cats, setCats] = useState(initial);
+  const [newLabel, setNewLabel] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState("");
+
+  const handleCreate = () => {
+    if (!newLabel.trim()) { setError("Escribe un nombre de categoría"); return; }
+    setError("");
+    startTransition(async () => {
+      const r = await crearCategoriaGasto(newLabel);
+      if (r.error) { setError(r.error); return; }
+      const valor = newLabel.toLowerCase().trim().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+      setCats((prev) => [...prev, { id: crypto.randomUUID(), valor, label: newLabel.trim(), activo: true, esPredeterminada: false }]);
+      setNewLabel("");
+    });
+  };
+
+  const handleToggle = (id: string, activo: boolean) => {
+    startTransition(async () => {
+      await toggleCategoriaGasto(id, !activo);
+      setCats((prev) => prev.map((c) => c.id === id ? { ...c, activo: !activo } : c));
+    });
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm("¿Eliminar esta categoría?")) return;
+    startTransition(async () => {
+      const r = await eliminarCategoriaGasto(id);
+      if (r.error) { alert(r.error); return; }
+      setCats((prev) => prev.filter((c) => c.id !== id));
+    });
+  };
+
+  const predeterminadas = cats.filter((c) => c.esPredeterminada);
+  const personalizadas  = cats.filter((c) => !c.esPredeterminada);
+
+  return (
+    <div className="space-y-6">
+      {/* Categorías de Gastos */}
+      <div className="bg-card border border-b-default rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-b-subtle">
+          <h2 className="text-sm font-semibold text-t-primary">Categorías de Gastos</h2>
+          <p className="text-xs text-t-muted mt-0.5">Las predeterminadas son del sistema; puedes agregar categorías personalizadas.</p>
+        </div>
+
+        {/* Predeterminadas (solo lectura) */}
+        <div className="px-5 py-3">
+          <p className="text-[10px] text-t-muted uppercase tracking-wider mb-2 font-semibold">Sistema (no editables)</p>
+          <div className="flex flex-wrap gap-2">
+            {predeterminadas.map((c) => (
+              <span key={c.valor} className="px-3 py-1 text-xs font-medium bg-gray-500/10 text-t-secondary border border-b-default rounded-full">
+                {c.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Personalizadas */}
+        {personalizadas.length > 0 && (
+          <div className="px-5 py-3 border-t border-b-subtle">
+            <p className="text-[10px] text-t-muted uppercase tracking-wider mb-2 font-semibold">Personalizadas</p>
+            <div className="space-y-2">
+              {personalizadas.map((c) => (
+                <div key={c.id} className="flex items-center justify-between">
+                  <span className={`text-sm ${c.activo ? "text-t-primary" : "text-t-muted line-through"}`}>{c.label}</span>
+                  <div className="flex gap-1">
+                    {c.id && (
+                      <>
+                        <button onClick={() => handleToggle(c.id!, c.activo)} disabled={isPending}
+                          className="px-2 py-0.5 text-[10px] border border-b-default rounded text-t-muted hover:text-t-primary transition">
+                          {c.activo ? "Desactivar" : "Activar"}
+                        </button>
+                        <button onClick={() => handleDelete(c.id!)} disabled={isPending}
+                          className="px-2 py-0.5 text-[10px] border border-red-500/30 rounded text-t-red hover:bg-red-500/10 transition">
+                          🗑
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Agregar nueva */}
+        <div className="px-5 py-4 border-t border-b-subtle bg-empty/40">
+          <p className="text-[10px] text-t-muted uppercase tracking-wider mb-2 font-semibold">Agregar categoría</p>
+          {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+          <div className="flex gap-2">
+            <input type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+              placeholder="Ej: Viáticos, Material POP..."
+              className="flex-1 px-3 py-1.5 text-sm bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500" />
+            <button onClick={handleCreate} disabled={isPending}
+              className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50">
+              {isPending ? "..." : "+ Agregar"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

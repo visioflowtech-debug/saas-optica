@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { obtenerDatosParaModalLab, guardarDatosLaboratorio } from "./actions";
+import { obtenerDatosParaModalLab, guardarDatosLaboratorio, obtenerLaboratoriosActivos } from "./actions";
 
 interface Props {
   isOpen: boolean;
@@ -15,7 +15,9 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
   const [loading, setLoading] = useState(false);
   const [isSaving, startTransition] = useTransition();
 
+  const [labs, setLabs] = useState<{ id: string; nombre: string }[]>([]);
   const [formData, setFormData] = useState({
+    laboratorio_id: "",
     tipo_lente: "", color_lente: "", material_lente: "", tratamiento_lente: "",
     marca_aro: "", color_aro: "", tamano_aro: "", horizontal_aro: "", vertical_aro: "",
     diagonal_aro: "", puente_aro: "", varilla_aro: "", tipo_aro: "",
@@ -23,15 +25,19 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
   });
 
   useEffect(() => {
+    obtenerLaboratoriosActivos().then(setLabs);
+  }, []);
+
+  useEffect(() => {
     if (isOpen && ordenId) {
       setLoading(true);
       obtenerDatosParaModalLab(ordenId)
         .then((res) => {
           setData(res);
-          // Pre-fill form
           const d = res.laboratorioDatos;
           const ex = res.examen;
           setFormData({
+            laboratorio_id: d?.laboratorio_id || "",
             tipo_lente: d?.tipo_lente || "",
             color_lente: d?.color_lente || "",
             material_lente: d?.material_lente || "",
@@ -117,7 +123,31 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
 
               {/* Formulario Custom */}
               <form id="lab-form" onSubmit={handleSave} className="space-y-6">
-                
+
+                {/* Laboratorio proveedor */}
+                <div>
+                  <h3 className="text-sm font-bold text-t-primary border-b border-b-subtle pb-2 mb-4">Proveedor de Laboratorio</h3>
+                  <div className="max-w-xs">
+                    <label className="block text-xs font-semibold text-t-secondary mb-1 uppercase">Laboratorio</label>
+                    <select
+                      name="laboratorio_id"
+                      value={formData.laboratorio_id}
+                      onChange={handleChange}
+                      className="w-full bg-input border border-b-default rounded-lg px-3 py-2 text-sm text-t-primary focus:outline-none focus:border-blue-500 transition"
+                    >
+                      <option value="">— Sin asignar —</option>
+                      {labs.map((lab) => (
+                        <option key={lab.id} value={lab.id}>{lab.nombre}</option>
+                      ))}
+                    </select>
+                    {labs.length === 0 && (
+                      <p className="text-[10px] text-t-muted mt-1">
+                        Agrega laboratorios en Configuración → Laboratorios
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 {/* Lentes */}
                 <div>
                   <h3 className="text-sm font-bold text-t-primary border-b border-b-subtle pb-2 mb-4">Detalle de Lentes</h3>

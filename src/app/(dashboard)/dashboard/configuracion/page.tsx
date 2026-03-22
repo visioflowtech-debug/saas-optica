@@ -2,14 +2,19 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import ConfiguracionTabs from "./configuracion-tabs";
 import { obtenerConfiguracion } from "./actions";
+import { obtenerLaboratorios } from "./laboratorio-actions";
+import { obtenerCategoriasGasto } from "./categorias-actions";
 
 export default async function ConfiguracionPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-
   if (!user) redirect("/login");
 
-  const { empresa, sucursales, error } = await obtenerConfiguracion();
+  const [{ empresa, sucursales, error }, laboratorios, categoriasGasto] = await Promise.all([
+    obtenerConfiguracion(),
+    obtenerLaboratorios(),
+    obtenerCategoriasGasto(),
+  ]);
 
   if (error || !empresa) {
     return (
@@ -22,14 +27,16 @@ export default async function ConfiguracionPage() {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-t-primary">Configuración</h1>
-          <p className="text-t-secondary text-sm">Administra la información de tu empresa y sucursales.</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-t-primary">Configuración</h1>
+        <p className="text-t-secondary text-sm">Administra empresa, sucursales, laboratorios y categorías.</p>
       </div>
-
-      <ConfiguracionTabs empresa={empresa} sucursales={sucursales} />
+      <ConfiguracionTabs
+        empresa={empresa}
+        sucursales={sucursales}
+        laboratorios={laboratorios}
+        categoriasGasto={categoriasGasto}
+      />
     </div>
   );
 }
