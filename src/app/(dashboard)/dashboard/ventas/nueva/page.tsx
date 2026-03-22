@@ -7,22 +7,29 @@ import ProformaFormClient from "./proforma-form-client";
 export default async function NuevaProformaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; paciente_id?: string }>;
+  searchParams: Promise<{ error?: string; paciente_id?: string; campana_id?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Si viene con campana_id, filtrar pacientes de esa campaña primero
+  let pacientesQuery = supabase.from("pacientes").select("id, nombre").order("nombre", { ascending: true });
+
   const [{ data: pacientes }, catalogo] = await Promise.all([
-    supabase.from("pacientes").select("id, nombre").order("nombre", { ascending: true }),
+    pacientesQuery,
     obtenerCatalogo(),
   ]);
 
+  const backHref = params.campana_id
+    ? `/dashboard/campanas/${params.campana_id}`
+    : "/dashboard/ventas";
+
   return (
     <div className="space-y-6 max-w-4xl">
-      <Link href="/dashboard/ventas" className="inline-flex items-center gap-1 text-sm text-t-muted hover:text-t-primary transition">
-        ← Volver a ventas
+      <Link href={backHref} className="inline-flex items-center gap-1 text-sm text-t-muted hover:text-t-primary transition">
+        ← {params.campana_id ? "Volver a campaña" : "Volver a ventas"}
       </Link>
 
       <div>
@@ -40,6 +47,7 @@ export default async function NuevaProformaPage({
         pacientes={pacientes ?? []}
         catalogo={catalogo}
         defaultPacienteId={params.paciente_id}
+        campanaId={params.campana_id}
       />
     </div>
   );

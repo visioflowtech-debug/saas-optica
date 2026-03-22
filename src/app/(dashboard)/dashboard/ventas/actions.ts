@@ -70,6 +70,7 @@ export async function crearProforma(formData: FormData) {
 
   const paciente_id = formData.get("paciente_id") as string;
   const examen_id = (formData.get("examen_id") as string) || null;
+  const campana_id = (formData.get("campana_id") as string) || null;
   const notas = (formData.get("notas") as string)?.trim() || null;
   const descuento = parseFloat(formData.get("descuento") as string) || 0;
   const idempotency_key = formData.get("idempotency_key") as string;
@@ -110,6 +111,7 @@ export async function crearProforma(formData: FormData) {
       sucursal_id,
       paciente_id,
       examen_id,
+      campana_id,
       asesor_id: userId,
       idempotency_key,
       tipo: "proforma",
@@ -140,12 +142,16 @@ export async function crearProforma(formData: FormData) {
   await supabase.from("orden_detalle").insert(detalles);
 
   revalidatePath("/dashboard/ventas");
+  if (campana_id) revalidatePath(`/dashboard/campanas/${campana_id}`);
   redirect(`/dashboard/ventas/${orden.id}`);
 }
 
 /* ── Update Status ──────────────────────────────────────── */
 export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
   const { supabase } = await getUserContext();
+
+  const { data: orden } = await supabase
+    .from("ordenes").select("campana_id").eq("id", ordenId).single();
 
   const { error } = await supabase
     .from("ordenes")
@@ -156,6 +162,7 @@ export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
 
   revalidatePath("/dashboard/ventas");
   revalidatePath(`/dashboard/ventas/${ordenId}`);
+  if (orden?.campana_id) revalidatePath(`/dashboard/campanas/${orden.campana_id}`);
 }
 
 /* ── Convert Proforma → Orden de Trabajo ────────────────── */
@@ -208,9 +215,14 @@ export async function convertirAOrden(ordenId: string) {
     estado: "pendiente",
   });
 
+  // 4. Fetch campana_id to revalidate campaign dashboard
+  const { data: ordenData } = await supabase
+    .from("ordenes").select("campana_id").eq("id", ordenId).single();
+
   revalidatePath("/dashboard/ventas");
   revalidatePath(`/dashboard/ventas/${ordenId}`);
   revalidatePath("/dashboard/laboratorio");
+  if (ordenData?.campana_id) revalidatePath(`/dashboard/campanas/${ordenData.campana_id}`);
 }
 
 /* ── Anular Orden (Restituye Stock) ─────────────────────── */
@@ -220,7 +232,7 @@ export async function anularOrden(ordenId: string) {
   // 1. Check current status
   const { data: orden } = await supabase
     .from("ordenes")
-    .select("estado, tipo")
+    .select("estado, tipo, campana_id")
     .eq("id", ordenId)
     .single();
 
@@ -272,6 +284,7 @@ export async function anularOrden(ordenId: string) {
   revalidatePath("/dashboard/ventas");
   revalidatePath(`/dashboard/ventas/${ordenId}`);
   revalidatePath("/dashboard/laboratorio");
+  if (orden.campana_id) revalidatePath(`/dashboard/campanas/${orden.campana_id}`);
 }
 
 /* ── Get Order Details ──────────────────────────────────── */

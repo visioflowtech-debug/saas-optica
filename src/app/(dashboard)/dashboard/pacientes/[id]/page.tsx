@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import Paciente360Tabs from "./paciente-360-tabs";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
+import { eliminarPaciente } from "../../eliminar-actions";
 
 export default async function Paciente360Page({
   params,
@@ -63,12 +65,19 @@ export default async function Paciente360Page({
                 {paciente.telefono ? ` · ${paciente.telefono}` : ""}
               </p>
             </div>
-            <Link
-              href={`/dashboard/examenes/nuevo?paciente_id=${id}`}
-              className="hidden sm:inline-flex px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
-            >
-              + Nuevo Examen
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/dashboard/examenes/nuevo?paciente_id=${id}`}
+                className="hidden sm:inline-flex px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+              >
+                + Nuevo Examen
+              </Link>
+              <ConfirmDeleteButton
+                label="Eliminar paciente"
+                confirmText={`¿Eliminar a ${paciente.nombre}? Se borrarán todos sus exámenes, órdenes y pagos. Esta acción no se puede deshacer.`}
+                onConfirm={eliminarPaciente.bind(null, id)}
+              />
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-3">
             {tags.map((tag) => (

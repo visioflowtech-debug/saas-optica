@@ -25,6 +25,7 @@ export async function crearExamen(formData: FormData) {
   const { supabase, userId, tenant_id, sucursal_id } = await getUserContext();
 
   const paciente_id = formData.get("paciente_id") as string;
+  const campana_id = (formData.get("campana_id") as string) || null;
   if (!paciente_id) {
     return redirect("/dashboard/examenes/nuevo?error=Selecciona+un+paciente");
   }
@@ -42,6 +43,7 @@ export async function crearExamen(formData: FormData) {
     tenant_id,
     sucursal_id,
     paciente_id,
+    campana_id,
     optometrista_id: userId,
     fecha_examen: new Date().toISOString(),
     // Extra fields
@@ -80,6 +82,7 @@ export async function crearExamen(formData: FormData) {
 
   revalidatePath("/dashboard/examenes");
   revalidatePath(`/dashboard/pacientes/${paciente_id}`);
+  if (campana_id) revalidatePath(`/dashboard/campanas/${campana_id}`);
   redirect("/dashboard/examenes");
 }
 
@@ -112,7 +115,7 @@ export async function obtenerDatosReceta(examenId: string) {
 }
 
 export async function obtenerUltimaRefraccion(pacienteId: string) {
-  const { supabase } = await getUserContext();
+  const { supabase, tenant_id } = await getUserContext();
 
   const { data } = await supabase
     .from("examenes_clinicos")
@@ -120,6 +123,7 @@ export async function obtenerUltimaRefraccion(pacienteId: string) {
       "rf_od_esfera, rf_od_cilindro, rf_od_eje, rf_od_adicion, rf_oi_esfera, rf_oi_cilindro, rf_oi_eje, rf_oi_adicion, lente_uso, dp, altura"
     )
     .eq("paciente_id", pacienteId)
+    .eq("tenant_id", tenant_id)
     .order("fecha_examen", { ascending: false })
     .limit(1)
     .single();
@@ -129,12 +133,13 @@ export async function obtenerUltimaRefraccion(pacienteId: string) {
 
 /* ── Anular Examen ──────────────────────────────────────── */
 export async function anularExamen(examenId: string) {
-  const { supabase } = await getUserContext();
+  const { supabase, tenant_id } = await getUserContext();
 
   const { data: examen } = await supabase
     .from("examenes_clinicos")
     .select("paciente_id")
     .eq("id", examenId)
+    .eq("tenant_id", tenant_id)
     .single();
 
   if (!examen) throw new Error("Examen no encontrado");
@@ -142,7 +147,8 @@ export async function anularExamen(examenId: string) {
   const { error } = await supabase
     .from("examenes_clinicos")
     .update({ anulado: true })
-    .eq("id", examenId);
+    .eq("id", examenId)
+    .eq("tenant_id", tenant_id);
 
   if (error) throw new Error(error.message);
 

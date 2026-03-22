@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { actualizarEstado, convertirAOrden, anularOrden, obtenerDatosTicket } from "../actions";
+import { eliminarOrdenCompleta } from "../../eliminar-actions";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { generarTicketPDF } from "../ticket-pdf";
 import { obtenerDatosSobreLaboratorio } from "../../laboratorio/actions";
 import { generarSobreLaboratorioPDF } from "../../laboratorio/sobre-pdf";
@@ -155,6 +157,13 @@ export default function OrdenAcciones({ ordenId, tipo, estado }: Props) {
             {isPending ? "..." : isFacturada ? "✕ Anular Venta" : "✕ Cancelar"}
           </button>
         )}
+
+        {/* Eliminar permanentemente */}
+        <ConfirmDeleteButton
+          label="🗑 Eliminar"
+          confirmText={`¿Eliminar permanentemente esta ${isProforma ? "proforma" : "orden de trabajo"}? Se borrarán todos sus pagos, líneas de detalle y datos de laboratorio. Esta acción no se puede deshacer.`}
+          onConfirm={() => eliminarOrdenCompleta(ordenId)}
+        />
       </div>
 
       {/* Lab details capture on conversion */}

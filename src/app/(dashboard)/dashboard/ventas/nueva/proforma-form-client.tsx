@@ -10,6 +10,7 @@ interface Props {
   pacientes: { id: string; nombre: string }[];
   catalogo: CatalogItem[];
   defaultPacienteId?: string;
+  campanaId?: string;
 }
 
 interface LineItem {
@@ -27,7 +28,7 @@ function newItem(): LineItem {
   return { id: crypto.randomUUID(), catalogId: "", tipo_producto: "aro", descripcion: "", cantidad: 1, precio_unitario: 0 };
 }
 
-export default function ProformaFormClient({ pacientes, catalogo, defaultPacienteId }: Props) {
+export default function ProformaFormClient({ pacientes, catalogo, defaultPacienteId, campanaId }: Props) {
   const [pacienteId, setPacienteId] = useState(defaultPacienteId || "");
   const [searchPatient, setSearchPatient] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -85,6 +86,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
       <input type="hidden" name="idempotency_key" value={idempotencyKey} />
       <input type="hidden" name="descuento" value={descNum.toString()} />
       <input type="hidden" name="items_json" value={JSON.stringify(items.map(({ catalogId, tipo_producto, descripcion, cantidad, precio_unitario }) => ({ producto_id: catalogId || null, tipo_producto, descripcion, cantidad, precio_unitario })))} />
+      {campanaId && <input type="hidden" name="campana_id" value={campanaId} />}
 
       {/* Patient selector */}
       <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">

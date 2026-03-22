@@ -6,7 +6,7 @@ import ExamenFormClient from "./examen-form-client";
 export default async function NuevoExamenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; paciente_id?: string }>;
+  searchParams: Promise<{ error?: string; paciente_id?: string; campana_id?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -47,6 +47,7 @@ export default async function NuevoExamenPage({
       <ExamenFormClient
         pacientes={pacientes ?? []}
         defaultPacienteId={params.paciente_id}
+        campanaId={params.campana_id}
       />
     </div>
   );

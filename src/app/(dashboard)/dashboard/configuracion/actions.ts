@@ -21,7 +21,7 @@ export async function obtenerConfiguracion() {
 
   const { data: sucursales, error: sucursalError } = await supabase
     .from("sucursales")
-    .select("*")
+    .select("id, nombre, direccion, telefono, activa, campanas_activas, created_at, updated_at")
     .order("created_at", { ascending: true });
 
   if (sucursalError) {
@@ -78,5 +78,20 @@ export async function actualizarSucursal(id: string, payload: { nombre: string; 
   }
 
   revalidatePath("/dashboard/configuracion");
+  return { success: true };
+}
+
+export async function toggleCampanasActivas(sucursalId: string, activas: boolean) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("sucursales")
+    .update({ campanas_activas: activas, updated_at: new Date().toISOString() })
+    .eq("id", sucursalId);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/dashboard/configuracion");
+  revalidatePath("/", "layout");
   return { success: true };
 }

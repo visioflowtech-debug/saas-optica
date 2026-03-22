@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { signout } from "@/app/(auth)/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SucursalSwitcher } from "@/components/sucursal-switcher";
 
 export default async function DashboardLayout({
   children,
@@ -21,7 +22,7 @@ export default async function DashboardLayout({
   // Fetch user profile from usuarios table
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("nombre, rol, sucursal_id")
+    .select("nombre, rol, sucursal_id, tenant_id")
     .eq("id", user.id)
     .single();
 
@@ -33,6 +34,22 @@ export default async function DashboardLayout({
       .eq("id", perfil.sucursal_id)
       .single();
     sucursalNombre = suc?.nombre || "Sin sucursal";
+  }
+
+  // Si es admin, cargar todas las sucursales del tenant para el switcher
+  let todasLasSucursales: { id: string; nombre: string; activa: boolean }[] = [];
+  let campanasActivas = false;
+  if (perfil?.tenant_id) {
+    const { data: sucursalesData } = await supabase
+      .from("sucursales")
+      .select("id, nombre, activa, campanas_activas")
+      .eq("tenant_id", perfil.tenant_id)
+      .eq("activa", true)
+      .order("nombre");
+    todasLasSucursales = sucursalesData || [];
+    // Verificar si la sucursal actual tiene campanas activas
+    const sucursalActual = sucursalesData?.find((s) => s.id === perfil.sucursal_id);
+    campanasActivas = sucursalActual?.campanas_activas ?? false;
   }
 
   const nombre = perfil?.nombre || user.email || "Usuario";
@@ -68,34 +85,23 @@ export default async function DashboardLayout({
             </h2>
             <ThemeToggle />
           </div>
-          <p
-            className="text-xs mt-1"
-            style={{ color: "var(--text-muted)" }}
-          >
-            {sucursalNombre}
-          </p>
+          <SucursalSwitcher
+            sucursales={todasLasSucursales}
+            sucursalActualId={perfil?.sucursal_id || ""}
+            sucursalActualNombre={sucursalNombre}
+          />
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {[
             { href: "/dashboard", label: "Inicio", icon: "🏠" },
+            ...(campanasActivas ? [{ href: "/dashboard/campanas", label: "Campañas", icon: "📍" }] : []),
             { href: "/dashboard/pacientes", label: "Pacientes", icon: "👥" },
             { href: "/dashboard/examenes", label: "Exámenes", icon: "🔬" },
             { href: "/dashboard/ventas", label: "Ventas", icon: "💰" },
-            {
-              href: "/dashboard/laboratorio",
-              label: "Laboratorio",
-              icon: "🔧",
-            },
-            {
-              href: "/dashboard/inventario",
-              label: "Inventario",
-              icon: "📦",
-            },
-            {
-              href: "/dashboard/configuracion",
-              label: "Configuración",
-              icon: "⚙️",
-            },
+            { href: "/dashboard/laboratorio", label: "Laboratorio", icon: "🔧" },
+            { href: "/dashboard/inventario", label: "Inventario", icon: "📦" },
+            { href: "/dashboard/gastos", label: "Gastos", icon: "📋" },
+            { href: "/dashboard/configuracion", label: "Configuración", icon: "⚙️" },
           ].map((item) => (
             <a
               key={item.href}

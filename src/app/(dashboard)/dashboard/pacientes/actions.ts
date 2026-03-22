@@ -35,6 +35,7 @@ export async function crearPaciente(formData: FormData) {
   const fecha_nacimiento = formData.get("fecha_nacimiento") as string;
   const profesion = formData.get("profesion") as string;
   const acepta_marketing = formData.get("acepta_marketing") === "on";
+  const campana_id = (formData.get("campana_id") as string) || null;
 
   // Parse medical tags from comma-separated input
   const etiquetasRaw = formData.get("etiquetas_medicas") as string;
@@ -54,6 +55,7 @@ export async function crearPaciente(formData: FormData) {
       profesion: profesion || null,
       etiquetas_medicas,
       acepta_marketing,
+      campana_id,
     })
     .select("id")
     .single();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { actualizarEmpresa, actualizarSucursal } from "./actions";
+import { actualizarEmpresa, actualizarSucursal, toggleCampanasActivas } from "./actions";
 
 interface Empresa {
   id: string;
@@ -16,6 +16,7 @@ interface Sucursal {
   nombre: string;
   direccion: string | null;
   telefono: string | null;
+  campanas_activas: boolean;
 }
 
 interface Props {
@@ -219,6 +220,7 @@ function SucursalesList({ sucursales }: { sucursales: Sucursal[] }) {
 function SucursalCard({ sucursal, index }: { sucursal: Sucursal, index: number }) {
   const [isPending, startTransition] = useTransition();
   const [successMsg, setSuccessMsg] = useState("");
+  const [campanas, setCampanas] = useState(sucursal.campanas_activas);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -239,6 +241,18 @@ function SucursalCard({ sucursal, index }: { sucursal: Sucursal, index: number }
     });
   };
 
+  const handleToggleCampanas = () => {
+    const nuevo = !campanas;
+    setCampanas(nuevo);
+    startTransition(async () => {
+      const result = await toggleCampanasActivas(sucursal.id, nuevo);
+      if (!result.success) {
+        setCampanas(!nuevo); // revert
+        alert(result.error);
+      }
+    });
+  };
+
   return (
     <div className="bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)] p-5">
       <div className="flex items-center gap-2 mb-4">
@@ -246,7 +260,7 @@ function SucursalCard({ sucursal, index }: { sucursal: Sucursal, index: number }
         <h3 className="text-base font-bold text-t-primary uppercase tracking-wide">Configuración Sucursal</h3>
         {successMsg && <span className="ml-auto text-xs font-semibold text-t-green">✓ Guardado</span>}
       </div>
-      
+
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
@@ -278,7 +292,34 @@ function SucursalCard({ sucursal, index }: { sucursal: Sucursal, index: number }
             />
           </div>
         </div>
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex items-center justify-between">
+          {/* Toggle Campañas */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleToggleCampanas}
+              disabled={isPending}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] focus:ring-offset-1 disabled:opacity-50 ${
+                campanas ? "bg-[var(--accent-blue)]" : "bg-gray-600"
+              }`}
+              aria-pressed={campanas}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  campanas ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+            <div>
+              <p className="text-xs font-semibold text-t-primary">Módulo de Campañas</p>
+              <p className="text-[10px] text-t-muted">
+                {campanas
+                  ? "Activo — puedes crear campañas en esta sucursal"
+                  : "Inactivo — activa para gestionar campañas por zona"}
+              </p>
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={isPending}

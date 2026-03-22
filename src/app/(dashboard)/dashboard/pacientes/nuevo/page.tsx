@@ -1,4 +1,6 @@
 import { crearPaciente } from "../actions";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
 const ETIQUETAS_COMUNES = [
@@ -10,9 +12,41 @@ const ETIQUETAS_COMUNES = [
 export default async function NuevoPacientePage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; campana_id?: string }>;
 }) {
   const params = await searchParams;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("sucursal_id, tenant_id")
+    .eq("id", user.id)
+    .single();
+
+  // Verificar si la sucursal tiene campanas activas
+  let campanas: { id: string; nombre: string }[] = [];
+  if (perfil?.sucursal_id) {
+    const { data: suc } = await supabase
+      .from("sucursales")
+      .select("campanas_activas")
+      .eq("id", perfil.sucursal_id)
+      .single();
+
+    if (suc?.campanas_activas) {
+      const { data } = await supabase
+        .from("campanas")
+        .select("id, nombre")
+        .eq("sucursal_id", perfil.sucursal_id)
+        .eq("activa", true)
+        .order("nombre");
+      campanas = data || [];
+    }
+  }
+
+  const campanaPreseleccionada = params.campana_id || "";
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -30,6 +64,31 @@ export default async function NuevoPacientePage({
       )}
 
       <form className="space-y-6 p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
+        {/* Selector de campaña (solo si hay campanas activas) */}
+        {campanas.length > 0 && (
+          <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+            <label htmlFor="campana_id" className="block text-sm font-semibold text-t-primary mb-1.5">
+              📍 Campaña
+            </label>
+            <select
+              id="campana_id"
+              name="campana_id"
+              defaultValue={campanaPreseleccionada}
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            >
+              <option value="">— Sin campaña (sucursal general) —</option>
+              {campanas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-t-muted mt-1">
+              Asigna este paciente a una campaña activa para agrupar su atención.
+            </p>
+          </div>
+        )}
+
         <div>
           <label htmlFor="nombre" className="block text-sm font-medium text-t-secondary mb-1.5">Nombre completo *</label>
           <input id="nombre" name="nombre" type="text" required placeholder="Nombre del paciente"

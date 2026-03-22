@@ -6,6 +6,7 @@ import { crearExamen, obtenerUltimaRefraccion } from "../actions";
 interface Props {
   pacientes: { id: string; nombre: string }[];
   defaultPacienteId?: string;
+  campanaId?: string;
 }
 
 type RefraccionFields = {
@@ -24,7 +25,7 @@ const EMPTY: RefraccionFields = {
 
 const LENTE_USO_OPTIONS = ["Lejos", "Cerca", "Bifocal", "Progresivo", "Ocupacional", "Otro"];
 
-export default function ExamenFormClient({ pacientes, defaultPacienteId }: Props) {
+export default function ExamenFormClient({ pacientes, defaultPacienteId, campanaId }: Props) {
   const [pacienteId, setPacienteId] = useState(defaultPacienteId || "");
   const [fields, setFields] = useState<RefraccionFields>(EMPTY);
   const [lente_uso, setLenteUso] = useState("");
@@ -87,6 +88,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId }: Props
   return (
     <form className="space-y-6">
       <input type="hidden" name="paciente_id" value={pacienteId} />
+      {campanaId && <input type="hidden" name="campana_id" value={campanaId} />}
 
       {/* Patient selector (Searchable) */}
       <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">

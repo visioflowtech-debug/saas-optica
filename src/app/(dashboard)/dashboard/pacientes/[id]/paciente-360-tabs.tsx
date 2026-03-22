@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { obtenerDatosReceta, anularExamen } from "../../examenes/actions";
+import { eliminarExamen } from "../../eliminar-actions";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { generarRecetaPDF } from "../../examenes/receta-pdf";
 
 interface Paciente {
@@ -139,6 +141,11 @@ function TabClinico({ examenes }: { examenes: Examen[] }) {
                 </button>
                 {!ex.anulado && <RecetaPDFButton examenId={ex.id} />}
                 {!ex.anulado && <AnularExamenButton examenId={ex.id} />}
+                <ConfirmDeleteButton
+                  label="🗑"
+                  confirmText="¿Eliminar este examen permanentemente? Se desvinculará de cualquier orden asociada. Esta acción no se puede deshacer."
+                  onConfirm={() => eliminarExamen(ex.id)}
+                />
               </div>
             </div>
             <div className="overflow-x-auto">
