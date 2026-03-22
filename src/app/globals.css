@@ -1,26 +1,163 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   Design Tokens — Light Mode (default)
+   ============================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Backgrounds */
+  --bg-body: #f5f7fa;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f4f8;
+  --bg-input: #f1f5f9;
+  --bg-input-focus: #ffffff;
+  --bg-badge: #f1f5f9;
+
+  /* Borders */
+  --border-default: #e2e8f0;
+  --border-subtle: #f1f5f9;
+
+  /* Text */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-inverse: #ffffff;
+
+  /* Accents */
+  --accent-blue: #2563eb;
+  --accent-blue-hover: #1d4ed8;
+  --accent-blue-bg: rgba(37, 99, 235, 0.08);
+  --accent-blue-text: #2563eb;
+  --accent-red-bg: rgba(239, 68, 68, 0.08);
+  --accent-red-text: #dc2626;
+  --accent-red-border: rgba(239, 68, 68, 0.15);
+  --accent-green-bg: rgba(16, 185, 129, 0.08);
+  --accent-green-text: #059669;
+  --accent-green-border: rgba(16, 185, 129, 0.15);
+  --accent-amber-bg: rgba(245, 158, 11, 0.08);
+  --accent-amber-text: #d97706;
+  --accent-amber-border: rgba(245, 158, 11, 0.15);
+  --accent-purple-bg: rgba(139, 92, 246, 0.08);
+  --accent-purple-text: #7c3aed;
+  --accent-slate-bg: rgba(100, 116, 139, 0.08);
+  --accent-slate-text: #475569;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04);
+
+  /* Gradients */
+  --gradient-avatar: linear-gradient(135deg, #3b82f6, #8b5cf6);
 }
 
+/* ============================================================
+   Design Tokens — Dark Mode
+   ============================================================ */
+.dark {
+  --bg-body: #0b0f1a;
+  --bg-sidebar: #0f1425;
+  --bg-card: rgba(255, 255, 255, 0.035);
+  --bg-card-hover: rgba(255, 255, 255, 0.07);
+  --bg-input: rgba(255, 255, 255, 0.05);
+  --bg-input-focus: rgba(255, 255, 255, 0.08);
+  --bg-badge: rgba(255, 255, 255, 0.06);
+
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-inverse: #0f172a;
+
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #60a5fa;
+  --accent-blue-bg: rgba(59, 130, 246, 0.12);
+  --accent-blue-text: #60a5fa;
+  --accent-red-bg: rgba(239, 68, 68, 0.12);
+  --accent-red-text: #f87171;
+  --accent-red-border: rgba(239, 68, 68, 0.2);
+  --accent-green-bg: rgba(16, 185, 129, 0.12);
+  --accent-green-text: #34d399;
+  --accent-green-border: rgba(16, 185, 129, 0.2);
+  --accent-amber-bg: rgba(245, 158, 11, 0.12);
+  --accent-amber-text: #fbbf24;
+  --accent-amber-border: rgba(245, 158, 11, 0.2);
+  --accent-purple-bg: rgba(139, 92, 246, 0.12);
+  --accent-purple-text: #a78bfa;
+  --accent-slate-bg: rgba(100, 116, 139, 0.12);
+  --accent-slate-text: #94a3b8;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* ============================================================
+   Theme tokens → Tailwind utility classes
+   ============================================================ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg-body);
+  --color-foreground: var(--text-primary);
+  --color-t-primary: var(--text-primary);
+  --color-t-secondary: var(--text-secondary);
+  --color-t-muted: var(--text-muted);
+  --color-t-inverse: var(--text-inverse);
+  --color-t-blue: var(--accent-blue-text);
+  --color-t-red: var(--accent-red-text);
+  --color-t-green: var(--accent-green-text);
+  --color-t-amber: var(--accent-amber-text);
+  --color-t-purple: var(--accent-purple-text);
+  --color-t-slate: var(--accent-slate-text);
+  --color-card: var(--bg-card);
+  --color-card-hover: var(--bg-card-hover);
+  --color-sidebar: var(--bg-sidebar);
+  --color-input: var(--bg-input);
+  --color-badge: var(--bg-badge);
+  --color-b-default: var(--border-default);
+  --color-b-subtle: var(--border-subtle);
+  --color-a-blue-bg: var(--accent-blue-bg);
+  --color-a-red-bg: var(--accent-red-bg);
+  --color-a-green-bg: var(--accent-green-bg);
+  --color-a-amber-bg: var(--accent-amber-bg);
+  --color-a-purple-bg: var(--accent-purple-bg);
+  --color-a-slate-bg: var(--accent-slate-bg);
+  --color-a-red-border: var(--accent-red-border);
+  --color-a-green-border: var(--accent-green-border);
+  --color-a-amber-border: var(--accent-amber-border);
+  --font-sans: var(--font-inter);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ============================================================
+   Base Styles
+   ============================================================ */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-body);
+  color: var(--text-primary);
+}
+
+/* Placeholder colors */
+::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 1;
+}
+
+/* Form elements base colors for better contrast */
+input, textarea, select {
+  color: var(--text-primary) !important;
+}
+
+/* Date input icon color */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: var(--calendar-icon-filter, none);
+}
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+}
+
+/* Select dropdown styling */
+select option {
+  background: #ffffff !important;
+  color: #000000 !important;
 }
