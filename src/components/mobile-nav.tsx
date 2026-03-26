@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signout } from "@/app/(auth)/actions";
@@ -21,6 +21,7 @@ interface Props {
 export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const drawerRef = useRef<HTMLDivElement>(null);
 
   // Close drawer on route change
   useEffect(() => {
@@ -33,11 +34,22 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Pro
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
+  // Move focus into drawer when it opens (ARIA dialog requirement)
+  useEffect(() => {
+    if (open && drawerRef.current) {
+      const firstFocusable = drawerRef.current.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      firstFocusable?.focus();
+    }
+  }, [open]);
+
   return (
-    <>
-      {/* Top bar — mobile only */}
+    /* Single wrapper div — not a Fragment — so it's one clean flex child */
+    <div className="shrink-0 md:hidden">
+      {/* Top bar — sticky so it's always visible even if content scrolls */}
       <div
-        className="md:hidden flex items-center justify-between px-4 py-3 border-b border-b-default shrink-0"
+        className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 border-b border-b-default"
         style={{ background: "var(--bg-sidebar)" }}
       >
         <div>
@@ -46,17 +58,35 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Pro
           </p>
           <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{sucursalNombre}</p>
         </div>
+
+        {/* Hamburger button — hardcoded color, no CSS var dependency for visibility */}
         <button
+          type="button"
           onClick={() => setOpen(true)}
-          className="flex items-center justify-center min-h-11 min-w-[44px] rounded-lg transition-colors"
-          style={{ color: "var(--text-secondary, #475569)", touchAction: "manipulation" }}
+          className="flex items-center justify-center rounded-lg"
+          style={{
+            minHeight: 44,
+            minWidth: 44,
+            color: "#475569",
+            touchAction: "manipulation",
+            WebkitTapHighlightColor: "transparent",
+          }}
           aria-label="Abrir menú"
           aria-expanded={open}
+          aria-controls="mobile-drawer"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 6h18M3 12h18M3 18h18" />
           </svg>
         </button>
       </div>
@@ -64,19 +94,26 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Pro
       {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-black/50"
           onClick={() => setOpen(false)}
+          aria-hidden="true"
         />
       )}
 
-      {/* Drawer */}
+      {/* Drawer — fixed so it escapes the wrapper div */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-72 flex flex-col md:hidden transition-transform duration-300 ${
+        id="mobile-drawer"
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menú de navegación"
+        className={`fixed inset-y-0 left-0 z-50 w-72 flex flex-col transition-transform duration-300 ease-in-out ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{
           background: "var(--bg-sidebar)",
           borderRight: "1px solid var(--border-default)",
+          willChange: "transform",
         }}
       >
         {/* Drawer header */}
@@ -91,14 +128,30 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Pro
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{sucursalNombre}</p>
           </div>
           <button
+            type="button"
             onClick={() => setOpen(false)}
-            className="flex items-center justify-center min-h-11 min-w-[44px] rounded-lg"
-            style={{ color: "var(--text-muted, #94a3b8)", touchAction: "manipulation" }}
+            className="flex items-center justify-center rounded-lg"
+            style={{
+              minHeight: 44,
+              minWidth: 44,
+              color: "#94a3b8",
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+            }}
             aria-label="Cerrar menú"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -116,9 +169,10 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Pro
                   color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
                   background: isActive ? "var(--bg-card-hover)" : "transparent",
                   fontWeight: isActive ? 600 : 400,
+                  WebkitTapHighlightColor: "transparent",
                 }}
               >
-                <span className="text-lg">{item.icon}</span>
+                <span className="text-lg" aria-hidden="true">{item.icon}</span>
                 {item.label}
               </Link>
             );
@@ -147,14 +201,19 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Pro
           <form>
             <button
               formAction={signout}
+              type="submit"
               className="w-full px-3 py-2.5 text-sm rounded-lg transition-colors text-left"
-              style={{ color: "var(--text-muted)" }}
+              style={{
+                color: "var(--text-muted)",
+                minHeight: 44,
+                WebkitTapHighlightColor: "transparent",
+              }}
             >
               Cerrar sesión
             </button>
           </form>
         </div>
       </div>
-    </>
+    </div>
   );
 }
