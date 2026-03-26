@@ -85,12 +85,21 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-lab-title"
+    >
       <div className="bg-background w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-b-default">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-b-default bg-card">
-          <h2 className="text-lg font-bold text-t-primary">Detalles para Laboratorio</h2>
-          <button onClick={onClose} className="text-t-muted hover:text-red-500 font-bold px-2 py-1 rounded hover:bg-red-500/10 transition">
+          <h2 id="modal-lab-title" className="text-lg font-bold text-t-primary">Detalles para Laboratorio</h2>
+          <button
+            onClick={onClose}
+            aria-label="Cerrar modal"
+            className="text-t-muted hover:text-red-500 font-bold min-w-[44px] min-h-11 px-2 rounded hover:bg-red-500/10 transition"
+          >
             ✕
           </button>
         </div>
@@ -128,12 +137,13 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
                 <div>
                   <h3 className="text-sm font-bold text-t-primary border-b border-b-subtle pb-2 mb-4">Proveedor de Laboratorio</h3>
                   <div className="max-w-xs">
-                    <label className="block text-xs font-semibold text-t-secondary mb-1 uppercase">Laboratorio</label>
+                    <label htmlFor="field-laboratorio_id" className="block text-xs font-semibold text-t-secondary mb-1 uppercase">Laboratorio</label>
                     <select
+                      id="field-laboratorio_id"
                       name="laboratorio_id"
                       value={formData.laboratorio_id}
                       onChange={handleChange}
-                      className="w-full bg-input border border-b-default rounded-lg px-3 py-2 text-sm text-t-primary focus:outline-none focus:border-blue-500 transition"
+                      className="w-full bg-input border border-b-default rounded-lg px-3 py-2 text-base sm:text-sm text-t-primary focus:outline-none focus:border-blue-500 transition"
                     >
                       <option value="">— Sin asignar —</option>
                       {labs.map((lab) => (
@@ -193,7 +203,7 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
                     name="observaciones"
                     value={formData.observaciones}
                     onChange={handleChange}
-                    className="w-full bg-input border border-b-default rounded-lg px-3 py-2 text-sm text-t-primary focus:outline-none focus:border-blue-500 transition h-20"
+                    className="w-full bg-input border border-b-default rounded-lg px-3 py-2 text-base sm:text-sm text-t-primary focus:outline-none focus:border-blue-500 transition h-20"
                     placeholder="Notas adicionales..."
                   />
                 </div>
@@ -204,14 +214,14 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
 
         {/* Footer */}
         <div className="p-4 border-t border-b-default bg-card flex justify-end gap-3 rounded-b-2xl">
-          <button onClick={onClose} type="button" className="px-4 py-2 text-sm font-medium text-t-secondary hover:text-t-primary transition">
+          <button onClick={onClose} type="button" className="px-4 py-2.5 min-h-11 text-sm font-medium text-t-secondary hover:text-t-primary transition">
             Cancelar
           </button>
           <button
             type="submit"
             form="lab-form"
             disabled={isSaving || loading}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 shadow-md shadow-blue-500/20"
+            className="px-6 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 shadow-md shadow-blue-500/20"
           >
             {isSaving ? "Guardando..." : "Guardar Datos de Lab"}
           </button>
@@ -224,14 +234,15 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
 function Field({ label, name, val, onChange, placeholder }: { label: string, name: string, val: string, onChange: any, placeholder?: string }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-t-secondary mb-1 uppercase">{label}</label>
+      <label htmlFor={`field-${name}`} className="block text-xs font-semibold text-t-secondary mb-1 uppercase">{label}</label>
       <input
+        id={`field-${name}`}
         type="text"
         name={name}
         value={val}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full bg-input border border-b-default rounded-lg px-3 py-2 text-sm text-t-primary focus:outline-none focus:border-blue-500 transition"
+        className="w-full bg-input border border-b-default rounded-lg px-3 py-2 text-base sm:text-sm text-t-primary focus:outline-none focus:border-blue-500 transition"
       />
     </div>
   );

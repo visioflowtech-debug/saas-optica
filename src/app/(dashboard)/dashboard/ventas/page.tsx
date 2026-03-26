@@ -71,6 +71,7 @@ export default async function VentasPage({
         <label htmlFor="buscar-ventas" className="sr-only">Buscar ventas por paciente</label>
         <input
           id="buscar-ventas"
+          type="search"
           name="q"
           defaultValue={params.q ?? ""}
           placeholder="Buscar por paciente..."

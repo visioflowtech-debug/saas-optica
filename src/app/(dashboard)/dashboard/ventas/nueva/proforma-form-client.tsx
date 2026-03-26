@@ -99,7 +99,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
             onChange={(e) => { setSearchPatient(e.target.value); setShowDropdown(true); setPacienteId(""); }}
             onFocus={() => setShowDropdown(true)}
             onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-            className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           {showDropdown && filteredPacientes.length > 0 && (
             <div className="absolute z-20 w-full mt-1 bg-card border border-b-default rounded-lg shadow-xl max-h-60 overflow-y-auto">
@@ -132,7 +132,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
           <button
             type="button"
             onClick={() => setItems(prev => [...prev, newItem()])}
-            className="px-3 py-1.5 text-xs font-medium bg-a-green-bg text-t-green border border-a-green-border rounded-lg hover:opacity-80 transition"
+            className="px-3 py-2.5 min-h-11 text-xs font-medium bg-a-green-bg text-t-green border border-a-green-border rounded-lg hover:opacity-80 transition"
           >
             + Agregar línea
           </button>
@@ -178,7 +178,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
                     value={item.descripcion}
                     onChange={(e) => updateItem(item.id, "descripcion", e.target.value)}
                     placeholder="Descripción..."
-                    className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                    className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                   />
                 </div>
                 <div className="col-span-4 md:col-span-2">
@@ -188,7 +188,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
                     min="1"
                     value={item.cantidad}
                     onChange={(e) => updateItem(item.id, "cantidad", parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
                 <div className="col-span-4 md:col-span-2">
@@ -199,7 +199,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
                     step="0.01"
                     value={item.precio_unitario || ""}
                     onChange={(e) => updateItem(item.id, "precio_unitario", parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
                 <div className="col-span-4 md:col-span-2 text-right">
@@ -230,7 +230,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
                   value={descuento}
                   onChange={(e) => setDescuento(e.target.value)}
                   placeholder="0.00"
-                  className="w-24 px-2 py-1 bg-input border border-b-default rounded text-t-primary text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-24 px-2 py-1 bg-input border border-b-default rounded text-t-primary text-base sm:text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
               <div className="flex justify-between text-base font-bold pt-2 border-t border-b-subtle">
@@ -251,7 +251,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
           onChange={(e) => setNotas(e.target.value)}
           rows={3}
           placeholder="Notas adicionales, instrucciones especiales..."
-          className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none text-sm"
+          className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none text-base sm:text-sm"
         />
       </div>
 
@@ -259,13 +259,13 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
       <div className="flex gap-3">
         <button
           formAction={crearProforma}
-          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25"
+          className="px-6 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25"
         >
           Guardar Proforma
         </button>
         <Link
           href="/dashboard/ventas"
-          className="px-6 py-2.5 bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition-colors inline-flex items-center"
+          className="px-6 py-2.5 min-h-11 bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition-colors inline-flex items-center"
         >
           Cancelar
         </Link>

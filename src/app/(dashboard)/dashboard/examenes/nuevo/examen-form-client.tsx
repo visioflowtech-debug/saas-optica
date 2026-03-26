@@ -105,7 +105,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
             }}
             onFocus={() => setShowDropdown(true)}
             onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-            className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           {showDropdown && filteredPacientes.length > 0 && (
             <div className="absolute z-20 w-full mt-1 bg-card border border-b-default rounded-lg shadow-xl max-h-60 overflow-y-auto">
@@ -138,7 +138,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
           <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">Motivo de Consulta</label>
           <input name="motivo_consulta" value={motivo_consulta} onChange={(e) => setMotivoConsulta(e.target.value)}
             placeholder="Ej: Visión borrosa, ardor, chequeo rutinario..." type="text"
-            className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm" />
+            className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -146,7 +146,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
           <div>
             <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">Lente - Uso</label>
             <select name="lente_uso" value={lente_uso} onChange={(e) => setLenteUso(e.target.value)}
-              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm">
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm">
               <option value="">Seleccionar...</option>
               {LENTE_USO_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -158,7 +158,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
             </label>
             <input name="av_od_sin_lentes" value={av_od} onChange={(e) => setAvOd(e.target.value)}
               placeholder="Ej: 20/40" type="text"
-              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm" />
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm" />
           </div>
           {/* AV OI sin lentes */}
           <div>
@@ -167,7 +167,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
             </label>
             <input name="av_oi_sin_lentes" value={av_oi} onChange={(e) => setAvOi(e.target.value)}
               placeholder="Ej: 20/30" type="text"
-              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm" />
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm" />
           </div>
           {/* DP */}
           <div>
@@ -194,7 +194,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
             <p className="text-xs text-t-muted mt-0.5">Graduación que el paciente lleva actualmente</p>
           </div>
           <button type="button" onClick={handleImport} disabled={isPending}
-            className="px-3 py-1.5 text-xs font-medium bg-a-amber-bg text-t-amber border border-a-amber-border rounded-lg hover:opacity-80 transition disabled:opacity-50">
+            className="px-3 py-2.5 min-h-11 text-xs font-medium bg-a-amber-bg text-t-amber border border-a-amber-border rounded-lg hover:opacity-80 transition disabled:opacity-50">
             {isPending ? "Importando..." : "📋 Importar última RF"}
           </button>
         </div>
@@ -216,17 +216,17 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
         <label className="block text-sm font-medium text-t-secondary mb-1.5">Observaciones</label>
         <textarea name="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
           rows={3} placeholder="Notas del examen, hallazgos, recomendaciones..."
-          className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none" />
+          className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none text-base sm:text-sm" />
       </div>
 
       {/* Actions */}
       <div className="flex gap-3">
         <button formAction={crearExamen}
-          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25">
+          className="px-6 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25">
           Guardar examen
         </button>
         <a href="/dashboard/examenes"
-          className="px-6 py-2.5 bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition-colors inline-flex items-center">
+          className="px-6 py-2.5 min-h-11 bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition-colors inline-flex items-center">
           Cancelar
         </a>
       </div>
@@ -265,7 +265,7 @@ function RefraccionGrid({ prefix, fields, onChange }: {
                   <td key={c.key} className="py-1 px-1">
                     <input type="number" name={fieldKey} value={fields[fieldKey]} onChange={(e) => onChange(fieldKey, e.target.value)}
                       step={c.step} placeholder={c.placeholder}
-                      className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-center text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                      className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-center text-base sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                   </td>
                 );
               })}
