@@ -161,3 +161,24 @@ select option {
   background: #ffffff !important;
   color: #000000 !important;
 }
+
+/* Breakpoints tradicionales — compatibilidad con Chrome < 113 / Honor Browser / browsers sin CSS L4.
+   Tailwind v4 genera "width >= 768px" que no funciona en navegadores más viejos.
+   Estas clases usan @media screen and (min-width) con soporte universal. */
+.mobile-nav-wrapper {
+  display: block;
+}
+.desktop-sidebar {
+  display: none;
+}
+@media screen and (min-width: 768px) {
+  .mobile-nav-wrapper {
+    display: none;
+  }
+  .desktop-sidebar {
+    display: flex;
+  }
+  .app-layout {
+    flex-direction: row;
+  }
+}

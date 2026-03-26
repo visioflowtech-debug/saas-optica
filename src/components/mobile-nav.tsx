@@ -45,8 +45,8 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Pro
   }, [open]);
 
   return (
-    /* Single wrapper div — not a Fragment — so it's one clean flex child */
-    <div className="shrink-0 md:hidden">
+    /* Clase mobile-nav-wrapper usa @media min-width tradicional (compatible Chrome < 113 / Honor) */
+    <div className="shrink-0 mobile-nav-wrapper">
       {/* Top bar — sticky so it's always visible even if content scrolls */}
       <div
         className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 border-b border-b-default"

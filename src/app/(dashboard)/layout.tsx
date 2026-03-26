@@ -76,7 +76,7 @@ export default async function DashboardLayout({
   ];
 
   return (
-    <div className="flex h-screen flex-col md:flex-row" style={{ background: "var(--bg-body)", height: "100dvh" }}>
+    <div className="flex h-screen flex-col app-layout" style={{ background: "var(--bg-body)", height: "100dvh" }}>
       {/* Mobile top bar + drawer */}
       <MobileNav
         navItems={navItems}
@@ -87,7 +87,7 @@ export default async function DashboardLayout({
 
       {/* Sidebar — desktop only */}
       <aside
-        className="hidden md:flex w-64 flex-col shrink-0"
+        className="desktop-sidebar w-64 flex-col shrink-0"
         style={{
           background: "var(--bg-sidebar)",
           borderRight: "1px solid var(--border-default)",
