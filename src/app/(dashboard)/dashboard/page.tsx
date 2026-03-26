@@ -11,23 +11,34 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch real counts
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("tenant_id, sucursal_id")
+    .eq("id", user.id)
+    .single();
+
+  if (!perfil) redirect("/login");
+
+  // Fetch counts filtrados por tenant y sucursal
   const [
     { count: totalPacientes },
     { count: totalExamenes },
     { count: totalOrdenes },
   ] = await Promise.all([
-    supabase.from("pacientes").select("*", { count: "exact", head: true }),
-    supabase
-      .from("examenes_clinicos")
-      .select("*", { count: "exact", head: true }),
-    supabase.from("ordenes").select("*", { count: "exact", head: true }),
+    supabase.from("pacientes").select("*", { count: "exact", head: true })
+      .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id),
+    supabase.from("examenes_clinicos").select("*", { count: "exact", head: true })
+      .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id),
+    supabase.from("ordenes").select("*", { count: "exact", head: true })
+      .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id),
   ]);
 
   // Recent patients
   const { data: recientes } = await supabase
     .from("pacientes")
     .select("id, nombre, created_at")
+    .eq("tenant_id", perfil.tenant_id)
+    .eq("sucursal_id", perfil.sucursal_id)
     .order("created_at", { ascending: false })
     .limit(5);
 

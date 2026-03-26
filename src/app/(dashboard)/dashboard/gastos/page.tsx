@@ -6,26 +6,27 @@ import Link from "next/link";
 import CampanasBackLink from "@/components/campanas-back-link";
 import { fmtDate } from "@/lib/date-sv";
 
+const PAGE_SIZE = 50;
+
 export default async function GastosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ campana_id?: string; categoria?: string; error?: string }>;
+  searchParams: Promise<{ campana_id?: string; categoria?: string; error?: string; pagina?: string }>;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const params = await searchParams;
-  const { gastos, totalMonto } = await obtenerGastos({
+  const pagina = Math.max(1, parseInt(params.pagina || "1", 10));
+
+  const { gastos, totalMonto, porCategoria, total } = await obtenerGastos({
     campana_id: params.campana_id,
     categoria:  params.categoria,
+    pagina,
   });
 
-  // Agrupar por categoría para el resumen
-  const porCategoria: Record<string, number> = {};
-  gastos.forEach((g) => {
-    porCategoria[g.categoria] = (porCategoria[g.categoria] || 0) + Number(g.monto);
-  });
+  const totalPaginas = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -56,7 +57,7 @@ export default async function GastosPage({
         <div>
           <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Total Gastos</p>
           <p className="text-3xl font-bold text-t-primary">${totalMonto.toFixed(2)}</p>
-          <p className="text-xs text-t-muted mt-1">{gastos.length} registro{gastos.length !== 1 ? "s" : ""}</p>
+          <p className="text-xs text-t-muted mt-1">{total} registro{total !== 1 ? "s" : ""}</p>
         </div>
         {/* Mini breakdown por categoría */}
         <div className="flex flex-wrap gap-2 justify-end max-w-sm">
@@ -77,6 +78,9 @@ export default async function GastosPage({
           <h2 className="font-semibold text-t-primary text-sm">Registros</h2>
           {/* Filtro categoría */}
           <form method="GET" className="flex items-center gap-1">
+            {params.campana_id && (
+              <input type="hidden" name="campana_id" value={params.campana_id} />
+            )}
             <select
               name="categoria"
               defaultValue={params.categoria || ""}
@@ -103,6 +107,7 @@ export default async function GastosPage({
         ) : (
           <div className="divide-y divide-b-subtle">
             {gastos.map((g) => (
+
               <div key={g.id} className="flex items-center justify-between px-5 py-3 hover:bg-empty transition">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   <div className="text-center min-w-[48px]">
@@ -139,6 +144,33 @@ export default async function GastosPage({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Paginación */}
+        {totalPaginas > 1 && (
+          <div className="px-5 py-3 border-t border-b-subtle flex items-center justify-between text-sm">
+            <span className="text-t-muted text-xs">
+              Página {pagina} de {totalPaginas} · {total} registros
+            </span>
+            <div className="flex gap-2">
+              {pagina > 1 && (
+                <Link
+                  href={`/dashboard/gastos?${new URLSearchParams({ ...(params.campana_id ? { campana_id: params.campana_id } : {}), ...(params.categoria ? { categoria: params.categoria } : {}), pagina: String(pagina - 1) })}`}
+                  className="px-3 py-1.5 text-xs bg-input border border-b-default rounded-lg text-t-secondary hover:text-t-primary transition"
+                >
+                  ← Anterior
+                </Link>
+              )}
+              {pagina < totalPaginas && (
+                <Link
+                  href={`/dashboard/gastos?${new URLSearchParams({ ...(params.campana_id ? { campana_id: params.campana_id } : {}), ...(params.categoria ? { categoria: params.categoria } : {}), pagina: String(pagina + 1) })}`}
+                  className="px-3 py-1.5 text-xs bg-input border border-b-default rounded-lg text-t-secondary hover:text-t-primary transition"
+                >
+                  Siguiente →
+                </Link>
+              )}
+            </div>
           </div>
         )}
       </div>

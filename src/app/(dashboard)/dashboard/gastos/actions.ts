@@ -21,33 +21,55 @@ async function getUserContext() {
   return { supabase, userId: user.id, ...perfil };
 }
 
+const PAGE_SIZE = 50;
+
 export async function obtenerGastos(filters?: {
   campana_id?: string;
   categoria?: string;
   desde?: string;
   hasta?: string;
-}): Promise<{ gastos: Gasto[]; totalMonto: number }> {
+  pagina?: number;
+}): Promise<{ gastos: Gasto[]; totalMonto: number; porCategoria: Record<string, number>; total: number }> {
   const { supabase, tenant_id, sucursal_id } = await getUserContext();
 
-  let query = supabase
+  const pagina = filters?.pagina ?? 1;
+  const from   = (pagina - 1) * PAGE_SIZE;
+  const to     = from + PAGE_SIZE - 1;
+
+  // Lista paginada
+  let listQuery = supabase
     .from("gastos")
-    .select("*, campana:campanas(nombre)")
+    .select("*, campana:campanas(nombre)", { count: "exact" })
     .eq("tenant_id", tenant_id)
     .eq("sucursal_id", sucursal_id)
     .order("fecha", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
-  if (filters?.campana_id) query = query.eq("campana_id", filters.campana_id);
-  if (filters?.categoria)  query = query.eq("categoria", filters.categoria);
-  if (filters?.desde)      query = query.gte("fecha", filters.desde);
-  if (filters?.hasta)      query = query.lte("fecha", filters.hasta);
+  // Agregación (todos los registros filtrados para KPIs correctos)
+  let aggQuery = supabase
+    .from("gastos")
+    .select("monto, categoria")
+    .eq("tenant_id", tenant_id)
+    .eq("sucursal_id", sucursal_id);
 
-  const { data, error } = await query;
-  if (error) return { gastos: [], totalMonto: 0 };
+  if (filters?.campana_id) { listQuery = listQuery.eq("campana_id", filters.campana_id); aggQuery = aggQuery.eq("campana_id", filters.campana_id); }
+  if (filters?.categoria)  { listQuery = listQuery.eq("categoria", filters.categoria);   aggQuery = aggQuery.eq("categoria", filters.categoria); }
+  if (filters?.desde)      { listQuery = listQuery.gte("fecha", filters.desde);           aggQuery = aggQuery.gte("fecha", filters.desde); }
+  if (filters?.hasta)      { listQuery = listQuery.lte("fecha", filters.hasta);           aggQuery = aggQuery.lte("fecha", filters.hasta); }
 
-  const gastos = (data || []) as Gasto[];
-  const totalMonto = gastos.reduce((sum, g) => sum + Number(g.monto), 0);
-  return { gastos, totalMonto };
+  const [listResult, aggResult] = await Promise.all([listQuery, aggQuery]);
+
+  const gastos = (listResult.data || []) as Gasto[];
+  const todos  = aggResult.data || [];
+
+  const totalMonto = todos.reduce((sum: number, g: { monto: number }) => sum + Number(g.monto), 0);
+  const porCategoria: Record<string, number> = {};
+  todos.forEach((g: { monto: number; categoria: string }) => {
+    porCategoria[g.categoria] = (porCategoria[g.categoria] || 0) + Number(g.monto);
+  });
+
+  return { gastos, totalMonto, porCategoria, total: listResult.count ?? 0 };
 }
 
 export async function registrarGasto(formData: FormData) {
