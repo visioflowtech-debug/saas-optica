@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { signup } from "../actions";
 import { ThemeToggle } from "@/components/theme-toggle";
+
+export const metadata: Metadata = {
+  title: "Crear Cuenta",
+  description: "Crea tu cuenta en Óptica Nueva Imagen",
+  robots: { index: false, follow: false },
+};
 
 export default async function RegistroPage({
   searchParams,

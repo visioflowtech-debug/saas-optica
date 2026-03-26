@@ -73,7 +73,8 @@ export async function obtenerPacientesDeCampana(campanaId: string) {
     .select("id, nombre, telefono, email, created_at")
     .eq("campana_id", campanaId)
     .eq("tenant_id", tenant_id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500);
 
   return data || [];
 }
@@ -141,7 +142,8 @@ export async function obtenerVentasDeCampana(campanaId: string) {
     .select("id, created_at, tipo, estado, total, paciente_id, notas, paciente:pacientes(nombre)")
     .eq("campana_id", campanaId)
     .eq("tenant_id", tenant_id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500);
 
   return (data || []) as unknown as Array<{
     id: string;
@@ -175,7 +177,8 @@ export async function obtenerGastosDeCampana(campanaId: string) {
     .eq("campana_id", campanaId)
     .eq("tenant_id", tenant_id)
     .order("fecha", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500);
 
   return (data || []) as Array<{
     id: string;

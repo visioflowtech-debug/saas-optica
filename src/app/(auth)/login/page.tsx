@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { login } from "../actions";
 import { ThemeToggle } from "@/components/theme-toggle";
+
+export const metadata: Metadata = {
+  title: "Iniciar Sesión",
+  description: "Accede a tu cuenta de Óptica Nueva Imagen",
+  robots: { index: false, follow: false },
+};
 
 export default async function LoginPage({
   searchParams,

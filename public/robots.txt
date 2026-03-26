@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /login
+Disallow: /registro
+
+Allow: /
+
+# Sitemap
+# Sitemap: https://tudominio.com/sitemap.xml

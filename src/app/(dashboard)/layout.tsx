@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { signout } from "@/app/(auth)/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SucursalSwitcher } from "@/components/sucursal-switcher";
 import MobileNav from "@/components/mobile-nav";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function DashboardLayout({
   children,
@@ -27,18 +32,9 @@ export default async function DashboardLayout({
     .eq("id", user.id)
     .single();
 
-  let sucursalNombre = "Sin sucursal";
-  if (perfil?.sucursal_id) {
-    const { data: suc } = await supabase
-      .from("sucursales")
-      .select("nombre")
-      .eq("id", perfil.sucursal_id)
-      .single();
-    sucursalNombre = suc?.nombre || "Sin sucursal";
-  }
-
-  // Si es admin, cargar todas las sucursales del tenant para el switcher
+  // Una sola query para todas las sucursales del tenant — deriva nombre + campanas_activas
   let todasLasSucursales: { id: string; nombre: string; activa: boolean }[] = [];
+  let sucursalNombre = "Sin sucursal";
   let campanasActivas = false;
   if (perfil?.tenant_id) {
     const { data: sucursalesData } = await supabase
@@ -48,8 +44,8 @@ export default async function DashboardLayout({
       .eq("activa", true)
       .order("nombre");
     todasLasSucursales = sucursalesData || [];
-    // Verificar si la sucursal actual tiene campanas activas
     const sucursalActual = sucursalesData?.find((s) => s.id === perfil.sucursal_id);
+    sucursalNombre = sucursalActual?.nombre || "Sin sucursal";
     campanasActivas = sucursalActual?.campanas_activas ?? false;
   }
 
