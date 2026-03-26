@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push origin main)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm run build)",
+      "Bash(npm run lint)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(git push origin main --force)",
+      "Bash(rm -rf*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Hook] Ejecutando comando bash en saas-optica'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Hook] Archivo escrito - recuerda: si modificaste actions.ts verifica que revalidatePath esté al final'"
+          }
+        ]
+      }
+    ]
+  }
+}
