@@ -7,7 +7,7 @@ export const CATEGORIAS_GASTO = [
   { value: "otro",         label: "Otro" },
 ] as const;
 
-export type CategoriaGasto = typeof CATEGORIAS_GASTO[number]["value"];
+export type CategoriaGasto = string; // incluye predeterminadas + personalizadas del tenant
 
 export interface Gasto {
   id: string;

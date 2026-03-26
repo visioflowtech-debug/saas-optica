@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signout } from "@/app/(auth)/actions";
 import { SucursalSwitcher } from "@/components/sucursal-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface NavItem {
   href: string;
@@ -197,6 +198,10 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre, sucur
           className="p-4"
           style={{ borderTop: "1px solid var(--border-default)" }}
         >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs px-1" style={{ color: "var(--text-muted)" }}>Apariencia</span>
+            <ThemeToggle />
+          </div>
           <div className="flex items-center gap-3 px-2 py-2 mb-2">
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"

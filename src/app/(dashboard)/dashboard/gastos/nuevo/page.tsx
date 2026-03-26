@@ -1,5 +1,5 @@
 import { registrarGasto } from "../actions";
-import { CATEGORIAS_GASTO } from "../types";
+import { obtenerCategoriasGasto } from "@/app/(dashboard)/dashboard/configuracion/categorias-actions";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -40,6 +40,9 @@ export default async function NuevoGastoPage({
       campanas = data || [];
     }
   }
+
+  const categorias = await obtenerCategoriasGasto();
+  const categoriasActivas = categorias.filter((c) => c.activo);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -109,8 +112,8 @@ export default async function NuevoGastoPage({
               required
               className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             >
-              {CATEGORIAS_GASTO.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
+              {categoriasActivas.map((c) => (
+                <option key={c.valor} value={c.valor}>{c.label}</option>
               ))}
             </select>
           </div>

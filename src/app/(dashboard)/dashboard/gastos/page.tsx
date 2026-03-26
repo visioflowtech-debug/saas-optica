@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { obtenerGastos, eliminarGasto } from "./actions";
-import { CATEGORIAS_GASTO } from "./types";
+import { obtenerCategoriasGasto } from "@/app/(dashboard)/dashboard/configuracion/categorias-actions";
 import Link from "next/link";
 import CampanasBackLink from "@/components/campanas-back-link";
 import { fmtDate } from "@/lib/date-sv";
@@ -20,12 +20,12 @@ export default async function GastosPage({
   const params = await searchParams;
   const pagina = Math.max(1, parseInt(params.pagina || "1", 10));
 
-  const { gastos, totalMonto, porCategoria, total } = await obtenerGastos({
-    campana_id: params.campana_id,
-    categoria:  params.categoria,
-    pagina,
-  });
+  const [{ gastos, totalMonto, porCategoria, total }, categorias] = await Promise.all([
+    obtenerGastos({ campana_id: params.campana_id, categoria: params.categoria, pagina }),
+    obtenerCategoriasGasto(),
+  ]);
 
+  const categoriasActivas = categorias.filter((c) => c.activo);
   const totalPaginas = Math.ceil(total / PAGE_SIZE);
 
   return (
@@ -62,7 +62,7 @@ export default async function GastosPage({
         {/* Mini breakdown por categoría */}
         <div className="flex flex-wrap gap-2 justify-end max-w-sm">
           {Object.entries(porCategoria).map(([cat, monto]) => {
-            const label = CATEGORIAS_GASTO.find((c) => c.value === cat)?.label || cat;
+            const label = categorias.find((c) => c.valor === cat)?.label || cat;
             return (
               <span key={cat} className="text-xs px-2 py-1 bg-badge border border-b-default rounded-full text-t-secondary">
                 {label}: <strong>${monto.toFixed(0)}</strong>
@@ -87,8 +87,8 @@ export default async function GastosPage({
               className="text-xs px-2 py-1 bg-input border border-b-default rounded text-t-primary"
             >
               <option value="">Todas las categorías</option>
-              {CATEGORIAS_GASTO.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
+              {categoriasActivas.map((c) => (
+                <option key={c.valor} value={c.valor}>{c.label}</option>
               ))}
             </select>
             <button type="submit" className="text-xs px-2 py-1 bg-input border border-b-default rounded text-t-muted hover:text-t-primary transition">
@@ -119,7 +119,7 @@ export default async function GastosPage({
                     <p className="text-sm font-medium text-t-primary truncate">{g.concepto}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-[10px] px-1.5 py-0.5 bg-badge border border-b-default rounded text-t-muted capitalize">
-                        {CATEGORIAS_GASTO.find((c) => c.value === g.categoria)?.label || g.categoria}
+                        {categorias.find((c) => c.valor === g.categoria)?.label || g.categoria}
                       </span>
                       {g.campana && (
                         <span className="text-[10px] text-blue-400">📍 {g.campana.nombre}</span>
