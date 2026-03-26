@@ -52,6 +52,7 @@ export async function crearExamen(formData: FormData) {
     av_od_sin_lentes: parseStr("av_od_sin_lentes"),
     av_oi_sin_lentes: parseStr("av_oi_sin_lentes"),
     dp: parseNum("dp"),
+    dp_oi: parseNum("dp_oi"),
     altura: parseNum("altura"),
     observaciones: parseStr("observaciones"),
     // Refracción Actual (RA)
@@ -120,7 +121,7 @@ export async function obtenerUltimaRefraccion(pacienteId: string) {
   const { data } = await supabase
     .from("examenes_clinicos")
     .select(
-      "rf_od_esfera, rf_od_cilindro, rf_od_eje, rf_od_adicion, rf_oi_esfera, rf_oi_cilindro, rf_oi_eje, rf_oi_adicion, lente_uso, dp, altura"
+      "rf_od_esfera, rf_od_cilindro, rf_od_eje, rf_od_adicion, rf_oi_esfera, rf_oi_cilindro, rf_oi_eje, rf_oi_adicion, lente_uso, dp, dp_oi, altura"
     )
     .eq("paciente_id", pacienteId)
     .eq("tenant_id", tenant_id)

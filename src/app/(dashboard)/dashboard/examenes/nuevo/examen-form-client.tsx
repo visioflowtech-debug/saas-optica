@@ -32,6 +32,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
   const [av_od, setAvOd] = useState("");
   const [av_oi, setAvOi] = useState("");
   const [dp, setDp] = useState("");
+  const [dp_oi, setDpOi] = useState("");
   const [altura, setAltura] = useState("");
   const [motivo_consulta, setMotivoConsulta] = useState("");
   const [observaciones, setObservaciones] = useState("");
@@ -72,6 +73,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
       }));
       if (data.lente_uso) setLenteUso(data.lente_uso);
       if (data.dp) setDp(data.dp.toString());
+      if (data.dp_oi) setDpOi(data.dp_oi.toString());
       if (data.altura) setAltura(data.altura.toString());
       setImportMsg("✓ Refracción importada (RF anterior → RA actual)");
     });
@@ -199,11 +201,22 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
               placeholder="Ej: 20/30" type="text"
               className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm" />
           </div>
-          {/* DP */}
+          {/* DP OD */}
           <div>
-            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">DP (mm)</label>
+            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+              DP <span className="normal-case text-t-blue font-semibold">OD</span> (mm)
+            </label>
             <input name="dp" value={dp} onChange={(e) => setDp(e.target.value)}
-              placeholder="Ej: 63" type="number" step="0.5"
+              placeholder="Ej: 32" type="number" step="0.5"
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+          </div>
+          {/* DP OI */}
+          <div>
+            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+              DP <span className="normal-case text-t-purple font-semibold">OI</span> (mm)
+            </label>
+            <input name="dp_oi" value={dp_oi} onChange={(e) => setDpOi(e.target.value)}
+              placeholder="Ej: 31" type="number" step="0.5"
               className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
           </div>
           {/* Altura */}

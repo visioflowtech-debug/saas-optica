@@ -48,3 +48,7 @@ lint.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Migration data (may contain PII)
+scripts/migration-data/*.csv
+scripts/migration-data/reporte-*.txt
