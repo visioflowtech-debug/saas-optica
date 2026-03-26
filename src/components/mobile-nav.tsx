@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signout } from "@/app/(auth)/actions";
+import { SucursalSwitcher } from "@/components/sucursal-switcher";
 
 interface NavItem {
   href: string;
@@ -11,14 +12,22 @@ interface NavItem {
   icon: string;
 }
 
+interface Sucursal {
+  id: string;
+  nombre: string;
+  activa: boolean;
+}
+
 interface Props {
   navItems: NavItem[];
   nombre: string;
   rol: string;
   sucursalNombre: string;
+  sucursales: Sucursal[];
+  sucursalActualId: string;
 }
 
-export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Props) {
+export default function MobileNav({ navItems, nombre, rol, sucursalNombre, sucursales, sucursalActualId }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -121,11 +130,15 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Pro
           className="flex items-center justify-between p-5"
           style={{ borderBottom: "1px solid var(--border-default)" }}
         >
-          <div>
+          <div className="flex-1 min-w-0 mr-2">
             <p className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
               Óptica Nueva Imagen
             </p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{sucursalNombre}</p>
+            <SucursalSwitcher
+              sucursales={sucursales}
+              sucursalActualId={sucursalActualId}
+              sucursalActualNombre={sucursalNombre}
+            />
           </div>
           <button
             type="button"

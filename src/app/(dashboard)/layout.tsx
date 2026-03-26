@@ -83,6 +83,8 @@ export default async function DashboardLayout({
         nombre={nombre}
         rol={rolLabels[rol] || rol}
         sucursalNombre={sucursalNombre}
+        sucursales={todasLasSucursales}
+        sucursalActualId={perfil?.sucursal_id || ""}
       />
 
       {/* Sidebar — desktop only */}
