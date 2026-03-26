@@ -10,7 +10,7 @@ interface Props {
 }
 
 const selectCls =
-  "w-full px-3 py-2 text-sm bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500";
+  "w-full px-3 py-2 text-base sm:text-sm bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500";
 const labelCls = "text-[10px] text-t-muted uppercase tracking-wider block mb-1";
 
 export default function ListaPDFButton({ laboratorios, campanas }: Props) {
@@ -54,22 +54,29 @@ export default function ListaPDFButton({ laboratorios, campanas }: Props) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="px-4 py-2 text-sm font-semibold bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-xl transition flex items-center gap-2"
+        aria-label="Generar lista PDF de órdenes de laboratorio"
+        className="px-4 py-2.5 min-h-11 text-sm font-semibold bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-xl transition flex items-center gap-2"
       >
-        📄 Generar Lista PDF
+        <span aria-hidden="true">📄</span> Generar Lista PDF
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-lista-pdf-title"
+          onClick={(e) => { if (e.target === e.currentTarget && !isPending) setOpen(false); }}
+        >
           <div className="w-full max-w-md p-6 rounded-2xl shadow-2xl space-y-4 bg-card border border-b-default">
-            <h3 className="text-base font-bold text-t-primary">Generar Lista de Órdenes</h3>
+            <h3 id="modal-lista-pdf-title" className="text-base font-bold text-t-primary">Generar Lista de Órdenes</h3>
             <p className="text-xs text-t-muted">Selecciona filtros opcionales para la lista PDF.</p>
 
             <div className="space-y-3">
               {/* Laboratorio */}
               <div>
-                <label className={labelCls}>Laboratorio</label>
-                <select value={labId} onChange={(e) => setLabId(e.target.value)} className={selectCls}>
+                <label htmlFor="filtro-lab" className={labelCls}>Laboratorio</label>
+                <select id="filtro-lab" value={labId} onChange={(e) => setLabId(e.target.value)} className={selectCls}>
                   <option value="">Todos los laboratorios</option>
                   {laboratorios.map((l) => (
                     <option key={l.id} value={l.id}>{l.nombre}</option>
@@ -80,8 +87,8 @@ export default function ListaPDFButton({ laboratorios, campanas }: Props) {
               {/* Campaña */}
               {campanas.length > 0 && (
                 <div>
-                  <label className={labelCls}>Campaña</label>
-                  <select value={campanaId} onChange={(e) => setCampanaId(e.target.value)} className={selectCls}>
+                  <label htmlFor="filtro-campana" className={labelCls}>Campaña</label>
+                  <select id="filtro-campana" value={campanaId} onChange={(e) => setCampanaId(e.target.value)} className={selectCls}>
                     <option value="">Todas las campañas</option>
                     {campanas.map((c) => (
                       <option key={c.id} value={c.id}>{c.nombre}</option>
@@ -92,8 +99,8 @@ export default function ListaPDFButton({ laboratorios, campanas }: Props) {
 
               {/* Estado */}
               <div>
-                <label className={labelCls}>Estado</label>
-                <select value={estado} onChange={(e) => setEstado(e.target.value)} className={selectCls}>
+                <label htmlFor="filtro-estado" className={labelCls}>Estado</label>
+                <select id="filtro-estado" value={estado} onChange={(e) => setEstado(e.target.value)} className={selectCls}>
                   <option value="">Todos los estados</option>
                   <option value="pendiente">Pendiente</option>
                   <option value="en_laboratorio">En Laboratorio</option>
@@ -105,8 +112,9 @@ export default function ListaPDFButton({ laboratorios, campanas }: Props) {
               {/* Rango de fechas */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>Fecha desde</label>
+                  <label htmlFor="fecha-desde" className={labelCls}>Fecha desde</label>
                   <input
+                    id="fecha-desde"
                     type="date"
                     value={fechaDesde}
                     onChange={(e) => setFechaDesde(e.target.value)}
@@ -114,8 +122,9 @@ export default function ListaPDFButton({ laboratorios, campanas }: Props) {
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>Fecha hasta</label>
+                  <label htmlFor="fecha-hasta" className={labelCls}>Fecha hasta</label>
                   <input
+                    id="fecha-hasta"
                     type="date"
                     value={fechaHasta}
                     onChange={(e) => setFechaHasta(e.target.value)}

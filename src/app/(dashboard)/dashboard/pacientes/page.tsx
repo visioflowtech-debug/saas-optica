@@ -25,9 +25,18 @@ export default async function PacientesPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("tenant_id, sucursal_id")
+    .eq("id", user.id)
+    .single();
+  if (!perfil) redirect("/login");
+
   let query = supabase
     .from("pacientes")
-    .select("*", { count: "exact" })
+    .select("id, nombre, email, telefono, fecha_nacimiento, etiquetas_medicas, campana_id", { count: "exact" })
+    .eq("tenant_id", perfil.tenant_id)
+    .eq("sucursal_id", perfil.sucursal_id)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -67,16 +76,18 @@ export default async function PacientesPage({
 
       {/* Search */}
       <form className="flex gap-3">
+        <label htmlFor="buscar-pacientes" className="sr-only">Buscar pacientes</label>
         <input
+          id="buscar-pacientes"
           type="search"
           name="q"
           defaultValue={params.q || ""}
           placeholder="Buscar por nombre, teléfono o email..."
-          className="flex-1 px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm"
+          className="flex-1 px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm"
         />
         <button
           type="submit"
-          className="px-4 py-2.5 bg-card border border-b-default rounded-lg text-t-secondary hover:text-t-primary text-sm transition hover:bg-card-hover"
+          className="px-4 py-2.5 min-h-11 bg-card border border-b-default rounded-lg text-t-secondary hover:text-t-primary text-sm transition hover:bg-card-hover"
         >
           Buscar
         </button>
@@ -84,22 +95,23 @@ export default async function PacientesPage({
 
       {/* Patient Table */}
       <div className="bg-card border border-b-default rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-b-subtle">
-              <th className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase tracking-wider">
                 Paciente
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase tracking-wider hidden sm:table-cell">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase tracking-wider hidden sm:table-cell">
                 Teléfono
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase tracking-wider hidden md:table-cell">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase tracking-wider hidden md:table-cell">
                 Edad
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase tracking-wider hidden lg:table-cell">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase tracking-wider hidden lg:table-cell">
                 Etiquetas
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-t-muted uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-t-muted uppercase tracking-wider">
                 Acciones
               </th>
             </tr>
@@ -165,6 +177,7 @@ export default async function PacientesPage({
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

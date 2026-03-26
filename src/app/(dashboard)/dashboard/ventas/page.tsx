@@ -14,9 +14,18 @@ export default async function VentasPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("tenant_id, sucursal_id")
+    .eq("id", user.id)
+    .single();
+  if (!perfil) redirect("/login");
+
   let query = supabase
     .from("ordenes")
-    .select("*, paciente:pacientes!ordenes_paciente_id_fkey(nombre), asesor:usuarios!ordenes_asesor_id_fkey(nombre)")
+    .select("id, tipo, estado, total, created_at, paciente:pacientes!ordenes_paciente_id_fkey(nombre), asesor:usuarios!ordenes_asesor_id_fkey(nombre)")
+    .eq("tenant_id", perfil.tenant_id)
+    .eq("sucursal_id", perfil.sucursal_id)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -25,7 +34,6 @@ export default async function VentasPage({
 
   const { data: ordenes } = await query;
 
-  // Filter by patient name client-side (simple approach)
   const q = params.q?.toLowerCase() ?? "";
   const filtered = (ordenes ?? []).filter((o) => {
     const nombre = getNested(o.paciente);
@@ -60,16 +68,18 @@ export default async function VentasPage({
 
       {/* Search */}
       <form className="flex gap-3">
+        <label htmlFor="buscar-ventas" className="sr-only">Buscar ventas por paciente</label>
         <input
+          id="buscar-ventas"
           name="q"
           defaultValue={params.q ?? ""}
           placeholder="Buscar por paciente..."
-          className="flex-1 px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary placeholder:text-t-muted focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm"
+          className="flex-1 px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary placeholder:text-t-muted focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm"
         />
         {params.filtro && <input type="hidden" name="filtro" value={params.filtro} />}
         <button
           type="submit"
-          className="px-4 py-2.5 bg-card border border-b-default rounded-lg text-t-secondary hover:text-t-primary transition text-sm"
+          className="px-4 py-2.5 min-h-11 bg-card border border-b-default rounded-lg text-t-secondary hover:text-t-primary transition text-sm"
         >
           Buscar
         </button>
@@ -99,16 +109,17 @@ export default async function VentasPage({
         </div>
       ) : (
         <div className="bg-card border border-b-default rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-b-subtle">
-                <th className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Paciente</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Tipo</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Estado</th>
-                <th className="text-right px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Total</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Asesor</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Fecha</th>
-                <th className="px-5 py-3"></th>
+                <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Paciente</th>
+                <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Tipo</th>
+                <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Estado</th>
+                <th scope="col" className="text-right px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Total</th>
+                <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider hidden md:table-cell">Asesor</th>
+                <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider hidden sm:table-cell">Fecha</th>
+                <th scope="col" className="px-5 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-b-subtle">
@@ -124,8 +135,8 @@ export default async function VentasPage({
                   <td className="px-5 py-3 text-right text-t-primary font-mono font-medium">
                     {new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(Number(o.total))}
                   </td>
-                  <td className="px-5 py-3 text-t-secondary">{getNested(o.asesor)}</td>
-                  <td className="px-5 py-3 text-t-muted text-xs">
+                  <td className="px-5 py-3 text-t-secondary hidden md:table-cell">{getNested(o.asesor)}</td>
+                  <td className="px-5 py-3 text-t-muted text-xs hidden sm:table-cell">
                     {fmtFecha(o.created_at)}
                   </td>
                   <td className="px-5 py-3">
@@ -137,6 +148,7 @@ export default async function VentasPage({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

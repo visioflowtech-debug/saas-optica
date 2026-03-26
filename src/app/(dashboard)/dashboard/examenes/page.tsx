@@ -9,25 +9,20 @@ export default async function ExamenesPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("tenant_id, sucursal_id")
+    .eq("id", user.id)
+    .single();
+  if (!perfil) redirect("/login");
+
   const { data: examenes } = await supabase
     .from("examenes_clinicos")
-    .select("id, fecha_examen, rf_od_esfera, rf_od_cilindro, rf_oi_esfera, rf_oi_cilindro, paciente_id, optometrista_id")
+    .select("id, fecha_examen, rf_od_esfera, rf_od_cilindro, rf_oi_esfera, rf_oi_cilindro, paciente_id, optometrista_id, paciente:pacientes!examenes_clinicos_paciente_id_fkey(nombre), optometrista:usuarios!examenes_clinicos_optometrista_id_fkey(nombre)")
+    .eq("tenant_id", perfil.tenant_id)
+    .eq("sucursal_id", perfil.sucursal_id)
+    .eq("anulado", false)
     .order("fecha_examen", { ascending: false }).limit(50);
-
-  const pacienteIds = [...new Set(examenes?.map((e) => e.paciente_id) ?? [])];
-  const optIds = [...new Set(examenes?.map((e) => e.optometrista_id).filter(Boolean) ?? [])];
-
-  const [{ data: pacs }, { data: opts }] = await Promise.all([
-    pacienteIds.length > 0
-      ? supabase.from("pacientes").select("id, nombre").in("id", pacienteIds)
-      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
-    optIds.length > 0
-      ? supabase.from("usuarios").select("id, nombre").in("id", optIds)
-      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
-  ]);
-
-  const pacMap = new Map((pacs ?? []).map((p) => [p.id, p.nombre]));
-  const optMap = new Map((opts ?? []).map((o) => [o.id, o.nombre]));
 
   return (
     <div className="space-y-6">
@@ -46,35 +41,36 @@ export default async function ExamenesPage() {
       </div>
 
       <div className="bg-card border border-b-default rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-b-subtle">
-              <th className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase">Fecha</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase">Paciente</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase hidden md:table-cell">RF OD</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase hidden md:table-cell">RF OI</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase hidden lg:table-cell">Optometrista</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-t-muted uppercase">Acciones</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase">Fecha</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase">Paciente</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase hidden md:table-cell">RF OD</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase hidden md:table-cell">RF OI</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-t-muted uppercase hidden lg:table-cell">Optometrista</th>
+              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-t-muted uppercase">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-b-subtle">
             {examenes && examenes.length > 0 ? (
               examenes.map((ex) => {
-                const pacNombre = pacMap.get(ex.paciente_id);
-                const optNombre = ex.optometrista_id ? optMap.get(ex.optometrista_id) : null;
+                const pacNombre = getNested(ex.paciente);
+                const optNombre = getNested(ex.optometrista);
                 return (
                   <tr key={ex.id} className="hover:bg-card-hover transition">
                     <td className="px-6 py-4 text-sm text-t-primary">
                       {fmtFecha(ex.fecha_examen)}
                     </td>
                     <td className="px-6 py-4">
-                      {pacNombre ? (
+                      {pacNombre !== "—" ? (
                         <Link href={`/dashboard/pacientes/${ex.paciente_id}`} className="text-sm text-t-blue hover:underline">{pacNombre}</Link>
                       ) : <span className="text-sm text-t-muted">—</span>}
                     </td>
                     <td className="px-6 py-4 text-sm text-t-secondary hidden md:table-cell font-mono">{fmtNum(ex.rf_od_esfera)} / {fmtNum(ex.rf_od_cilindro)}</td>
                     <td className="px-6 py-4 text-sm text-t-secondary hidden md:table-cell font-mono">{fmtNum(ex.rf_oi_esfera)} / {fmtNum(ex.rf_oi_cilindro)}</td>
-                    <td className="px-6 py-4 text-sm text-t-muted hidden lg:table-cell">{optNombre || "—"}</td>
+                    <td className="px-6 py-4 text-sm text-t-muted hidden lg:table-cell">{optNombre}</td>
                     <td className="px-6 py-4 text-right">
                       <Link href={`/dashboard/pacientes/${ex.paciente_id}`} className="text-xs text-t-muted hover:text-t-primary transition">Ver 360°</Link>
                     </td>
@@ -86,9 +82,16 @@ export default async function ExamenesPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
 }
 
 function fmtNum(val: number | null): string { return val != null ? val.toFixed(2) : "—"; }
+
+function getNested(rel: { nombre: string } | { nombre: string }[] | null): string {
+  if (!rel) return "—";
+  if (Array.isArray(rel)) return rel[0]?.nombre ?? "—";
+  return rel.nombre;
+}

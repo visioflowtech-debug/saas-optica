@@ -120,7 +120,7 @@ export default async function DashboardLayout({
               className="nav-link flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
               style={{ color: "var(--text-secondary)" }}
             >
-              <span className="text-base">{item.icon}</span>
+              <span className="text-base" aria-hidden="true">{item.icon}</span>
               {item.label}
             </a>
           ))}
@@ -151,7 +151,7 @@ export default async function DashboardLayout({
           <form>
             <button
               formAction={signout}
-              className="w-full px-3 py-2 text-sm rounded-lg transition-colors text-left"
+              className="w-full px-3 py-2.5 min-h-11 text-sm rounded-lg transition-colors text-left"
               style={{ color: "var(--text-muted)" }}
             >
               Cerrar sesión
