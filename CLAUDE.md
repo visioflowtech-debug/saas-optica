@@ -97,13 +97,15 @@ Usa el Agent tool con estos sub-agentes según el tipo de tarea:
 - **`qa`** — Revisión de bugs, edge cases, validaciones
 - **`security`** — RLS, auth, inyecciones, performance
 - **`optometria`** — Sugerencias de features del dominio óptica/optometría
-- **`ux-optimizer`** — Responsive design, Web Vitals, accesibilidad, compatibilidad iOS/Android/Windows
+- **`ux-optimizer`** — Responsive design, Web Vitals, accesibilidad, compatibilidad iOS/Android/Windows, performance a escala
+- **`api-architect`** — API-first: endpoints REST, webhooks salientes/entrantes, integraciones (Make, n8n, GHL, WhatsApp, Meta)
 
 ## Skills disponibles (slash commands)
 - `/nueva-feature [descripción]` — Planifica e implementa nueva funcionalidad
 - `/qa-check [módulo]` — Revisión QA del módulo o cambios recientes
 - `/security-audit [módulo]` — Auditoría de seguridad y tenant isolation
-- `/optimize-ux [módulo]` — Auditoría responsive, performance y compatibilidad multi-dispositivo
+- `/optimize-ux [módulo]` — Responsive, performance a escala, índices DB, paginación, búsquedas eficientes
+- `/api-design [endpoint|integración]` — Diseña/implementa endpoints REST, webhooks, integraciones externas
 - `/deploy` — Versionar y desplegar a producción
 - `/sugerir-features` — Experto en optometría sugiere próximas features
 

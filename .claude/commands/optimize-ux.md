@@ -90,7 +90,58 @@ Desktop: > 1024px (xl) — administrador con laptop/PC
 
 ---
 
-## 5. MEJORES PRÁCTICAS NEXT.JS APP ROUTER
+## 5. PERFORMANCE A ESCALA (grandes volúmenes de datos)
+
+Este sistema maneja múltiples sucursales con crecimiento continuo de pacientes, órdenes y
+laboratorio. Verificar que el código aguante 10x el volumen actual sin degradarse.
+
+### Paginación server-side
+- [ ] ¿Las listas de pacientes, ventas y exámenes tienen paginación con `.range(from, to)`?
+- [ ] ¿Se evita traer todas las filas con `.limit(50)` como máximo hardcodeado?
+- [ ] ¿Las listas más críticas (pacientes, ventas) tienen cursor-based pagination en lugar de offset?
+- [ ] ¿El kanban de laboratorio filtra solo órdenes activas (no historial completo)?
+
+### Búsqueda eficiente
+- [ ] ¿Los inputs de búsqueda usan `debounce` de al menos 300ms antes de hacer la query?
+- [ ] ¿Las búsquedas de texto usan `.ilike()` con índice, o full-text search con `@@` operator?
+- [ ] ¿La búsqueda de pacientes por nombre/teléfono tiene índice en la columna?
+- [ ] ¿Los filtros combinados (fecha + estado + campaña) se aplican en una sola query, no en JS?
+
+### Queries eficientes
+- [ ] ¿Se evita `SELECT *` — se seleccionan solo las columnas necesarias?
+- [ ] ¿Los joins se hacen en una sola query Supabase en lugar de múltiples roundtrips?
+- [ ] ¿Se detectan N+1 queries (loops con `await supabase.from()` dentro)?
+- [ ] ¿Los KPIs de dashboard usan `count: "exact"` solo cuando es necesario?
+- [ ] ¿Las queries de reporting usan vistas SQL o RPCs en lugar de procesamiento en JS?
+
+### Índices de base de datos sugeridos
+Verificar (via MCP Supabase) que existan índices en:
+```sql
+-- Búsquedas frecuentes
+CREATE INDEX IF NOT EXISTS idx_pacientes_tenant_nombre    ON pacientes(tenant_id, nombre);
+CREATE INDEX IF NOT EXISTS idx_pacientes_tenant_telefono  ON pacientes(tenant_id, telefono);
+CREATE INDEX IF NOT EXISTS idx_ordenes_tenant_sucursal    ON ordenes(tenant_id, sucursal_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ordenes_campana            ON ordenes(campana_id) WHERE campana_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_lab_estados_orden_updated  ON laboratorio_estados(orden_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pagos_orden_tenant         ON pagos(orden_id, tenant_id);
+CREATE INDEX IF NOT EXISTS idx_examenes_paciente_fecha    ON examenes_clinicos(paciente_id, fecha_examen DESC);
+CREATE INDEX IF NOT EXISTS idx_gastos_tenant_campana      ON gastos(tenant_id, campana_id);
+```
+Si no existen, aplicarlos via `mcp__supabase__apply_migration`.
+
+### Virtualización de listas largas
+- [ ] ¿Las tablas con >100 filas usan virtualización (`@tanstack/react-virtual`) o paginación?
+- [ ] ¿El kanban limita las tarjetas mostradas por columna con scroll interno?
+- [ ] ¿Los dropdowns con muchos productos usan búsqueda incremental, no render de todos?
+
+### Caché y revalidación
+- [ ] ¿Las páginas de configuración (que cambian raramente) usan `cache: "force-cache"`?
+- [ ] ¿Los datos de empresa/sucursal en el layout se cachean para no re-fetchear en cada nav?
+- [ ] ¿`revalidatePath` se llama solo en las rutas afectadas, no en `/` o `/(.*)`?
+
+---
+
+## 6. MEJORES PRÁCTICAS NEXT.JS APP ROUTER
 
 - [ ] ¿Los errores de Server Actions redirigen con mensajes genéricos (no DB internals)?
 - [ ] ¿Hay `error.tsx` en rutas críticas?
