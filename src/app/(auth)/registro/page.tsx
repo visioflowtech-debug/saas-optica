@@ -4,7 +4,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 export const metadata: Metadata = {
   title: "Crear Cuenta",
-  description: "Crea tu cuenta en Óptica Nueva Imagen",
+  description: "Registra tu óptica en el sistema de gestión",
   robots: { index: false, follow: false },
 };
 
@@ -17,10 +17,9 @@ export default async function RegistroPage({
 
   return (
     <main
-      className="min-h-screen flex items-center justify-center relative"
+      className="min-h-screen flex items-center justify-center relative py-8"
       style={{ background: "var(--bg-body)" }}
     >
-      {/* Theme toggle in corner */}
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
@@ -38,10 +37,10 @@ export default async function RegistroPage({
             className="text-3xl font-bold tracking-tight"
             style={{ color: "var(--text-primary)" }}
           >
-            Crear Cuenta
+            Registrar Óptica
           </h1>
           <p className="text-sm mt-2" style={{ color: "var(--text-muted)" }}>
-            Registra tu cuenta en Óptica Nueva Imagen
+            Configura tu cuenta en minutos
           </p>
         </div>
 
@@ -58,13 +57,70 @@ export default async function RegistroPage({
         )}
 
         <form className="space-y-5">
+          {/* Sección empresa */}
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+            Tu óptica
+          </p>
+
+          <div>
+            <label
+              htmlFor="empresa_nombre"
+              className="block text-sm font-medium mb-1.5"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Nombre de la óptica
+            </label>
+            <input
+              id="empresa_nombre"
+              name="empresa_nombre"
+              type="text"
+              required
+              placeholder="Ej. Óptica Central"
+              className="w-full px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              style={{
+                background: "var(--bg-input)",
+                border: "1px solid var(--border-default)",
+                color: "var(--text-primary)",
+              }}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="sucursal_nombre"
+              className="block text-sm font-medium mb-1.5"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Nombre de la sucursal principal
+            </label>
+            <input
+              id="sucursal_nombre"
+              name="sucursal_nombre"
+              type="text"
+              required
+              placeholder="Ej. Sucursal Centro"
+              className="w-full px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              style={{
+                background: "var(--bg-input)",
+                border: "1px solid var(--border-default)",
+                color: "var(--text-primary)",
+              }}
+            />
+          </div>
+
+          {/* Separador */}
+          <div style={{ borderTop: "1px solid var(--border-default)", marginTop: "4px" }} />
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+            Tu cuenta de administrador
+          </p>
+
           <div>
             <label
               htmlFor="nombre"
               className="block text-sm font-medium mb-1.5"
               style={{ color: "var(--text-secondary)" }}
             >
-              Nombre completo
+              Tu nombre completo
             </label>
             <input
               id="nombre"
@@ -80,6 +136,7 @@ export default async function RegistroPage({
               }}
             />
           </div>
+
           <div>
             <label
               htmlFor="email"
@@ -102,6 +159,7 @@ export default async function RegistroPage({
               }}
             />
           </div>
+
           <div>
             <label
               htmlFor="password"
@@ -115,8 +173,8 @@ export default async function RegistroPage({
               name="password"
               type="password"
               required
-              minLength={6}
-              placeholder="••••••••"
+              minLength={8}
+              placeholder="Mínimo 8 caracteres"
               className="w-full px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
               style={{
                 background: "var(--bg-input)",
@@ -125,13 +183,15 @@ export default async function RegistroPage({
               }}
             />
           </div>
+
           <button
             formAction={signup}
             className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg shadow-blue-600/25"
           >
-            Crear Cuenta
+            Crear cuenta y entrar
           </button>
         </form>
+
         <p className="text-center text-sm mt-6" style={{ color: "var(--text-muted)" }}>
           ¿Ya tienes cuenta?{" "}
           <a href="/login" className="text-blue-500 hover:text-blue-400 transition">

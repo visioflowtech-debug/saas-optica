@@ -26,6 +26,20 @@ export default async function VentasPage({
     .single();
   if (!perfil) redirect("/login");
 
+  const q = params.q?.trim() ?? "";
+
+  // Si hay búsqueda, resolverla a nivel DB buscando pacientes cuyo nombre coincide
+  let pacienteIds: string[] | null = null;
+  if (q) {
+    const { data: pacs } = await supabase
+      .from("pacientes")
+      .select("id")
+      .eq("tenant_id", perfil.tenant_id)
+      .ilike("nombre", `%${q}%`)
+      .limit(200);
+    pacienteIds = (pacs ?? []).map((p) => p.id);
+  }
+
   let query = supabase
     .from("ordenes")
     .select("id, tipo, estado, total, created_at, paciente:pacientes!ordenes_paciente_id_fkey(nombre), asesor:usuarios!ordenes_asesor_id_fkey(nombre)", { count: "exact" })
@@ -36,15 +50,15 @@ export default async function VentasPage({
 
   if (params.filtro === "proforma") query = query.eq("tipo", "proforma");
   if (params.filtro === "orden_trabajo") query = query.eq("tipo", "orden_trabajo");
+  if (pacienteIds !== null) {
+    if (pacienteIds.length === 0) query = query.eq("paciente_id", "00000000-0000-0000-0000-000000000000"); // sin resultados
+    else query = query.in("paciente_id", pacienteIds);
+  }
 
   const { data: ordenes, count } = await query;
   const totalPages = Math.ceil((count ?? 0) / PER_PAGE);
 
-  const q = params.q?.toLowerCase() ?? "";
-  const filtered = (ordenes ?? []).filter((o) => {
-    const nombre = getNested(o.paciente);
-    return !q || nombre.toLowerCase().includes(q);
-  });
+  const filtered = ordenes ?? [];
 
   const currentFilter = params.filtro ?? "todas";
 

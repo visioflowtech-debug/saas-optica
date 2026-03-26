@@ -18,7 +18,7 @@ export async function obtenerConfiguracion() {
 
   const { data: empresa, error: empresaError } = await supabase
     .from("empresas")
-    .select("*")
+    .select("id, nombre, nit, logo_url, email, created_at, updated_at")
     .eq("id", tenant_id)
     .single();
 
@@ -75,7 +75,8 @@ export async function actualizarEmpresa(_id: string, payload: { nombre: string; 
 }
 
 export async function actualizarSucursal(id: string, payload: { nombre: string; direccion: string; telefono: string }) {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { success: false, error: "Sin permisos" };
 
   const { error } = await supabase
     .from("sucursales")
@@ -98,7 +99,8 @@ export async function actualizarSucursal(id: string, payload: { nombre: string; 
 }
 
 export async function toggleCampanasActivas(sucursalId: string, activas: boolean) {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { success: false, error: "Sin permisos" };
 
   const { error } = await supabase
     .from("sucursales")

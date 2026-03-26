@@ -28,7 +28,8 @@ export async function obtenerOrdenesLaboratorio() {
     .eq("tenant_id", perfil.tenant_id)
     .eq("tipo", "orden_trabajo")
     .neq("estado", "cancelada")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(200);
 
   if (ordenesError) throw new Error(ordenesError.message);
 

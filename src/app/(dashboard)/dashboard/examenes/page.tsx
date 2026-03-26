@@ -42,7 +42,7 @@ export default async function ExamenesPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-t-primary">Exámenes Clínicos</h1>
-          <p className="text-t-muted text-sm mt-1">{examenes?.length ?? 0} exámenes registrados</p>
+          <p className="text-t-muted text-sm mt-1">{count ?? 0} exámenes registrados</p>
         </div>
         <div className="flex items-center gap-2">
           <CampanasBackLink />
