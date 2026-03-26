@@ -24,3 +24,22 @@ Usa el agente de QA para:
 5. **Proponer fixes** con código específico para cada hallazgo.
 
 Si no se especifica módulo, revisar todos los archivos en `git status` que están staged.
+
+## 6. GATE DE APROBACIÓN (obligatorio al final)
+
+Al terminar la revisión, evalúa si los cambios son seguros para producción:
+
+**Si no hay hallazgos Críticos ni Altos sin resolver:**
+```bash
+echo $(date +%s) > /c/saas_optica/.qa-stamp
+echo "✅ QA APROBADO — stamp creado. Push a producción desbloqueado por 2 horas."
+```
+
+**Si hay hallazgos Críticos o Altos pendientes:**
+```bash
+echo "❌ QA NO APROBADO — resuelve los hallazgos críticos/altos antes de deployar."
+# NO crear el .qa-stamp
+```
+
+El archivo `.qa-stamp` es verificado por el hook `pre-bash.sh` antes de permitir `git push`.
+Sin este stamp (o con uno de más de 2 horas), el push queda bloqueado automáticamente.

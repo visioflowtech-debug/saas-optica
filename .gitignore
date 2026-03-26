@@ -37,6 +37,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Claude Code hooks — archivos locales de sesión
+.qa-stamp
+deploy.log
+lint.txt
+
 # MCP secrets (tokens locales, no subir a git)
 .mcp.json
 
