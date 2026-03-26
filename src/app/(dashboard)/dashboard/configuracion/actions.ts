@@ -3,14 +3,23 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-export async function obtenerConfiguracion() {
+async function getUserContext() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("No autenticado");
+  const { data: perfil } = await supabase
+    .from("usuarios").select("tenant_id, rol").eq("id", user.id).single();
+  if (!perfil) throw new Error("Perfil no encontrado");
+  return { supabase, ...perfil };
+}
 
-  // The RLS policy will automatically scope these to the user's tenant_id
+export async function obtenerConfiguracion() {
+  const { supabase, tenant_id } = await getUserContext();
+
   const { data: empresa, error: empresaError } = await supabase
     .from("empresas")
     .select("*")
-    .limit(1)
+    .eq("id", tenant_id)
     .single();
 
   if (empresaError && empresaError.code !== "PGRST116") {
@@ -22,6 +31,7 @@ export async function obtenerConfiguracion() {
   const { data: sucursales, error: sucursalError } = await supabase
     .from("sucursales")
     .select("id, nombre, direccion, telefono, activa, campanas_activas, created_at, updated_at")
+    .eq("tenant_id", tenant_id)
     .order("created_at", { ascending: true });
 
   if (sucursalError) {
@@ -36,23 +46,28 @@ export async function obtenerConfiguracion() {
   };
 }
 
-export async function actualizarEmpresa(id: string, payload: { nombre: string; nit: string; logo_url: string; email: string }) {
-  const supabase = await createClient();
+export async function actualizarEmpresa(_id: string, payload: { nombre: string; nit: string; logo_url: string; email: string }) {
+  const { supabase, tenant_id } = await getUserContext();
+
+  // Validar logo_url: solo URLs http/https o vacío
+  if (payload.logo_url && !/^https?:\/\/.+/.test(payload.logo_url)) {
+    return { success: false, error: "URL de logo inválida" };
+  }
 
   const { error } = await supabase
     .from("empresas")
     .update({
       nombre: payload.nombre,
       nit: payload.nit,
-      logo_url: payload.logo_url,
-      email: payload.email,
+      logo_url: payload.logo_url || null,
+      email: payload.email || null,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", tenant_id); // Siempre del contexto autenticado, no del parámetro
 
   if (error) {
     console.error("Error updating empresa:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Error al actualizar empresa" };
   }
 
   revalidatePath("/dashboard/configuracion");
@@ -60,7 +75,7 @@ export async function actualizarEmpresa(id: string, payload: { nombre: string; n
 }
 
 export async function actualizarSucursal(id: string, payload: { nombre: string; direccion: string; telefono: string }) {
-  const supabase = await createClient();
+  const { supabase, tenant_id } = await getUserContext();
 
   const { error } = await supabase
     .from("sucursales")
@@ -70,11 +85,12 @@ export async function actualizarSucursal(id: string, payload: { nombre: string; 
       telefono: payload.telefono,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("tenant_id", tenant_id);
 
   if (error) {
     console.error("Error updating sucursal:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Error al actualizar sucursal" };
   }
 
   revalidatePath("/dashboard/configuracion");
@@ -82,12 +98,13 @@ export async function actualizarSucursal(id: string, payload: { nombre: string; 
 }
 
 export async function toggleCampanasActivas(sucursalId: string, activas: boolean) {
-  const supabase = await createClient();
+  const { supabase, tenant_id } = await getUserContext();
 
   const { error } = await supabase
     .from("sucursales")
     .update({ campanas_activas: activas, updated_at: new Date().toISOString() })
-    .eq("id", sucursalId);
+    .eq("id", sucursalId)
+    .eq("tenant_id", tenant_id);
 
   if (error) return { success: false, error: error.message };
 

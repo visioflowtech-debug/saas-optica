@@ -35,19 +35,19 @@ export async function eliminarOrdenCompleta(ordenId: string) {
     for (const item of items ?? []) {
       if (!item.producto_id) continue;
       const { data: prod } = await supabase
-        .from("productos").select("maneja_stock, stock").eq("id", item.producto_id).single();
+        .from("productos").select("maneja_stock, stock").eq("id", item.producto_id).eq("tenant_id", tenant_id).single();
       if (prod?.maneja_stock) {
         await supabase.from("productos")
           .update({ stock: (prod.stock || 0) + (item.cantidad || 0) })
-          .eq("id", item.producto_id);
+          .eq("id", item.producto_id).eq("tenant_id", tenant_id);
       }
     }
   }
 
-  // Eliminar en orden correcto
-  await supabase.from("laboratorio_estados").delete().eq("orden_id", ordenId);
-  await supabase.from("pagos").delete().eq("orden_id", ordenId);
-  await supabase.from("orden_laboratorio_datos").delete().eq("orden_id", ordenId);
+  // Eliminar en orden correcto (tenant_id en tablas que lo tienen)
+  await supabase.from("laboratorio_estados").delete().eq("orden_id", ordenId).eq("tenant_id", tenant_id);
+  await supabase.from("pagos").delete().eq("orden_id", ordenId).eq("tenant_id", tenant_id);
+  await supabase.from("orden_laboratorio_datos").delete().eq("orden_id", ordenId).eq("tenant_id", tenant_id);
   await supabase.from("orden_detalle").delete().eq("orden_id", ordenId);
   const { error } = await supabase.from("ordenes").delete().eq("id", ordenId).eq("tenant_id", tenant_id);
 
@@ -119,18 +119,18 @@ export async function eliminarPaciente(pacienteId: string) {
         for (const item of items ?? []) {
           if (!item.producto_id) continue;
           const { data: prod } = await supabase
-            .from("productos").select("maneja_stock, stock").eq("id", item.producto_id).single();
+            .from("productos").select("maneja_stock, stock").eq("id", item.producto_id).eq("tenant_id", tenant_id).single();
           if (prod?.maneja_stock) {
             await supabase.from("productos")
               .update({ stock: (prod.stock || 0) + (item.cantidad || 0) })
-              .eq("id", item.producto_id);
+              .eq("id", item.producto_id).eq("tenant_id", tenant_id);
           }
         }
       }
     }
-    await supabase.from("laboratorio_estados").delete().in("orden_id", ordenIds);
-    await supabase.from("pagos").delete().in("orden_id", ordenIds);
-    await supabase.from("orden_laboratorio_datos").delete().in("orden_id", ordenIds);
+    await supabase.from("laboratorio_estados").delete().in("orden_id", ordenIds).eq("tenant_id", tenant_id);
+    await supabase.from("pagos").delete().in("orden_id", ordenIds).eq("tenant_id", tenant_id);
+    await supabase.from("orden_laboratorio_datos").delete().in("orden_id", ordenIds).eq("tenant_id", tenant_id);
     await supabase.from("orden_detalle").delete().in("orden_id", ordenIds);
     await supabase.from("ordenes").delete().in("id", ordenIds);
   }

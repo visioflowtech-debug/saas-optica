@@ -26,7 +26,7 @@ export default async function CampanaDetallePage({
   // Calcular los KPIs financieros desde los mismos datos del listado
   const ventasActivas = ventas.filter((v) => v.estado !== "anulada");
   const ordenIds = ventasActivas.map((v) => v.id);
-  const totalIngresos = await obtenerIngresosDeCampana(ordenIds, campana.tenant_id);
+  const totalIngresos = await obtenerIngresosDeCampana(ordenIds);
 
   const totalVentas      = ventasActivas.reduce((s, v) => s + Number(v.total || 0), 0);
   const totalGastos      = gastos.reduce((s, g) => s + Number(g.monto || 0), 0);

@@ -71,7 +71,7 @@ export async function crearPaciente(formData: FormData) {
 }
 
 export async function actualizarPaciente(formData: FormData) {
-  const { supabase } = await getUserContext();
+  const { supabase, tenant_id } = await getUserContext();
 
   const id = formData.get("id") as string;
   const nombre = formData.get("nombre") as string;
@@ -97,12 +97,11 @@ export async function actualizarPaciente(formData: FormData) {
       etiquetas_medicas,
       acepta_marketing,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("tenant_id", tenant_id);
 
   if (error) {
-    return redirect(
-      `/dashboard/pacientes/${id}?error=` + encodeURIComponent(error.message)
-    );
+    return redirect(`/dashboard/pacientes/${id}?error=Error+al+actualizar+paciente`);
   }
 
   revalidatePath(`/dashboard/pacientes/${id}`);
@@ -111,10 +110,10 @@ export async function actualizarPaciente(formData: FormData) {
 }
 
 export async function eliminarPaciente(formData: FormData) {
-  const { supabase } = await getUserContext();
+  const { supabase, tenant_id } = await getUserContext();
   const id = formData.get("id") as string;
 
-  const { error } = await supabase.from("pacientes").delete().eq("id", id);
+  const { error } = await supabase.from("pacientes").delete().eq("id", id).eq("tenant_id", tenant_id);
 
   if (error) {
     return redirect(

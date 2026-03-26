@@ -92,11 +92,18 @@ export async function crearProforma(formData: FormData) {
   const subtotal = items.reduce((sum, it) => sum + it.cantidad * it.precio_unitario, 0);
   const total = Math.max(subtotal - descuento, 0);
 
-  // Check idempotency
+  // Validar items
+  const itemsValidos = items.filter(it => it.cantidad > 0 && it.precio_unitario >= 0);
+  if (itemsValidos.length === 0) {
+    return redirect("/dashboard/ventas/nueva?error=Items+con+cantidad+o+precio+invalido");
+  }
+
+  // Check idempotency (scoped al tenant para evitar cross-tenant leaks)
   const { data: existing } = await supabase
     .from("ordenes")
     .select("id")
     .eq("idempotency_key", idempotency_key)
+    .eq("tenant_id", tenant_id)
     .maybeSingle();
 
   if (existing) {
@@ -148,15 +155,16 @@ export async function crearProforma(formData: FormData) {
 
 /* ── Update Status ──────────────────────────────────────── */
 export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
-  const { supabase } = await getUserContext();
+  const { supabase, tenant_id } = await getUserContext();
 
   const { data: orden } = await supabase
-    .from("ordenes").select("campana_id").eq("id", ordenId).single();
+    .from("ordenes").select("campana_id").eq("id", ordenId).eq("tenant_id", tenant_id).single();
 
   const { error } = await supabase
     .from("ordenes")
     .update({ estado: nuevoEstado, updated_at: new Date().toISOString() })
-    .eq("id", ordenId);
+    .eq("id", ordenId)
+    .eq("tenant_id", tenant_id);
 
   if (error) throw new Error(error.message);
 
@@ -183,6 +191,7 @@ export async function convertirAOrden(ordenId: string) {
           .from("productos")
           .select("maneja_stock, stock")
           .eq("id", item.producto_id)
+          .eq("tenant_id", tenant_id)
           .single();
 
         if (prod?.maneja_stock) {
@@ -190,7 +199,8 @@ export async function convertirAOrden(ordenId: string) {
           await supabase
             .from("productos")
             .update({ stock: nuevoStock })
-            .eq("id", item.producto_id);
+            .eq("id", item.producto_id)
+            .eq("tenant_id", tenant_id);
         }
       }
     }
@@ -199,12 +209,13 @@ export async function convertirAOrden(ordenId: string) {
   // 2. Update order type and status
   const { error } = await supabase
     .from("ordenes")
-    .update({ 
-      tipo: "orden_trabajo", 
-      estado: "confirmada", 
-      updated_at: new Date().toISOString() 
+    .update({
+      tipo: "orden_trabajo",
+      estado: "confirmada",
+      updated_at: new Date().toISOString()
     })
-    .eq("id", ordenId);
+    .eq("id", ordenId)
+    .eq("tenant_id", tenant_id);
 
   if (error) throw new Error(error.message);
 
@@ -217,7 +228,7 @@ export async function convertirAOrden(ordenId: string) {
 
   // 4. Fetch campana_id to revalidate campaign dashboard
   const { data: ordenData } = await supabase
-    .from("ordenes").select("campana_id").eq("id", ordenId).single();
+    .from("ordenes").select("campana_id").eq("id", ordenId).eq("tenant_id", tenant_id).single();
 
   revalidatePath("/dashboard/ventas");
   revalidatePath(`/dashboard/ventas/${ordenId}`);
@@ -227,13 +238,14 @@ export async function convertirAOrden(ordenId: string) {
 
 /* ── Anular Orden (Restituye Stock) ─────────────────────── */
 export async function anularOrden(ordenId: string) {
-  const { supabase } = await getUserContext();
+  const { supabase, tenant_id } = await getUserContext();
 
-  // 1. Check current status
+  // 1. Check current status (verificar que la orden pertenece al tenant)
   const { data: orden } = await supabase
     .from("ordenes")
     .select("estado, tipo, campana_id")
     .eq("id", ordenId)
+    .eq("tenant_id", tenant_id)
     .single();
 
   if (!orden || orden.estado === "anulada") return;
@@ -253,6 +265,7 @@ export async function anularOrden(ordenId: string) {
             .from("productos")
             .select("maneja_stock, stock")
             .eq("id", item.producto_id)
+            .eq("tenant_id", tenant_id)
             .single();
 
           if (prod?.maneja_stock) {
@@ -260,7 +273,8 @@ export async function anularOrden(ordenId: string) {
             await supabase
               .from("productos")
               .update({ stock: nuevoStock })
-              .eq("id", item.producto_id);
+              .eq("id", item.producto_id)
+              .eq("tenant_id", tenant_id);
           }
         }
       }
@@ -270,16 +284,19 @@ export async function anularOrden(ordenId: string) {
   // 3. Update status to "anulada"
   const { error } = await supabase
     .from("ordenes")
-    .update({ 
-      estado: "anulada", 
-      updated_at: new Date().toISOString() 
+    .update({
+      estado: "anulada",
+      updated_at: new Date().toISOString()
     })
-    .eq("id", ordenId);
+    .eq("id", ordenId)
+    .eq("tenant_id", tenant_id);
 
   if (error) throw new Error(error.message);
 
   // 4. Delete from Kanban (laboratorio_estados)
-  await supabase.from("laboratorio_estados").delete().eq("orden_id", ordenId);
+  await supabase.from("laboratorio_estados").delete()
+    .eq("orden_id", ordenId)
+    .eq("tenant_id", tenant_id);
 
   revalidatePath("/dashboard/ventas");
   revalidatePath(`/dashboard/ventas/${ordenId}`);
@@ -289,12 +306,13 @@ export async function anularOrden(ordenId: string) {
 
 /* ── Get Order Details ──────────────────────────────────── */
 export async function obtenerOrden(ordenId: string) {
-  const { supabase } = await getUserContext();
+  const { supabase, tenant_id } = await getUserContext();
 
   const { data: orden } = await supabase
     .from("ordenes")
     .select("*, paciente:pacientes!ordenes_paciente_id_fkey(nombre, telefono, email), asesor:usuarios!ordenes_asesor_id_fkey(nombre)")
     .eq("id", ordenId)
+    .eq("tenant_id", tenant_id)
     .single();
 
   if (!orden) return null;
@@ -318,11 +336,13 @@ export async function obtenerOrden(ordenId: string) {
 
 /* ── List Orders ────────────────────────────────────────── */
 export async function listarOrdenes(filtroTipo?: string) {
-  const { supabase } = await getUserContext();
+  const { supabase, tenant_id, sucursal_id } = await getUserContext();
 
   let query = supabase
     .from("ordenes")
     .select("*, paciente:pacientes!ordenes_paciente_id_fkey(nombre), asesor:usuarios!ordenes_asesor_id_fkey(nombre)")
+    .eq("tenant_id", tenant_id)
+    .eq("sucursal_id", sucursal_id)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -341,6 +361,7 @@ export async function obtenerDatosTicket(ordenId: string) {
     .from("ordenes")
     .select("*, paciente:pacientes!ordenes_paciente_id_fkey(nombre, telefono), asesor:usuarios!ordenes_asesor_id_fkey(nombre)")
     .eq("id", ordenId)
+    .eq("tenant_id", tenant_id)
     .single();
 
   if (!orden) return null;
@@ -368,6 +389,7 @@ export async function obtenerDatosTicket(ordenId: string) {
     .from("pagos")
     .select("monto, metodo_pago, created_at")
     .eq("orden_id", ordenId)
+    .eq("tenant_id", tenant_id)
     .order("created_at", { ascending: true });
 
   const totalAbonado = (pagos ?? []).reduce((s, p) => s + Number(p.monto), 0);
@@ -394,6 +416,7 @@ export async function registrarPago(ordenId: string, monto: number, metodoPago: 
     .from("ordenes")
     .select("total")
     .eq("id", ordenId)
+    .eq("tenant_id", tenant_id)
     .single();
 
   if (!orden) throw new Error("Orden no encontrada");
@@ -401,7 +424,8 @@ export async function registrarPago(ordenId: string, monto: number, metodoPago: 
   const { data: pagosExistentes } = await supabase
     .from("pagos")
     .select("monto")
-    .eq("orden_id", ordenId);
+    .eq("orden_id", ordenId)
+    .eq("tenant_id", tenant_id);
 
   const totalAbonado = (pagosExistentes ?? []).reduce((s, p) => s + Number(p.monto), 0);
   const saldo = Number(orden.total) - totalAbonado;
@@ -427,12 +451,13 @@ export async function registrarPago(ordenId: string, monto: number, metodoPago: 
 
 /* ── Get Payments for an Order ──────────────────────────── */
 export async function obtenerPagos(ordenId: string) {
-  const { supabase } = await getUserContext();
+  const { supabase, tenant_id } = await getUserContext();
 
   const { data: pagos } = await supabase
     .from("pagos")
     .select("*")
     .eq("orden_id", ordenId)
+    .eq("tenant_id", tenant_id)
     .order("created_at", { ascending: true });
 
   return pagos ?? [];

@@ -155,14 +155,14 @@ export async function obtenerVentasDeCampana(campanaId: string) {
   }>;
 }
 
-export async function obtenerIngresosDeCampana(ordenIds: string[], tenantId: string) {
+export async function obtenerIngresosDeCampana(ordenIds: string[]) {
   if (ordenIds.length === 0) return 0;
-  const supabase = await createClient();
+  const { supabase, tenant_id } = await getUserContext();
   const { data } = await supabase
     .from("pagos")
     .select("monto")
     .in("orden_id", ordenIds)
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenant_id);
   return (data || []).reduce((s, p) => s + Number(p.monto || 0), 0);
 }
 
@@ -188,13 +188,13 @@ export async function obtenerGastosDeCampana(campanaId: string) {
   }>;
 }
 
-export async function obtenerCampanasActivasDeSucursal(sucursalId: string, tenantId: string) {
-  const supabase = await createClient();
+export async function obtenerCampanasActivasDeSucursal() {
+  const { supabase, tenant_id, sucursal_id } = await getUserContext();
   const { data } = await supabase
     .from("campanas")
     .select("id, nombre")
-    .eq("sucursal_id", sucursalId)
-    .eq("tenant_id", tenantId)
+    .eq("sucursal_id", sucursal_id)
+    .eq("tenant_id", tenant_id)
     .eq("activa", true)
     .order("nombre");
 
