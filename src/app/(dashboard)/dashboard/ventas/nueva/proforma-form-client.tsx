@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { crearProforma } from "../actions";
 import type { CatalogItem } from "../actions";
@@ -31,7 +31,15 @@ function newItem(): LineItem {
 export default function ProformaFormClient({ pacientes, catalogo, defaultPacienteId, campanaId }: Props) {
   const [pacienteId, setPacienteId] = useState(defaultPacienteId || "");
   const [searchPatient, setSearchPatient] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchPatient), 200);
+    return () => clearTimeout(t);
+  }, [searchPatient]);
   const [items, setItems] = useState<LineItem[]>([newItem()]);
   const [descuento, setDescuento] = useState("");
   const [notas, setNotas] = useState("");
@@ -45,7 +53,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filteredPacientes = pacientes.filter(p => p.nombre.toLowerCase().includes(searchPatient.toLowerCase()));
+  const filteredPacientes = pacientes.filter(p => p.nombre.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
   const selectCatalogItem = (lineId: string, itemInfo: CatalogItem | null) => {
     if (!itemInfo) {
@@ -93,25 +101,46 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
         <label className="block text-sm font-medium text-t-secondary mb-1.5">Paciente *</label>
         <div className="relative">
           <input
-            type="text"
+            type="search"
             placeholder="Buscar por nombre..."
             value={searchPatient}
-            onChange={(e) => { setSearchPatient(e.target.value); setShowDropdown(true); setPacienteId(""); }}
+            aria-label="Buscar paciente"
+            aria-autocomplete="list"
+            aria-expanded={showDropdown && filteredPacientes.length > 0}
+            onChange={(e) => { setSearchPatient(e.target.value); setShowDropdown(true); setActiveIndex(-1); setPacienteId(""); }}
             onFocus={() => setShowDropdown(true)}
-            onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+            onBlur={() => setTimeout(() => { setShowDropdown(false); setActiveIndex(-1); }, 200)}
+            onKeyDown={(e) => {
+              if (!showDropdown || filteredPacientes.length === 0) return;
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setActiveIndex(i => Math.min(i + 1, filteredPacientes.length - 1));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setActiveIndex(i => Math.max(i - 1, 0));
+              } else if (e.key === "Enter" && activeIndex >= 0) {
+                e.preventDefault();
+                const p = filteredPacientes[activeIndex];
+                setPacienteId(p.id); setSearchPatient(p.nombre);
+                setShowDropdown(false); setActiveIndex(-1);
+              } else if (e.key === "Escape") {
+                setShowDropdown(false); setActiveIndex(-1);
+              }
+            }}
             className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           {showDropdown && filteredPacientes.length > 0 && (
-            <div className="absolute z-20 w-full mt-1 bg-card border border-b-default rounded-lg shadow-xl max-h-60 overflow-y-auto">
-              {filteredPacientes.map((p) => (
+            <div ref={dropdownRef} role="listbox" className="absolute z-20 w-full mt-1 bg-card border border-b-default rounded-lg shadow-xl max-h-60 overflow-y-auto">
+              {filteredPacientes.map((p, idx) => (
                 <div
                   key={p.id}
-                  className="px-4 py-2 hover:bg-input cursor-pointer text-t-primary text-sm transition-colors"
+                  role="option"
+                  aria-selected={idx === activeIndex}
+                  className={`px-4 py-2.5 cursor-pointer text-t-primary text-sm transition-colors ${idx === activeIndex ? "bg-blue-600 text-white" : "hover:bg-input"}`}
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    setPacienteId(p.id);
-                    setSearchPatient(p.nombre);
-                    setShowDropdown(false);
+                    setPacienteId(p.id); setSearchPatient(p.nombre);
+                    setShowDropdown(false); setActiveIndex(-1);
                   }}
                 >
                   {p.nombre}

@@ -12,12 +12,17 @@ function calculateAge(birthDate: string): number {
   return age;
 }
 
+const PER_PAGE = 50;
+
 export default async function PacientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; error?: string }>;
+  searchParams: Promise<{ q?: string; error?: string; pagina?: string }>;
 }) {
   const params = await searchParams;
+  const pagina = Math.max(1, parseInt(params.pagina ?? "1") || 1);
+  const from = (pagina - 1) * PER_PAGE;
+  const to = from + PER_PAGE - 1;
   const supabase = await createClient();
 
   const {
@@ -38,7 +43,7 @@ export default async function PacientesPage({
     .eq("tenant_id", perfil.tenant_id)
     .eq("sucursal_id", perfil.sucursal_id)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .range(from, to);
 
   if (params.q) {
     query = query.or(
@@ -47,6 +52,7 @@ export default async function PacientesPage({
   }
 
   const { data: pacientes, count } = await query;
+  const totalPages = Math.ceil((count ?? 0) / PER_PAGE);
 
   return (
     <div className="space-y-6">
@@ -179,6 +185,33 @@ export default async function PacientesPage({
         </table>
         </div>
       </div>
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-t-muted">
+            Página {pagina} de {totalPages} — {count} pacientes
+          </p>
+          <div className="flex gap-2">
+            {pagina > 1 && (
+              <Link
+                href={`/dashboard/pacientes?${params.q ? `q=${params.q}&` : ""}pagina=${pagina - 1}`}
+                className="px-4 py-2 min-h-11 flex items-center bg-card border border-b-default text-sm text-t-secondary hover:text-t-primary rounded-lg transition"
+              >
+                ← Anterior
+              </Link>
+            )}
+            {pagina < totalPages && (
+              <Link
+                href={`/dashboard/pacientes?${params.q ? `q=${params.q}&` : ""}pagina=${pagina + 1}`}
+                className="px-4 py-2 min-h-11 flex items-center bg-card border border-b-default text-sm text-t-secondary hover:text-t-primary rounded-lg transition"
+              >
+                Siguiente →
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

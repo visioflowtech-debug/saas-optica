@@ -48,11 +48,12 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Pro
         </div>
         <button
           onClick={() => setOpen(true)}
-          className="p-2 rounded-lg transition-colors"
-          style={{ color: "var(--text-secondary)" }}
+          className="flex items-center justify-center min-h-11 min-w-[44px] rounded-lg transition-colors"
+          style={{ color: "var(--text-secondary, #475569)", touchAction: "manipulation" }}
           aria-label="Abrir menú"
+          aria-expanded={open}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <line x1="3" y1="6" x2="21" y2="6" />
             <line x1="3" y1="12" x2="21" y2="12" />
             <line x1="3" y1="18" x2="21" y2="18" />
@@ -91,8 +92,8 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre }: Pro
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="p-1.5 rounded-lg"
-            style={{ color: "var(--text-muted)" }}
+            className="flex items-center justify-center min-h-11 min-w-[44px] rounded-lg"
+            style={{ color: "var(--text-muted, #94a3b8)", touchAction: "manipulation" }}
             aria-label="Cerrar menú"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

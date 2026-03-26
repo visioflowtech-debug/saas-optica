@@ -4,7 +4,17 @@ import Link from "next/link";
 import CampanasBackLink from "@/components/campanas-back-link";
 import { fmtFecha } from "@/lib/date-sv";
 
-export default async function ExamenesPage() {
+const PER_PAGE = 50;
+
+export default async function ExamenesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pagina?: string }>;
+}) {
+  const params = await searchParams;
+  const pagina = Math.max(1, parseInt(params.pagina ?? "1") || 1);
+  const from = (pagina - 1) * PER_PAGE;
+  const to = from + PER_PAGE - 1;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -16,13 +26,16 @@ export default async function ExamenesPage() {
     .single();
   if (!perfil) redirect("/login");
 
-  const { data: examenes } = await supabase
+  const { data: examenes, count } = await supabase
     .from("examenes_clinicos")
-    .select("id, fecha_examen, rf_od_esfera, rf_od_cilindro, rf_oi_esfera, rf_oi_cilindro, paciente_id, optometrista_id, paciente:pacientes!examenes_clinicos_paciente_id_fkey(nombre), optometrista:usuarios!examenes_clinicos_optometrista_id_fkey(nombre)")
+    .select("id, fecha_examen, rf_od_esfera, rf_od_cilindro, rf_oi_esfera, rf_oi_cilindro, paciente_id, optometrista_id, paciente:pacientes!examenes_clinicos_paciente_id_fkey(nombre), optometrista:usuarios!examenes_clinicos_optometrista_id_fkey(nombre)", { count: "exact" })
     .eq("tenant_id", perfil.tenant_id)
     .eq("sucursal_id", perfil.sucursal_id)
     .eq("anulado", false)
-    .order("fecha_examen", { ascending: false }).limit(50);
+    .order("fecha_examen", { ascending: false })
+    .range(from, to);
+
+  const totalPages = Math.ceil((count ?? 0) / PER_PAGE);
 
   return (
     <div className="space-y-6">
@@ -84,6 +97,27 @@ export default async function ExamenesPage() {
         </table>
         </div>
       </div>
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-t-muted">
+            Página {pagina} de {totalPages} — {count} exámenes
+          </p>
+          <div className="flex gap-2">
+            {pagina > 1 && (
+              <Link href={`/dashboard/examenes?pagina=${pagina - 1}`} className="px-4 py-2 min-h-11 flex items-center bg-card border border-b-default text-sm text-t-secondary hover:text-t-primary rounded-lg transition">
+                ← Anterior
+              </Link>
+            )}
+            {pagina < totalPages && (
+              <Link href={`/dashboard/examenes?pagina=${pagina + 1}`} className="px-4 py-2 min-h-11 flex items-center bg-card border border-b-default text-sm text-t-secondary hover:text-t-primary rounded-lg transition">
+                Siguiente →
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
