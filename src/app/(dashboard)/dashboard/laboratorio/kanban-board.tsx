@@ -31,6 +31,7 @@ export type LabEstado = "pendiente" | "en_laboratorio" | "recibido" | "entregado
 export interface LabItem {
   id: string; // orden_id
   createdAt: string; // created_at of order
+  estadoAt: string; // updated_at of latest lab estado
   paciente: string;
   total: number;
   estadoLab: LabEstado;
@@ -44,6 +45,10 @@ const COLUMNAS: { id: LabEstado; title: string; color: string; icon: string }[] 
   { id: "recibido", title: "Recibido", color: "border-t-green", icon: "📦" },
   { id: "entregado", title: "Entregado", color: "border-t-green", icon: "✅" },
 ];
+
+// Número de días que se muestran en la columna "Entregado".
+// Cambia este valor para ajustar la ventana de tiempo visible.
+const DIAS_ENTREGADO_VISIBLE = 5;
 
 export default function KanbanBoard({ items: initialItems }: { items: LabItem[] }) {
   const [items, setItems] = useState<LabItem[]>(initialItems);
@@ -135,17 +140,29 @@ export default function KanbanBoard({ items: initialItems }: { items: LabItem[] 
       onDragEnd={handleDragEnd}
     >
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-        {COLUMNAS.map((col) => (
-          <Column
-            key={col.id}
-            id={col.id}
-            title={col.title}
-            color={col.color}
-            icon={col.icon}
-            items={items.filter((item) => item.estadoLab === col.id)}
-            onCardClick={setSelectedOrdenId}
-          />
-        ))}
+        {COLUMNAS.map((col) => {
+          const colItems = items.filter((item) => item.estadoLab === col.id);
+          const visibleItems = col.id === "entregado"
+            ? colItems.filter((item) => {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - DIAS_ENTREGADO_VISIBLE);
+                return new Date(item.estadoAt) >= cutoff;
+              })
+            : colItems;
+          return (
+            <Column
+              key={col.id}
+              id={col.id}
+              title={col.title}
+              color={col.color}
+              icon={col.icon}
+              items={visibleItems}
+              totalCount={colItems.length}
+              diasFiltro={col.id === "entregado" ? DIAS_ENTREGADO_VISIBLE : undefined}
+              onCardClick={setSelectedOrdenId}
+            />
+          );
+        })}
       </div>
 
       <DragOverlay>
@@ -164,7 +181,7 @@ export default function KanbanBoard({ items: initialItems }: { items: LabItem[] 
 // ── Column ──────────────────────────────────────────────
 import { useDroppable } from "@dnd-kit/core";
 
-function Column({ id, title, color, icon, items, onCardClick }: { id: string; title: string; color: string; icon: string; items: LabItem[]; onCardClick: (id: string) => void }) {
+function Column({ id, title, color, icon, items, totalCount, diasFiltro, onCardClick }: { id: string; title: string; color: string; icon: string; items: LabItem[]; totalCount: number; diasFiltro?: number; onCardClick: (id: string) => void }) {
   const { setNodeRef } = useDroppable({ id });
 
   return (
@@ -172,14 +189,18 @@ function Column({ id, title, color, icon, items, onCardClick }: { id: string; ti
       ref={setNodeRef}
       className={`bg-card/50 border-t-2 ${color} border border-b-default rounded-xl p-3 min-h-[400px] flex flex-col shadow-[var(--shadow-card)]`}
     >
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-1">
         <h3 className="text-sm font-semibold text-t-primary flex items-center gap-2">
           <span>{icon}</span> {title}
         </h3>
         <span className="text-xs font-medium text-t-muted bg-input px-2 py-0.5 rounded-full">
-          {items.length}
+          {items.length}{totalCount > items.length ? `/${totalCount}` : ""}
         </span>
       </div>
+      {diasFiltro !== undefined && (
+        <p className="text-[10px] text-t-muted mb-3">Últimos {diasFiltro} días</p>
+      )}
+      {diasFiltro === undefined && <div className="mb-3" />}
 
       <div className="flex-1 flex flex-col gap-1.5">
         <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>

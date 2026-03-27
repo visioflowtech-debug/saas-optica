@@ -13,6 +13,7 @@ export default async function LaboratorioPage() {
   const items: LabItem[] = data.map((d: any) => ({
     id: d.id,
     createdAt: d.created_at,
+    estadoAt: d.laboratorio?.updated_at || d.created_at,
     paciente: Array.isArray(d.paciente) ? d.paciente[0]?.nombre : d.paciente?.nombre,
     total: Number(d.total),
     estadoLab: (d.laboratorio?.estado as LabEstado) || "pendiente",

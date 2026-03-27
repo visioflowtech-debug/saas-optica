@@ -23,10 +23,14 @@ export default function PacientesSearch({ defaultValue, total }: Props) {
     }
     const timer = setTimeout(() => {
       startTransition(() => {
+        // Preservar el parámetro de orden actual si existe
+        const current = new URLSearchParams(window.location.search);
         const params = new URLSearchParams();
         if (value.trim()) params.set("q", value.trim());
+        if (current.get("orden")) params.set("orden", current.get("orden")!);
         // Resetear a página 1 al cambiar búsqueda
-        router.push(`${pathname}${params.size ? `?${params}` : ""}`);
+        const qs = params.toString();
+        router.push(`${pathname}${qs ? `?${qs}` : ""}`);
       });
     }, 380);
     return () => clearTimeout(timer);
@@ -34,7 +38,11 @@ export default function PacientesSearch({ defaultValue, total }: Props) {
 
   const handleClear = () => {
     setValue("");
-    startTransition(() => router.push(pathname));
+    startTransition(() => {
+      const current = new URLSearchParams(window.location.search);
+      const orden = current.get("orden");
+      router.push(`${pathname}${orden ? `?orden=${orden}` : ""}`);
+    });
   };
 
   return (

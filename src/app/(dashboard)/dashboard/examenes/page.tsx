@@ -4,7 +4,19 @@ import Link from "next/link";
 import CampanasBackLink from "@/components/campanas-back-link";
 import { fmtFecha } from "@/lib/date-sv";
 
-const PER_PAGE = 50;
+const PER_PAGE = 25;
+
+function paginasVisibles(actual: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const set = new Set([1, total, actual - 1, actual, actual + 1].filter(p => p >= 1 && p <= total));
+  const sorted = [...set].sort((a, b) => a - b);
+  const result: (number | "…")[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && (sorted[i] as number) - (sorted[i - 1] as number) > 1) result.push("…");
+    result.push(sorted[i]);
+  }
+  return result;
+}
 
 export default async function ExamenesPage({
   searchParams,
@@ -100,22 +112,41 @@ export default async function ExamenesPage({
 
       {/* Paginación */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-t-muted">
-            Página {pagina} de {totalPages} — {count} exámenes
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-sm text-t-muted order-2 sm:order-1">
+            Mostrando {from + 1}–{Math.min(to + 1, count ?? 0)} de {count} exámenes
           </p>
-          <div className="flex gap-2">
-            {pagina > 1 && (
-              <Link href={`/dashboard/examenes?pagina=${pagina - 1}`} className="px-4 py-2 min-h-11 flex items-center bg-card border border-b-default text-sm text-t-secondary hover:text-t-primary rounded-lg transition">
-                ← Anterior
-              </Link>
+          <nav className="flex items-center gap-1 order-1 sm:order-2" aria-label="Paginación">
+            {pagina > 1 ? (
+              <Link href={`/dashboard/examenes?pagina=${pagina - 1}`}
+                className="px-3 py-2 min-h-10 flex items-center text-sm bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition"
+                aria-label="Página anterior">←</Link>
+            ) : (
+              <span className="px-3 py-2 min-h-10 flex items-center text-sm text-t-muted/40 border border-b-default rounded-lg cursor-not-allowed">←</span>
             )}
-            {pagina < totalPages && (
-              <Link href={`/dashboard/examenes?pagina=${pagina + 1}`} className="px-4 py-2 min-h-11 flex items-center bg-card border border-b-default text-sm text-t-secondary hover:text-t-primary rounded-lg transition">
-                Siguiente →
-              </Link>
+            {paginasVisibles(pagina, totalPages).map((p, i) =>
+              p === "…" ? (
+                <span key={`e-${i}`} className="px-2 py-2 text-sm text-t-muted">…</span>
+              ) : (
+                <Link key={p}
+                  href={p === 1 ? "/dashboard/examenes" : `/dashboard/examenes?pagina=${p}`}
+                  className={`w-9 h-9 flex items-center justify-center text-sm rounded-lg border transition ${
+                    p === pagina
+                      ? "bg-blue-600 text-white border-blue-600 font-semibold"
+                      : "bg-card border-b-default text-t-secondary hover:text-t-primary hover:bg-card-hover"
+                  }`}
+                  aria-current={p === pagina ? "page" : undefined}
+                >{p}</Link>
+              )
             )}
-          </div>
+            {pagina < totalPages ? (
+              <Link href={`/dashboard/examenes?pagina=${pagina + 1}`}
+                className="px-3 py-2 min-h-10 flex items-center text-sm bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition"
+                aria-label="Página siguiente">→</Link>
+            ) : (
+              <span className="px-3 py-2 min-h-10 flex items-center text-sm text-t-muted/40 border border-b-default rounded-lg cursor-not-allowed">→</span>
+            )}
+          </nav>
         </div>
       )}
     </div>

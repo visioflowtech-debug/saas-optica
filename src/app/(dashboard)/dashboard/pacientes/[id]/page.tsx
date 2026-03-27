@@ -31,15 +31,24 @@ export default async function Paciente360Page({
     .eq("paciente_id", id).order("created_at", { ascending: false }).limit(10);
 
   let labEstados: Record<string, { estado: string; laboratorio_externo: string | null }> = {};
+  let totalPagado = 0;
   if (ordenes && ordenes.length > 0) {
     const ordenIds = ordenes.map((o) => o.id);
-    const { data: labs } = await supabase
-      .from("laboratorio_estados").select("orden_id, estado, laboratorio_externo")
-      .in("orden_id", ordenIds).order("updated_at", { ascending: false });
+    const [{ data: labs }, { data: pagos }] = await Promise.all([
+      supabase.from("laboratorio_estados").select("orden_id, estado, laboratorio_externo")
+        .in("orden_id", ordenIds).order("updated_at", { ascending: false }),
+      supabase.from("pagos").select("orden_id, monto").in("orden_id", ordenIds),
+    ]);
     if (labs) labs.forEach((l) => {
       if (!labEstados[l.orden_id]) labEstados[l.orden_id] = { estado: l.estado, laboratorio_externo: l.laboratorio_externo };
     });
+    if (pagos) totalPagado = pagos.reduce((s, p) => s + Number(p.monto), 0);
   }
+
+  const totalCompras = ordenes
+    ?.filter((o) => o.estado !== "cancelada")
+    .reduce((s, o) => s + Number(o.total), 0) ?? 0;
+  const saldoPendiente = Math.max(0, totalCompras - totalPagado);
 
   const edad = paciente.fecha_nacimiento ? calculateAge(paciente.fecha_nacimiento) : null;
   const tags = Array.isArray(paciente.etiquetas_medicas) ? (paciente.etiquetas_medicas as string[]) : [];
@@ -72,6 +81,12 @@ export default async function Paciente360Page({
               >
                 + Nuevo Examen
               </Link>
+              <Link
+                href={`/dashboard/pacientes/${id}/editar`}
+                className="px-3 py-1.5 bg-card border border-b-default text-t-secondary hover:text-t-primary text-xs font-semibold rounded-lg transition-colors"
+              >
+                Editar
+              </Link>
               <ConfirmDeleteButton
                 label="Eliminar paciente"
                 confirmText={`¿Eliminar a ${paciente.nombre}? Se borrarán todos sus exámenes, órdenes y pagos. Esta acción no se puede deshacer.`}
@@ -88,11 +103,12 @@ export default async function Paciente360Page({
             )}
           </div>
         </div>
-        <div className="text-right shrink-0">
-          <div className="grid grid-cols-3 gap-4">
+        <div className="shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatMini label="Exámenes" value={String(examenes?.length ?? 0)} />
-            <StatMini label="Compras" value={String(ordenes?.length ?? 0)} />
-            <StatMini label="Total" value={formatCurrency(ordenes?.reduce((s, o) => s + Number(o.total), 0) ?? 0)} />
+            <StatMini label="Compras" value={String(ordenes?.filter(o => o.estado !== "cancelada").length ?? 0)} />
+            <StatMini label="Total" value={formatCurrency(totalCompras)} />
+            <StatMini label="Pendiente" value={formatCurrency(saldoPendiente)} highlight={saldoPendiente > 0} />
           </div>
         </div>
       </div>
@@ -102,10 +118,10 @@ export default async function Paciente360Page({
   );
 }
 
-function StatMini({ label, value }: { label: string; value: string }) {
+function StatMini({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="text-center">
-      <p className="text-lg font-bold text-t-primary">{value}</p>
+      <p className={`text-lg font-bold ${highlight ? "text-amber-500" : "text-t-primary"}`}>{value}</p>
       <p className="text-[10px] text-t-muted uppercase tracking-wider">{label}</p>
     </div>
   );
