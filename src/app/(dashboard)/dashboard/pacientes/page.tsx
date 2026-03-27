@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import CampanasBackLink from "@/components/campanas-back-link";
 import PacientesSearch from "./pacientes-search";
 
 function calcularEdad(fechaNacimiento: string): number {
@@ -103,7 +102,6 @@ export default async function PacientesPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <CampanasBackLink />
           <Link
             href="/dashboard/pacientes/nuevo"
             className="px-4 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25 whitespace-nowrap"

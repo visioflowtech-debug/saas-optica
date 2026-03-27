@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import CampanasBackLink from "@/components/campanas-back-link";
 import { fmtFecha } from "@/lib/date-sv";
 
 const PER_PAGE = 25;
@@ -57,7 +56,6 @@ export default async function ExamenesPage({
           <p className="text-t-muted text-sm mt-1">{count ?? 0} exámenes registrados</p>
         </div>
         <div className="flex items-center gap-2">
-          <CampanasBackLink />
           <Link href="/dashboard/examenes/nuevo"
             className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25">
             + Nuevo examen

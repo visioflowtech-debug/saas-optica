@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { obtenerGastos, eliminarGasto } from "./actions";
 import { obtenerCategoriasGasto } from "@/app/(dashboard)/dashboard/configuracion/categorias-actions";
 import Link from "next/link";
-import CampanasBackLink from "@/components/campanas-back-link";
 import { fmtDate } from "@/lib/date-sv";
 
 const PAGE_SIZE = 50;
@@ -36,7 +35,6 @@ export default async function GastosPage({
           <p className="text-t-secondary text-sm mt-1">Control de gastos operativos y de campaña</p>
         </div>
         <div className="flex items-center gap-2">
-          <CampanasBackLink />
           <Link
             href="/dashboard/gastos/nuevo"
             className="px-4 py-2 bg-[var(--accent-blue)] hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition"
