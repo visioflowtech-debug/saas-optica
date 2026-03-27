@@ -31,7 +31,7 @@ function paginasVisibles(actual: number, total: number): (number | "…")[] {
   return result;
 }
 
-const PER_PAGE = 10;
+const PER_PAGE = 25;
 
 export default async function PacientesPage({
   searchParams,
