@@ -2,266 +2,283 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { Producto, CategoriaProducto, upsertProducto, softDeleteProducto, obtenerProductos, ajustarStock } from "./actions";
-import { Search, Plus, Edit2, Trash2, Box, CircleSlash, X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, PackageX, CircleSlash, X, Loader2 } from "lucide-react";
 
 const categorias: { id: CategoriaProducto | "todo"; label: string }[] = [
-  { id: "todo", label: "Todo" },
+  { id: "todo",          label: "Todo" },
   { id: "aro_economico", label: "Aros Económicos" },
-  { id: "aro_marca", label: "Aros de Marca" },
-  { id: "aro_sol", label: "Aros de Sol" },
-  { id: "accesorio", label: "Accesorios" },
-  { id: "lente", label: "Lentes" },
-  { id: "servicio", label: "Servicios" },
-  { id: "tratamiento", label: "Tratamientos" },
+  { id: "aro_marca",     label: "Aros de Marca" },
+  { id: "aro_sol",       label: "Aros de Sol" },
+  { id: "accesorio",     label: "Accesorios" },
+  { id: "lente",         label: "Lentes" },
+  { id: "servicio",      label: "Servicios" },
+  { id: "tratamiento",   label: "Tratamientos" },
 ];
+
+const CATEGORIA_LABELS: Record<string, string> = {
+  aro_economico: "Aro Económico",
+  aro_marca:     "Aro Marca",
+  aro_sol:       "Aro Sol",
+  accesorio:     "Accesorio",
+  lente:         "Lente",
+  servicio:      "Servicio",
+  tratamiento:   "Tratamiento",
+};
 
 const PAGE_SIZE = 10;
 
-export default function InventarioTabs({ 
-  productosIniciales, 
-  totalInicial 
-}: { 
+export default function InventarioTabs({
+  productosIniciales,
+  totalInicial,
+}: {
   productosIniciales: Producto[];
   totalInicial: number;
 }) {
   const [activa, setActiva] = useState<CategoriaProducto | "todo">("todo");
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
-
   const [productos, setProductos] = useState(productosIniciales);
   const [total, setTotal] = useState(totalInicial);
-
   const [isPending, startTransition] = useTransition();
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<Producto> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
-  // Quick stock adjustment state
   const [adjustingId, setAdjustingId] = useState<string | null>(null);
   const [newStockVal, setNewStockVal] = useState(0);
 
-  // Fetch data when filters/pagination change
   useEffect(() => {
-    const handler = setTimeout(() => {
+    const t = setTimeout(() => {
       startTransition(async () => {
         const { productos, total } = await obtenerProductos(activa, searchTerm, page, PAGE_SIZE);
         setProductos(productos);
         setTotal(total);
       });
-    }, 400); // Debounce search
-
-    return () => clearTimeout(handler);
+    }, 350);
+    return () => clearTimeout(t);
   }, [activa, searchTerm, page]);
 
-  const openNewItem = () => {
+  function openNewItem() {
+    setSaveError("");
     setEditingItem({
       categoria: activa === "todo" ? "aro_economico" : activa,
       precio: 0,
       precio_costo: 0,
-      maneja_stock: activa.includes("aro"),
+      maneja_stock: activa !== "todo" && activa.includes("aro"),
       stock: 0,
     });
     setModalOpen(true);
-  };
+  }
 
-  const fmt = (val: number) => `$${val.toFixed(2)}`;
+  function openEditItem(p: Producto) {
+    setSaveError("");
+    setEditingItem(p);
+    setModalOpen(true);
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!editingItem) return;
     setSaving(true);
-
+    setSaveError("");
     const result = await upsertProducto(editingItem);
     if (result.success) {
       setModalOpen(false);
-      // Refresh current view
       const { productos, total } = await obtenerProductos(activa, searchTerm, page, PAGE_SIZE);
       setProductos(productos);
       setTotal(total);
     } else {
-      alert("Error: " + result.error);
+      setSaveError(result.error ?? "Error al guardar");
     }
     setSaving(false);
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Seguro que deseas eliminar este producto del inventario?")) return;
+    if (!confirm("¿Eliminar este producto del inventario?")) return;
     const result = await softDeleteProducto(id);
     if (result.success) {
-       const { productos, total } = await obtenerProductos(activa, searchTerm, page, PAGE_SIZE);
-       setProductos(productos);
-       setTotal(total);
-    } else {
-       alert("Error: " + result.error);
+      const { productos, total } = await obtenerProductos(activa, searchTerm, page, PAGE_SIZE);
+      setProductos(productos);
+      setTotal(total);
     }
   }
 
   async function handleQuickStock(e: React.FormEvent) {
     e.preventDefault();
     if (!adjustingId) return;
-    
     const result = await ajustarStock(adjustingId, newStockVal);
     if (result.success) {
       setAdjustingId(null);
       const { productos } = await obtenerProductos(activa, searchTerm, page, PAGE_SIZE);
       setProductos(productos);
-    } else {
-      alert("Error: " + result.error);
     }
   }
 
-  // Derived state for modal
-  const requiresStock = editingItem?.categoria?.includes("aro");
   const requiresBrand = editingItem?.categoria?.includes("aro");
-
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const fmt = (val: number) => `$${val.toFixed(2)}`;
 
   return (
-    <div className="space-y-6">
-      {/* Category Tabs */}
-      <div className="flex bg-surface border border-b-strong rounded-lg p-1 overflow-x-auto no-scrollbar gap-1">
+    <div className="space-y-5">
+      {/* Filtros por categoría */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         {categorias.map((cat) => (
           <button
             key={cat.id}
             onClick={() => { setActiva(cat.id); setPage(1); }}
-            className={`whitespace-nowrap px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 
-              ${activa === cat.id 
-                ? "bg-[var(--accent-blue)] text-white shadow-sm" 
-                : "text-t-secondary hover:text-t-primary hover:bg-hover active:scale-95"
-              }`}
+            className={`whitespace-nowrap px-3 py-2 min-h-10 text-sm rounded-lg border transition shrink-0 ${
+              activa === cat.id
+                ? "bg-blue-600 text-white border-blue-600 font-medium"
+                : "bg-card border-b-default text-t-secondary hover:text-t-primary hover:bg-card-hover"
+            }`}
           >
             {cat.label}
           </button>
         ))}
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-t-muted w-4 h-4" />
+      {/* Barra de búsqueda + acción */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-t-muted pointer-events-none" />
           <input
             type="text"
             placeholder="Buscar por nombre, marca o modelo..."
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-            className="w-full pl-10 pr-4 py-2 bg-surface border border-b-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all"
+            className="w-full pl-9 pr-4 py-2.5 min-h-11 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           {isPending && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-               <Loader2 className="w-4 h-4 animate-spin text-t-muted" />
-            </div>
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-t-muted animate-spin" />
           )}
         </div>
         <button
           onClick={openNewItem}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[var(--accent-blue)] text-white px-5 py-2 rounded-lg font-medium hover:bg-blue-700 transition-all shadow-sm active:scale-95"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25 shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Nuevo Producto</span>
+          Nuevo Producto
         </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-surface border border-b-strong rounded-xl overflow-hidden shadow-sm min-h-[400px] flex flex-col justify-between">
+      {/* Tabla */}
+      <div className="bg-card border border-b-default rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-surface-soft border-b border-b-strong text-t-muted">
-              <tr>
-                <th className="px-6 py-4 font-semibold">Producto</th>
-                <th className="px-6 py-4 font-semibold">Categoría</th>
-                <th className="px-6 py-4 font-semibold text-right text-amber-600">Costo</th>
-                <th className="px-6 py-4 font-semibold text-right text-green-600">Venta</th>
-                <th className="px-6 py-4 font-semibold text-center">Stock</th>
-                <th className="px-6 py-4 font-semibold text-right">Acciones</th>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-b-subtle bg-input/40">
+                <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-t-muted uppercase tracking-wider">
+                  Producto
+                </th>
+                <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-t-muted uppercase tracking-wider hidden sm:table-cell">
+                  Categoría
+                </th>
+                <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-t-muted uppercase tracking-wider hidden md:table-cell">
+                  Costo
+                </th>
+                <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-t-muted uppercase tracking-wider">
+                  Precio
+                </th>
+                <th scope="col" className="px-5 py-3 text-center text-xs font-medium text-t-muted uppercase tracking-wider hidden sm:table-cell">
+                  Stock
+                </th>
+                <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-t-muted uppercase tracking-wider">
+                  <span className="sr-only">Acciones</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-b-strong">
-              {productos.map((p) => (
-                <tr key={p.id} className="hover:bg-hover transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-t-primary">
-                      {p.nombre ? p.nombre : `${p.marca} ${p.modelo} - ${p.color}`}
-                    </div>
-                    {p.nombre && (p.marca || p.modelo) && (
-                      <div className="text-xs text-t-muted mt-0.5">
-                        {p.marca} {p.modelo} {p.color}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium bg-surface-soft text-t-secondary uppercase tracking-wider border border-b-strong">
-                      {p.categoria.replace("_", " ")}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right font-mono text-amber-600 font-medium">
-                    {fmt(p.precio_costo)}
-                  </td>
-                  <td className="px-6 py-4 text-right font-mono text-green-600 font-bold">
-                    {fmt(p.precio)}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-center">
-                      {p.maneja_stock ? (
-                        <div className="relative">
-                          {adjustingId === p.id ? (
-                            <form onSubmit={handleQuickStock} className="flex items-center gap-1 animate-in slide-in-from-right-2 duration-200">
-                               <input 
-                                 type="number" 
-                                 autoFocus
-                                 value={newStockVal}
-                                 onChange={e => setNewStockVal(parseInt(e.target.value) || 0)}
-                                 className="w-16 px-1 py-1 bg-input border border-[var(--accent-blue)] rounded text-xs text-center focus:outline-none"
-                               />
-                               <button type="submit" className="p-1 text-white bg-[var(--accent-blue)] rounded hover:bg-blue-600">✓</button>
-                               <button type="button" onClick={() => setAdjustingId(null)} className="p-1 text-t-muted hover:text-t-primary">✕</button>
+            <tbody className="divide-y divide-b-subtle">
+              {productos.length > 0 ? (
+                productos.map((p) => (
+                  <tr key={p.id} className="hover:bg-card-hover transition-colors group">
+                    <td className="px-5 py-3.5">
+                      <p className="text-sm font-medium text-t-primary">
+                        {p.nombre ? p.nombre : [p.marca, p.modelo, p.color].filter(Boolean).join(" — ")}
+                      </p>
+                      {p.nombre && (p.marca || p.modelo) && (
+                        <p className="text-xs text-t-muted mt-0.5">
+                          {[p.marca, p.modelo, p.color].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5 hidden sm:table-cell">
+                      <span className="px-2 py-0.5 text-[10px] font-medium bg-a-blue-bg text-t-blue border border-a-blue-border rounded-full">
+                        {CATEGORIA_LABELS[p.categoria] ?? p.categoria}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right hidden md:table-cell">
+                      <span className="text-sm font-mono text-t-amber">{fmt(p.precio_costo)}</span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <span className="text-sm font-mono font-semibold text-t-green">{fmt(p.precio)}</span>
+                    </td>
+                    <td className="px-5 py-3.5 hidden sm:table-cell">
+                      <div className="flex justify-center">
+                        {p.maneja_stock ? (
+                          adjustingId === p.id ? (
+                            <form onSubmit={handleQuickStock} className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                autoFocus
+                                value={newStockVal}
+                                onChange={(e) => setNewStockVal(parseInt(e.target.value) || 0)}
+                                className="w-16 px-2 py-1 bg-input border border-blue-500 rounded-lg text-xs text-center text-t-primary focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                              <button type="submit" className="px-2 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition">✓</button>
+                              <button type="button" onClick={() => setAdjustingId(null)} className="px-2 py-1 text-xs bg-card border border-b-default text-t-muted rounded-lg hover:text-t-primary transition">✕</button>
                             </form>
                           ) : (
-                            <button 
+                            <button
                               onClick={() => { setAdjustingId(p.id); setNewStockVal(p.stock); }}
-                              className={`px-2.5 py-1 rounded-md text-xs font-bold border transition-all hover:scale-105 active:scale-95 ${
-                                p.stock > 5 ? "bg-green-500/10 text-green-600 border-green-500/20" : 
-                                p.stock > 0 ? "bg-amber-500/10 text-amber-600 border-amber-500/20" : 
-                                "bg-red-500/10 text-red-500 border-red-500/20"
+                              title="Clic para ajustar stock"
+                              className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition hover:opacity-80 ${
+                                p.stock > 5
+                                  ? "bg-a-green-bg text-t-green border-a-green-border"
+                                  : p.stock > 0
+                                  ? "bg-a-amber-bg text-t-amber border-a-amber-border"
+                                  : "bg-a-red-bg text-t-red border-a-red-border"
                               }`}
-                              title="Click para ajustar stock rápidamente"
                             >
-                              {p.stock} unid.
+                              {p.stock} uds.
                             </button>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-t-muted text-xs">
-                          <CircleSlash className="w-3.5 h-3.5" /> N/A
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => { setEditingItem(p); setModalOpen(true); }}
-                        className="p-2 text-t-secondary hover:text-[var(--accent-blue)] bg-surface-soft hover:bg-blue-500/10 rounded-md transition-colors"
-                        title="Editar"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                         onClick={() => handleDelete(p.id)}
-                        className="p-2 text-t-secondary hover:text-red-500 bg-surface-soft hover:bg-red-500/10 rounded-md transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {productos.length === 0 && !isPending && (
+                          )
+                        ) : (
+                          <span className="flex items-center gap-1 text-xs text-t-muted">
+                            <CircleSlash className="w-3 h-3" /> N/A
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => openEditItem(p)}
+                          className="p-1.5 rounded-lg text-t-muted hover:text-blue-500 hover:bg-a-blue-bg transition-colors"
+                          title="Editar"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(p.id)}
+                          className="p-1.5 rounded-lg text-t-muted hover:text-t-red hover:bg-a-red-bg transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-t-muted">
-                    <div className="flex flex-col items-center justify-center space-y-3">
-                      <Box className="w-8 h-8 opacity-20" />
-                      <p>No se encontraron productos.</p>
+                  <td colSpan={6} className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <PackageX className="w-8 h-8 text-t-muted opacity-30" />
+                      <p className="text-sm text-t-secondary">
+                        {searchTerm ? "Sin resultados para esa búsqueda" : "No hay productos en esta categoría"}
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -270,186 +287,180 @@ export default function InventarioTabs({
           </table>
         </div>
 
-        {/* Pagination Footer */}
-        <div className="p-4 border-t border-b-strong bg-surface-soft flex flex-col sm:flex-row items-center justify-between gap-4">
-           <div className="text-xs text-t-muted">
-              Mostrando {productos.length} de {total} registros
-           </div>
-           <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+        {/* Paginación */}
+        {totalPages > 1 && (
+          <div className="px-5 py-3 border-t border-b-subtle flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-t-muted order-2 sm:order-1">
+              Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} de {total} productos
+            </p>
+            <div className="flex items-center gap-1 order-1 sm:order-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1 || isPending}
-                className="p-2 bg-surface border border-b-strong rounded-lg text-t-secondary hover:text-t-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
+                className="px-3 py-1.5 text-sm bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                <ChevronLeft className="w-4 h-4" />
+                ← Anterior
               </button>
-              <div className="text-sm font-medium text-t-primary px-3">
-                Página {page} de {Math.max(1, totalPages)}
-              </div>
-              <button 
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              <span className="px-3 py-1.5 text-sm text-t-muted">
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages || isPending}
-                className="p-2 bg-surface border border-b-strong rounded-lg text-t-secondary hover:text-t-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
+                className="px-3 py-1.5 text-sm bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                <ChevronRight className="w-4 h-4" />
+                Siguiente →
               </button>
-           </div>
-        </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal CRUD */}
       {modalOpen && editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-surface border border-b-strong rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-5 border-b border-b-strong">
-              <h2 className="text-lg font-bold text-t-primary">
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}
+        >
+          <div className="bg-sidebar border border-b-default rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg shadow-[var(--shadow-lg)] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-b-default">
+              <h2 className="text-base font-semibold text-t-primary">
                 {editingItem.id ? "Editar Producto" : "Nuevo Producto"}
               </h2>
-              <button onClick={() => setModalOpen(false)} className="text-t-muted hover:text-t-primary transition-colors">
+              <button
+                onClick={() => setModalOpen(false)}
+                className="p-1.5 rounded-lg text-t-muted hover:text-t-primary hover:bg-card-hover transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
-            <form onSubmit={handleSave} className="p-5 space-y-5">
-              <div className="space-y-4">
-                {/* Categoría */}
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-t-secondary">Categoría</label>
-                  <select 
-                    value={editingItem.categoria} 
-                    onChange={e => {
-                        const cat = e.target.value as CategoriaProducto;
-                        setEditingItem({
-                            ...editingItem,
-                            categoria: cat,
-                            maneja_stock: cat.includes("aro")
-                        });
-                    }}
-                    className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-sm text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
-                  >
-                    {categorias.filter(c => c.id !== "todo").map(c => (
-                      <option key={c.id} value={c.id}>{c.label}</option>
-                    ))}
-                  </select>
-                </div>
 
-                {/* Nombre Genérico */}
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-t-secondary">
-                    {requiresBrand ? "Nombre Opcional (Ej. Aro Deportivo)" : "Descripción del Ítem"}
-                  </label>
-                  <input
-                    type="text"
-                    required={!requiresBrand}
-                    value={editingItem.nombre || ""}
-                    onChange={e => setEditingItem({...editingItem, nombre: e.target.value})}
-                    placeholder={requiresBrand ? "Opcional..." : "Ej: Examen Visual..."}
-                    className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-sm text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
-                  />
-                </div>
-
-                {/* Marca / Modelo / Color para aros */}
-                {requiresBrand && (
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-t-secondary">Marca</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingItem.marca || ""}
-                        onChange={e => setEditingItem({...editingItem, marca: e.target.value})}
-                        className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-sm text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-t-secondary">Modelo</label>
-                      <input
-                        type="text"
-                        value={editingItem.modelo || ""}
-                        onChange={e => setEditingItem({...editingItem, modelo: e.target.value})}
-                        className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-sm text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-t-secondary">Color</label>
-                      <input
-                        type="text"
-                        value={editingItem.color || ""}
-                        onChange={e => setEditingItem({...editingItem, color: e.target.value})}
-                        className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-sm text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Precio y Stock */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-t-secondary">Costo ($)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      min={0}
-                      value={editingItem.precio_costo}
-                      onChange={e => setEditingItem({...editingItem, precio_costo: parseFloat(e.target.value) || 0})}
-                      className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-sm text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-t-secondary">Venta ($)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      min={0}
-                      value={editingItem.precio}
-                      onChange={e => setEditingItem({...editingItem, precio: parseFloat(e.target.value) || 0})}
-                      className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-sm text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-t-secondary">Stock</label>
-                    <input
-                      type="number"
-                      required={requiresStock}
-                      disabled={!editingItem.maneja_stock}
-                      value={editingItem.stock}
-                      onChange={e => setEditingItem({...editingItem, stock: parseInt(e.target.value) || 0})}
-                      className="w-full px-3 py-2 bg-input border border-b-strong rounded-lg text-sm text-t-primary focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] disabled:opacity-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Maneja stock manual toggle */}
-                <div className="flex items-center gap-2 pt-2">
-                  <input 
-                    type="checkbox" 
-                    id="stockToggle" 
-                    checked={editingItem.maneja_stock}
-                    onChange={e => setEditingItem({...editingItem, maneja_stock: e.target.checked})}
-                    className="rounded border-b-strong text-[var(--accent-blue)] focus:ring-[var(--accent-blue)] bg-input cursor-pointer" 
-                  />
-                  <label htmlFor="stockToggle" className="text-xs text-t-secondary cursor-pointer">
-                    Este producto tiene cantidades físicas limitadas que deben descontarse al vender.
-                  </label>
-                </div>
+            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* Categoría */}
+              <div>
+                <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+                  Categoría
+                </label>
+                <select
+                  value={editingItem.categoria}
+                  onChange={(e) => {
+                    const cat = e.target.value as CategoriaProducto;
+                    setEditingItem({ ...editingItem, categoria: cat, maneja_stock: cat.includes("aro") });
+                  }}
+                  className="w-full px-3 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                >
+                  {categorias.filter((c) => c.id !== "todo").map((c) => (
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
+                </select>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-b-strong">
+              {/* Nombre */}
+              <div>
+                <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+                  {requiresBrand ? "Nombre (opcional)" : "Descripción *"}
+                </label>
+                <input
+                  type="text"
+                  required={!requiresBrand}
+                  value={editingItem.nombre || ""}
+                  onChange={(e) => setEditingItem({ ...editingItem, nombre: e.target.value })}
+                  placeholder={requiresBrand ? "Ej: Aro Deportivo" : "Ej: Examen Visual Completo"}
+                  className="w-full px-3 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                />
+              </div>
+
+              {/* Marca / Modelo / Color — solo aros */}
+              {requiresBrand && (
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { key: "marca" as const, label: "Marca *", required: true },
+                    { key: "modelo" as const, label: "Modelo", required: false },
+                    { key: "color" as const, label: "Color", required: false },
+                  ].map(({ key, label, required }) => (
+                    <div key={key}>
+                      <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">{label}</label>
+                      <input
+                        type="text"
+                        required={required}
+                        value={(editingItem[key] as string) || ""}
+                        onChange={(e) => setEditingItem({ ...editingItem, [key]: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Precios + Stock */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { key: "precio_costo" as const, label: "Costo ($)", required: true },
+                  { key: "precio" as const, label: "Precio Venta ($)", required: true },
+                  { key: "stock" as const, label: "Stock", required: false },
+                ].map(({ key, label, required }) => (
+                  <div key={key}>
+                    <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">{label}</label>
+                    <input
+                      type="number"
+                      step={key === "stock" ? "1" : "0.01"}
+                      min={0}
+                      required={required}
+                      disabled={key === "stock" && !editingItem.maneja_stock}
+                      value={editingItem[key] ?? 0}
+                      onChange={(e) =>
+                        setEditingItem({
+                          ...editingItem,
+                          [key]: key === "stock"
+                            ? parseInt(e.target.value) || 0
+                            : parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full px-3 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:opacity-40 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Toggle stock */}
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <div
+                  onClick={() => setEditingItem({ ...editingItem, maneja_stock: !editingItem.maneja_stock })}
+                  className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${
+                    editingItem.maneja_stock ? "bg-blue-600" : "bg-input border border-b-default"
+                  }`}
+                >
+                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                    editingItem.maneja_stock ? "translate-x-5" : "translate-x-0"
+                  }`} />
+                </div>
+                <span className="text-xs text-t-secondary">
+                  Control de stock — descuenta unidades al vender
+                </span>
+              </label>
+
+              {saveError && (
+                <p className="text-xs text-t-red bg-a-red-bg border border-a-red-border rounded-lg px-3 py-2">
+                  {saveError}
+                </p>
+              )}
+
+              {/* Acciones */}
+              <div className="flex justify-end gap-3 pt-2 border-t border-b-default">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 font-medium text-t-secondary hover:text-t-primary hover:bg-hover rounded-lg transition-colors"
+                  className="px-4 py-2.5 min-h-10 text-sm bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-6 py-2 bg-[var(--accent-blue)] text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
+                  className="px-5 py-2.5 min-h-10 text-sm bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition shadow-lg shadow-blue-600/25 disabled:opacity-50"
                 >
-                  {saving ? "Guardando..." : "Guardar Producto"}
+                  {saving ? "Guardando..." : "Guardar"}
                 </button>
               </div>
             </form>

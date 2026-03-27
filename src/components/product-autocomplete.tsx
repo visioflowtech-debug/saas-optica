@@ -118,7 +118,7 @@ export function ProductAutocomplete({
       </div>
 
       {isOpen && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-card border border-b-default rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.25)] max-h-60 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-1 bg-sidebar border border-b-default rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.25)] max-h-60 overflow-y-auto">
           {filteredItems.length === 0 ? (
             <div className="px-4 py-3 text-sm text-t-muted text-center">
               No se encontraron productos.

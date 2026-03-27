@@ -130,7 +130,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
             className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           {showDropdown && filteredPacientes.length > 0 && (
-            <div ref={dropdownRef} role="listbox" className="absolute z-20 w-full mt-1 bg-card border border-b-default rounded-lg shadow-xl max-h-60 overflow-y-auto">
+            <div ref={dropdownRef} role="listbox" className="absolute z-20 w-full mt-1 bg-sidebar border border-b-default rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.25)] max-h-60 overflow-y-auto">
               {filteredPacientes.map((p, idx) => (
                 <div
                   key={p.id}

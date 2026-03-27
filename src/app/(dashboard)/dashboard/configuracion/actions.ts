@@ -147,7 +147,76 @@ export async function obtenerUsuariosTenant() {
     .order("nombre", { ascending: true });
 
   if (error) return { usuarios: [], error: error.message };
-  return { usuarios: data || [], error: null };
+
+  // Cargar asignaciones multi-sucursal para cada usuario
+  const usuariosIds = (data || []).map((u) => u.id);
+  const { data: asignaciones } = await supabase
+    .from("usuario_sucursales")
+    .select("usuario_id, sucursal_id, sucursal:sucursales(id, nombre)")
+    .eq("tenant_id", tenant_id)
+    .in("usuario_id", usuariosIds);
+
+  const asignacionesByUser = new Map<string, { id: string; nombre: string }[]>();
+  (asignaciones || []).forEach((a) => {
+    const suc = Array.isArray(a.sucursal) ? a.sucursal[0] : a.sucursal;
+    if (!suc) return;
+    const list = asignacionesByUser.get(a.usuario_id) || [];
+    list.push({ id: suc.id, nombre: suc.nombre });
+    asignacionesByUser.set(a.usuario_id, list);
+  });
+
+  const usuariosConSucursales = (data || []).map((u) => ({
+    ...u,
+    sucursales_asignadas: asignacionesByUser.get(u.id) || [],
+  }));
+
+  return { usuarios: usuariosConSucursales, error: null };
+}
+
+export async function asignarSucursalUsuario(targetUserId: string, sucursalId: string) {
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { success: false, error: "Sin permisos" };
+
+  // Verificar tenant membership
+  const { data: targetUser } = await supabase
+    .from("usuarios").select("id").eq("id", targetUserId).eq("tenant_id", tenant_id).single();
+  if (!targetUser) return { success: false, error: "Usuario no encontrado" };
+
+  const { data: suc } = await supabase
+    .from("sucursales").select("id").eq("id", sucursalId).eq("tenant_id", tenant_id).single();
+  if (!suc) return { success: false, error: "Sucursal no válida" };
+
+  const { error } = await supabase.from("usuario_sucursales").insert({
+    usuario_id: targetUserId,
+    sucursal_id: sucursalId,
+    tenant_id,
+  });
+  if (error && error.code !== "23505") return { success: false, error: error.message }; // 23505 = ya existe
+
+  revalidatePath("/dashboard/configuracion");
+  return { success: true };
+}
+
+export async function quitarSucursalUsuario(targetUserId: string, sucursalId: string) {
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { success: false, error: "Sin permisos" };
+
+  // No permitir quitar la sucursal activa del usuario
+  const { data: targetUser } = await supabase
+    .from("usuarios").select("sucursal_id").eq("id", targetUserId).eq("tenant_id", tenant_id).single();
+  if (!targetUser) return { success: false, error: "Usuario no encontrado" };
+  if (targetUser.sucursal_id === sucursalId) {
+    return { success: false, error: "No puedes quitar la sucursal activa del usuario. Cambia su sucursal principal primero." };
+  }
+
+  await supabase.from("usuario_sucursales")
+    .delete()
+    .eq("usuario_id", targetUserId)
+    .eq("sucursal_id", sucursalId)
+    .eq("tenant_id", tenant_id);
+
+  revalidatePath("/dashboard/configuracion");
+  return { success: true };
 }
 
 export async function toggleUsuarioActivo(targetUserId: string, activo: boolean) {

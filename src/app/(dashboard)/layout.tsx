@@ -27,22 +27,38 @@ export default async function DashboardLayout({
 
   if (perfil && perfil.activo === false) redirect("/suspended");
 
-  const [sucursalActual, todasLasSucursales] = perfil?.tenant_id
+  const [sucursalActual, sucursalesPermitidas] = perfil?.tenant_id
     ? await Promise.all([
         supabase.from("sucursales")
           .select("id, nombre, activa, campanas_activas")
           .eq("id", perfil.sucursal_id)
           .single()
           .then(({ data }) => data),
-        supabase.from("sucursales")
-          .select("id, nombre, activa, campanas_activas")
-          .eq("tenant_id", perfil.tenant_id)
-          .eq("activa", true)
-          .order("nombre")
-          .then(({ data }) => data || []),
+        (async () => {
+          // Admins ven todas las sucursales activas del tenant
+          // Otros usuarios ven solo sus sucursales asignadas en usuario_sucursales
+          const rolActual = perfil.rol || "asesor_visual";
+          if (rolActual === "administrador") {
+            const { data } = await supabase.from("sucursales")
+              .select("id, nombre, activa, campanas_activas")
+              .eq("tenant_id", perfil.tenant_id)
+              .eq("activa", true)
+              .order("nombre");
+            return data || [];
+          } else {
+            const { data: asignaciones } = await supabase
+              .from("usuario_sucursales")
+              .select("sucursal:sucursales(id, nombre, activa, campanas_activas)")
+              .eq("usuario_id", user.id);
+            return (asignaciones || [])
+              .map((a) => (Array.isArray(a.sucursal) ? a.sucursal[0] : a.sucursal))
+              .filter(Boolean) as { id: string; nombre: string; activa: boolean; campanas_activas: boolean }[];
+          }
+        })(),
       ])
     : [null, []];
 
+  const todasLasSucursales = sucursalesPermitidas;
   const sucursalNombre = sucursalActual?.nombre || "Sin sucursal";
   const campanasActivas = sucursalActual?.campanas_activas ?? false;
 
