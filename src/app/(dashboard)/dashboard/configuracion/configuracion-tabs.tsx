@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { actualizarEmpresa, actualizarSucursal, toggleCampanasActivas, actualizarConfigOperacional, actualizarUsuario } from "./actions";
+import { actualizarEmpresa, actualizarSucursal, toggleCampanasActivas, actualizarConfigOperacional, actualizarUsuario, toggleUsuarioActivo } from "./actions";
 import {
   crearLaboratorio, actualizarLaboratorio, toggleLaboratorioActivo, eliminarLaboratorio,
 } from "./laboratorio-actions";
@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 interface Empresa  { id: string; nombre: string; nit: string | null; logo_url: string | null; email: string | null; }
 interface Sucursal { id: string; nombre: string; direccion: string | null; telefono: string | null; campanas_activas: boolean; items_por_pagina: number; dias_kanban_entregado: number; }
 interface Laboratorio { id: string; nombre: string; contacto: string | null; telefono: string | null; email: string | null; activo: boolean; }
-interface UsuarioItem { id: string; nombre: string; rol: string; sucursal_id: string; sucursal: { nombre: string } | { nombre: string }[] | null; }
+interface UsuarioItem { id: string; nombre: string; rol: string; sucursal_id: string; activo: boolean; sucursal: { nombre: string } | { nombre: string }[] | null; }
 
 interface Props {
   empresa: Empresa;
@@ -604,6 +604,16 @@ function UsuariosTab({ usuarios: initial, sucursales }: { usuarios: UsuarioItem[
     });
   };
 
+  const handleToggleActivo = (userId: string, activoActual: boolean) => {
+    const accion = activoActual ? "suspender" : "activar";
+    if (!confirm(`¿${accion.charAt(0).toUpperCase() + accion.slice(1)} este usuario?`)) return;
+    startTransition(async () => {
+      const r = await toggleUsuarioActivo(userId, !activoActual);
+      if (!r.success) { setError(r.error ?? "Error"); return; }
+      setUsuarios((prev) => prev.map((u) => u.id === userId ? { ...u, activo: !activoActual } : u));
+    });
+  };
+
   const getSucursalNombre = (u: UsuarioItem) => {
     const suc = Array.isArray(u.sucursal) ? u.sucursal[0] : u.sucursal;
     return (suc as any)?.nombre ?? sucursales.find((s) => s.id === u.sucursal_id)?.nombre ?? "—";
@@ -613,7 +623,7 @@ function UsuariosTab({ usuarios: initial, sucursales }: { usuarios: UsuarioItem[
     <div className="space-y-4">
       <div>
         <h2 className="text-sm font-semibold text-t-primary">Gestión de Usuarios</h2>
-        <p className="text-xs text-t-muted mt-0.5">Asigna roles y sucursales a cada usuario de tu organización.</p>
+        <p className="text-xs text-t-muted mt-0.5">Asigna roles y sucursales, y activa o suspende el acceso de cada usuario.</p>
       </div>
 
       {error && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2 rounded-lg">{error}</p>}
@@ -662,15 +672,20 @@ function UsuariosTab({ usuarios: initial, sucursales }: { usuarios: UsuarioItem[
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-empty transition">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  <div className={`flex items-center gap-4 px-5 py-3.5 transition ${!u.activo ? "opacity-50" : "hover:bg-empty"}`}>
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
+                      u.activo ? "bg-gradient-to-br from-blue-500 to-purple-600" : "bg-gray-500"
+                    }`}>
                       {u.nombre.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-t-primary">{u.nombre}</p>
+                      <div className="flex items-center gap-2">
+                        <p className={`text-sm font-semibold ${u.activo ? "text-t-primary" : "text-t-muted line-through"}`}>{u.nombre}</p>
+                        {!u.activo && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-semibold">Suspendido</span>}
+                      </div>
                       <p className="text-xs text-t-muted">{getSucursalNombre(u)}</p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 shrink-0">
                       {successId === u.id && <span className="text-xs text-t-green font-semibold">✓ Guardado</span>}
                       <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold ${
                         u.rol === "administrador" ? "bg-blue-500/15 text-blue-400" :
@@ -682,9 +697,17 @@ function UsuariosTab({ usuarios: initial, sucursales }: { usuarios: UsuarioItem[
                       }`}>
                         {ROLES_LABELS[u.rol] ?? u.rol}
                       </span>
-                      <button onClick={() => startEdit(u)}
+                      <button onClick={() => startEdit(u)} disabled={isPending}
                         className="px-2.5 py-1 text-[10px] border border-b-default rounded text-t-muted hover:text-t-primary hover:border-blue-500/50 transition">
                         Editar
+                      </button>
+                      <button onClick={() => handleToggleActivo(u.id, u.activo)} disabled={isPending}
+                        className={`px-2.5 py-1 text-[10px] border rounded transition ${
+                          u.activo
+                            ? "border-red-500/30 text-red-400 hover:bg-red-500/10"
+                            : "border-green-500/30 text-green-400 hover:bg-green-500/10"
+                        }`}>
+                        {u.activo ? "Suspender" : "Activar"}
                       </button>
                     </div>
                   </div>

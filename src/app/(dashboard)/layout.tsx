@@ -21,9 +21,11 @@ export default async function DashboardLayout({
 
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("nombre, rol, sucursal_id, tenant_id")
+    .select("nombre, rol, sucursal_id, tenant_id, activo")
     .eq("id", user.id)
     .single();
+
+  if (perfil && perfil.activo === false) redirect("/suspended");
 
   const [sucursalActual, todasLasSucursales] = perfil?.tenant_id
     ? await Promise.all([
@@ -49,22 +51,39 @@ export default async function DashboardLayout({
 
   const rolLabels: Record<string, string> = {
     administrador: "Administrador",
-    optometrista: "Optometrista",
+    optometrista:  "Optometrista",
     asesor_visual: "Asesor Visual",
-    laboratorio: "Laboratorio",
+    laboratorio:   "Laboratorio",
+    contador:      "Contador",
   };
 
-  const navItems = [
-    { href: "/dashboard", label: "Inicio", icon: "🏠" },
-    ...(campanasActivas ? [{ href: "/dashboard/campanas", label: "Campañas", icon: "📍" }] : []),
-    { href: "/dashboard/pacientes", label: "Pacientes", icon: "👥" },
-    { href: "/dashboard/examenes", label: "Exámenes", icon: "🔬" },
-    { href: "/dashboard/ventas", label: "Ventas", icon: "💰" },
-    { href: "/dashboard/laboratorio", label: "Laboratorio", icon: "🔧" },
-    { href: "/dashboard/inventario", label: "Inventario", icon: "📦" },
-    { href: "/dashboard/gastos", label: "Gastos", icon: "📋" },
-    { href: "/dashboard/configuracion", label: "Configuración", icon: "⚙️" },
+  // Módulos visibles por rol — administrador ve todo
+  const modulosRol: Record<string, string[]> = {
+    administrador: ["inicio", "campanas", "pacientes", "examenes", "ventas", "laboratorio", "inventario", "gastos", "configuracion"],
+    optometrista:  ["inicio", "campanas", "pacientes", "examenes", "laboratorio"],
+    asesor_visual: ["inicio", "campanas", "pacientes", "ventas", "inventario", "gastos"],
+    laboratorio:   ["inicio", "laboratorio"],
+    contador:      ["inicio", "campanas", "ventas", "inventario", "gastos"],
+  };
+  const acceso = new Set(modulosRol[rol] ?? modulosRol.asesor_visual);
+
+  const todosLosModulos = [
+    { key: "inicio",         href: "/dashboard",               label: "Inicio",         icon: "🏠" },
+    { key: "campanas",       href: "/dashboard/campanas",       label: "Campañas",       icon: "📍" },
+    { key: "pacientes",      href: "/dashboard/pacientes",      label: "Pacientes",      icon: "👥" },
+    { key: "examenes",       href: "/dashboard/examenes",       label: "Exámenes",       icon: "🔬" },
+    { key: "ventas",         href: "/dashboard/ventas",         label: "Ventas",         icon: "💰" },
+    { key: "laboratorio",    href: "/dashboard/laboratorio",    label: "Laboratorio",    icon: "🔧" },
+    { key: "inventario",     href: "/dashboard/inventario",     label: "Inventario",     icon: "📦" },
+    { key: "gastos",         href: "/dashboard/gastos",         label: "Gastos",         icon: "📋" },
+    { key: "configuracion",  href: "/dashboard/configuracion",  label: "Configuración",  icon: "⚙️" },
   ];
+
+  const navItems = todosLosModulos.filter((m) => {
+    if (!acceso.has(m.key)) return false;
+    if (m.key === "campanas" && !campanasActivas) return false;
+    return true;
+  });
 
   return (
     <div className="flex h-screen flex-col app-layout" style={{ background: "var(--bg-body)", height: "100dvh" }}>

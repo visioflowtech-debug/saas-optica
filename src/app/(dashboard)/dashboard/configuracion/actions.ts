@@ -142,12 +142,38 @@ export async function obtenerUsuariosTenant() {
 
   const { data, error } = await supabase
     .from("usuarios")
-    .select("id, nombre, rol, sucursal_id, sucursal:sucursales(nombre)")
+    .select("id, nombre, rol, sucursal_id, activo, sucursal:sucursales(nombre)")
     .eq("tenant_id", tenant_id)
     .order("nombre", { ascending: true });
 
   if (error) return { usuarios: [], error: error.message };
   return { usuarios: data || [], error: null };
+}
+
+export async function toggleUsuarioActivo(targetUserId: string, activo: boolean) {
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { success: false, error: "Sin permisos" };
+
+  // Verificar que el usuario target pertenece al mismo tenant
+  const { data: targetUser } = await supabase
+    .from("usuarios")
+    .select("id")
+    .eq("id", targetUserId)
+    .eq("tenant_id", tenant_id)
+    .single();
+
+  if (!targetUser) return { success: false, error: "Usuario no encontrado" };
+
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ activo })
+    .eq("id", targetUserId)
+    .eq("tenant_id", tenant_id);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/dashboard/configuracion");
+  return { success: true };
 }
 
 const ROLES_VALIDOS = ["administrador", "optometrista", "asesor_visual", "laboratorio", "contador"] as const;
