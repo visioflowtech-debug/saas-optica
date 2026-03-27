@@ -30,18 +30,25 @@ export interface CatalogItem {
 }
 
 export async function obtenerCatalogo(): Promise<CatalogItem[]> {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, sucursal_id } = await getUserContext();
 
   const { data: productos } = await supabase
     .from("productos")
     .select("id, categoria, nombre, marca, modelo, color, precio, stock, maneja_stock")
     .eq("tenant_id", tenant_id)
     .eq("activo", true)
+    .or(`sucursal_id.eq.${sucursal_id},sucursal_id.is.null`)
     .order("categoria")
     .order("nombre")
     .order("marca");
 
   const items: CatalogItem[] = [];
+
+  // Normalizar categorías de aro al tipo canónico "aro" para la validación de orden
+  const normalizarTipo = (categoria: string): string => {
+    if (categoria.startsWith("aro")) return "aro";
+    return categoria;
+  };
 
   (productos ?? []).forEach((p) => {
     let label = "";
@@ -51,10 +58,10 @@ export async function obtenerCatalogo(): Promise<CatalogItem[]> {
     } else {
       label = p.nombre || p.categoria;
     }
-    items.push({ 
-      id: p.id, 
-      tipo: p.categoria, 
-      label, 
+    items.push({
+      id: p.id,
+      tipo: normalizarTipo(p.categoria),
+      label,
       precio: Number(p.precio),
       stock: p.stock,
       maneja_stock: p.maneja_stock

@@ -41,13 +41,14 @@ export async function obtenerProductos(
   page: number = 1,
   pageSize: number = 20
 ): Promise<{ productos: Producto[]; total: number }> {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, sucursal_id } = await getUserContext();
 
   let query = supabase
     .from("productos")
     .select("*", { count: "exact" })
     .eq("tenant_id", tenant_id)
-    .eq("activo", true);
+    .eq("activo", true)
+    .or(`sucursal_id.eq.${sucursal_id},sucursal_id.is.null`);
 
   if (categoriaSeleccionada && categoriaSeleccionada !== "todo") {
     query = query.eq("categoria", categoriaSeleccionada);
@@ -95,9 +96,12 @@ export async function upsertProducto(payload: Partial<Producto>) {
   const { supabase, tenant_id, sucursal_id } = await getUserContext();
 
   const isNew = !payload.id;
+  const esProductoFisico = payload.maneja_stock ||
+    (payload.categoria && ["aro_economico", "aro_marca", "aro_sol", "accesorio", "lente"].includes(payload.categoria));
+
   const dbPayload = {
     tenant_id,
-    sucursal_id: payload.maneja_stock ? sucursal_id : null, 
+    sucursal_id: esProductoFisico ? sucursal_id : null, // servicios/tratamientos son compartidos entre sucursales
     categoria: payload.categoria,
     nombre: payload.nombre || null,
     marca: payload.marca || null,
