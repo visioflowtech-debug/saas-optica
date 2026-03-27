@@ -60,51 +60,56 @@ export default async function Paciente360Page({
       </Link>
 
       {/* Patient Header */}
-      <div className="flex flex-col sm:flex-row items-start gap-6 p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shrink-0">
+      <div className="flex items-start gap-4 p-5 sm:p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
+        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl sm:text-2xl font-bold shrink-0">
           {paciente.nombre.charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-t-primary truncate">{paciente.nombre}</h1>
-              <p className="text-t-secondary text-sm mt-1">
+          {/* Name + action buttons */}
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-t-primary truncate">{paciente.nombre}</h1>
+              <p className="text-t-secondary text-sm mt-0.5">
                 {edad !== null ? `${edad} años` : ""}
                 {paciente.profesion ? ` · ${paciente.profesion}` : ""}
                 {paciente.telefono ? ` · ${paciente.telefono}` : ""}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
               <Link
                 href={`/dashboard/examenes/nuevo?paciente_id=${id}`}
-                className="hidden sm:inline-flex px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+                className="hidden sm:inline-flex px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm whitespace-nowrap"
               >
                 + Nuevo Examen
               </Link>
               <Link
                 href={`/dashboard/pacientes/${id}/editar`}
-                className="px-3 py-1.5 bg-card border border-b-default text-t-secondary hover:text-t-primary text-xs font-semibold rounded-lg transition-colors"
+                className="px-3 py-1.5 bg-card border border-b-default text-t-secondary hover:text-t-primary text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
               >
                 Editar
               </Link>
               <ConfirmDeleteButton
-                label="Eliminar paciente"
+                label="Eliminar"
                 confirmText={`¿Eliminar a ${paciente.nombre}? Se borrarán todos sus exámenes, órdenes y pagos. Esta acción no se puede deshacer.`}
                 onConfirm={eliminarPaciente.bind(null, id)}
               />
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 mt-3">
-            {tags.map((tag) => (
-              <span key={tag} className="px-2.5 py-0.5 text-xs font-medium bg-a-red-bg text-t-red border border-a-red-border rounded-full">{tag}</span>
-            ))}
-            {paciente.acepta_marketing && (
-              <span className="px-2.5 py-0.5 text-xs font-medium bg-a-green-bg text-t-green border border-a-green-border rounded-full">📩 Marketing</span>
-            )}
-          </div>
-        </div>
-        <div className="shrink-0">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+
+          {/* Tags */}
+          {(tags.length > 0 || paciente.acepta_marketing) && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {tags.map((tag) => (
+                <span key={tag} className="px-2.5 py-0.5 text-xs font-medium bg-a-red-bg text-t-red border border-a-red-border rounded-full">{tag}</span>
+              ))}
+              {paciente.acepta_marketing && (
+                <span className="px-2.5 py-0.5 text-xs font-medium bg-a-green-bg text-t-green border border-a-green-border rounded-full">📩 Marketing</span>
+              )}
+            </div>
+          )}
+
+          {/* Stats — always below name row, never beside buttons */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-b-subtle">
             <StatMini label="Exámenes" value={String(examenes?.length ?? 0)} />
             <StatMini label="Compras" value={String(ordenes?.filter(o => o.estado !== "cancelada").length ?? 0)} />
             <StatMini label="Total" value={formatCurrency(totalCompras)} />

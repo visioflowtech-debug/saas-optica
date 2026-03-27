@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { signout } from "@/app/(auth)/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SucursalSwitcher } from "@/components/sucursal-switcher";
 import MobileNav from "@/components/mobile-nav";
+import { getCachedUser, getCachedPerfil, getCachedSucursales } from "@/lib/supabase/server-cache";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -15,39 +15,14 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
+  const user = await getCachedUser();
+  if (!user) redirect("/login");
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const perfil = await getCachedPerfil();
+  const { todas: todasLasSucursales, actual: sucursalActual } = await getCachedSucursales();
 
-  if (!user) {
-    redirect("/login");
-  }
-
-  // Fetch user profile from usuarios table
-  const { data: perfil } = await supabase
-    .from("usuarios")
-    .select("nombre, rol, sucursal_id, tenant_id")
-    .eq("id", user.id)
-    .single();
-
-  // Una sola query para todas las sucursales del tenant — deriva nombre + campanas_activas
-  let todasLasSucursales: { id: string; nombre: string; activa: boolean }[] = [];
-  let sucursalNombre = "Sin sucursal";
-  let campanasActivas = false;
-  if (perfil?.tenant_id) {
-    const { data: sucursalesData } = await supabase
-      .from("sucursales")
-      .select("id, nombre, activa, campanas_activas")
-      .eq("tenant_id", perfil.tenant_id)
-      .eq("activa", true)
-      .order("nombre");
-    todasLasSucursales = sucursalesData || [];
-    const sucursalActual = sucursalesData?.find((s) => s.id === perfil.sucursal_id);
-    sucursalNombre = sucursalActual?.nombre || "Sin sucursal";
-    campanasActivas = sucursalActual?.campanas_activas ?? false;
-  }
+  const sucursalNombre = sucursalActual?.nombre || "Sin sucursal";
+  const campanasActivas = sucursalActual?.campanas_activas ?? false;
 
   const nombre = perfil?.nombre || user.email || "Usuario";
   const rol = perfil?.rol || "asesor_visual";
