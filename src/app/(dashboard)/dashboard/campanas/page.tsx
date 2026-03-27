@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { puedeAcceder } from "@/lib/acceso";
 import { obtenerCampanas } from "./actions";
 import Link from "next/link";
 import { fmtDate } from "@/lib/date-sv";
@@ -33,6 +34,7 @@ export default async function CampanasPage({
     .select("sucursal_id, rol, sucursal:sucursales(nombre, campanas_activas, items_por_pagina)")
     .eq("id", user.id)
     .single();
+  if (!puedeAcceder(perfil?.rol ?? "", "campanas")) redirect("/dashboard");
 
   const sucursalCfg = Array.isArray(perfil?.sucursal) ? perfil?.sucursal[0] : perfil?.sucursal;
   const suc = sucursalCfg as any;

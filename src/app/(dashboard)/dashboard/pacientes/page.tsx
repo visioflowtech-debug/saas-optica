@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import PacientesSearch from "./pacientes-search";
+import { puedeAcceder } from "@/lib/acceso";
 
 function calcularEdad(fechaNacimiento: string): number {
   const hoy = new Date();
@@ -46,10 +47,11 @@ export default async function PacientesPage({
 
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("tenant_id, sucursal_id, sucursal:sucursales(items_por_pagina)")
+    .select("tenant_id, sucursal_id, rol, sucursal:sucursales(items_por_pagina)")
     .eq("id", user.id)
     .single();
   if (!perfil) redirect("/login");
+  if (!puedeAcceder(perfil.rol, "pacientes")) redirect("/dashboard");
 
   const sucursalCfg = Array.isArray(perfil.sucursal) ? perfil.sucursal[0] : perfil.sucursal;
   const PER_PAGE = Math.max(5, (sucursalCfg as any)?.items_por_pagina ?? 25);

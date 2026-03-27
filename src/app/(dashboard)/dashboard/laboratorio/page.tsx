@@ -1,8 +1,18 @@
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { puedeAcceder } from "@/lib/acceso";
 import { obtenerOrdenesLaboratorio, obtenerLaboratoriosActivos, obtenerCampanasParaFiltro } from "./actions";
 import KanbanBoard, { LabItem, LabEstado } from "./kanban-board";
 import ListaPDFButton from "./lista-pdf-button";
 
 export default async function LaboratorioPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: perfil } = await supabase.from("usuarios").select("rol").eq("id", user.id).single();
+  if (!puedeAcceder(perfil?.rol ?? "", "laboratorio")) redirect("/dashboard");
+
   const [data, labs, campanas] = await Promise.all([
     obtenerOrdenesLaboratorio(),
     obtenerLaboratoriosActivos(),

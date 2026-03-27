@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { puedeAcceder } from "@/lib/acceso";
 import { obtenerGastos, eliminarGasto } from "./actions";
 import { obtenerCategoriasGasto } from "@/app/(dashboard)/dashboard/configuracion/categorias-actions";
 import Link from "next/link";
@@ -15,6 +16,9 @@ export default async function GastosPage({
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { data: perfil } = await supabase.from("usuarios").select("rol").eq("id", user.id).single();
+  if (!puedeAcceder(perfil?.rol ?? "", "gastos")) redirect("/dashboard");
 
   const params = await searchParams;
   const pagina = Math.max(1, parseInt(params.pagina || "1", 10));

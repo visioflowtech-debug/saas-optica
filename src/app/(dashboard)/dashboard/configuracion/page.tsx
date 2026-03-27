@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { puedeAcceder } from "@/lib/acceso";
 import ConfiguracionTabs from "./configuracion-tabs";
 import { obtenerConfiguracion, obtenerUsuariosTenant } from "./actions";
 import { obtenerLaboratorios } from "./laboratorio-actions";
@@ -9,6 +10,9 @@ export default async function ConfiguracionPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { data: perfil } = await supabase.from("usuarios").select("rol").eq("id", user.id).single();
+  if (!puedeAcceder(perfil?.rol ?? "", "configuracion")) redirect("/dashboard");
 
   const [{ empresa, sucursales, error }, laboratorios, categoriasGasto, { usuarios }] = await Promise.all([
     obtenerConfiguracion(),
