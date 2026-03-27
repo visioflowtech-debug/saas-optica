@@ -31,8 +31,6 @@ function paginasVisibles(actual: number, total: number): (number | "…")[] {
   return result;
 }
 
-const PER_PAGE = 25;
-
 export default async function PacientesPage({
   searchParams,
 }: {
@@ -41,8 +39,6 @@ export default async function PacientesPage({
   const params = await searchParams;
   const pagina = Math.max(1, parseInt(params.pagina ?? "1") || 1);
   const orden = params.orden === "reciente" ? "reciente" : "nombre";
-  const from = (pagina - 1) * PER_PAGE;
-  const to = from + PER_PAGE - 1;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -50,10 +46,15 @@ export default async function PacientesPage({
 
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("tenant_id, sucursal_id")
+    .select("tenant_id, sucursal_id, sucursal:sucursales(items_por_pagina)")
     .eq("id", user.id)
     .single();
   if (!perfil) redirect("/login");
+
+  const sucursalCfg = Array.isArray(perfil.sucursal) ? perfil.sucursal[0] : perfil.sucursal;
+  const PER_PAGE = Math.max(5, (sucursalCfg as any)?.items_por_pagina ?? 25);
+  const from = (pagina - 1) * PER_PAGE;
+  const to = from + PER_PAGE - 1;
 
   let query = supabase
     .from("pacientes")
@@ -66,9 +67,8 @@ export default async function PacientesPage({
     .range(from, to);
 
   if (params.q?.trim()) {
-    query = query.or(
-      `nombre.ilike.%${params.q.trim()}%,telefono.ilike.%${params.q.trim()}%`
-    );
+    const q = params.q.trim().replace(/[%_\\]/g, "\\$&");
+    query = query.or(`nombre.ilike.%${q}%,telefono.ilike.%${q}%`);
   }
 
   query = orden === "reciente"

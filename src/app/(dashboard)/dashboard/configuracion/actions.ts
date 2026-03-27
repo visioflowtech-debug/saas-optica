@@ -30,7 +30,7 @@ export async function obtenerConfiguracion() {
 
   const { data: sucursales, error: sucursalError } = await supabase
     .from("sucursales")
-    .select("id, nombre, direccion, telefono, activa, campanas_activas, created_at, updated_at")
+    .select("id, nombre, direccion, telefono, activa, campanas_activas, items_por_pagina, dias_kanban_entregado, created_at, updated_at")
     .eq("tenant_id", tenant_id)
     .order("created_at", { ascending: true });
 
@@ -47,7 +47,8 @@ export async function obtenerConfiguracion() {
 }
 
 export async function actualizarEmpresa(_id: string, payload: { nombre: string; nit: string; logo_url: string; email: string }) {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { success: false, error: "Sin permisos" };
 
   // Validar logo_url: solo URLs http/https o vacío
   if (payload.logo_url && !/^https?:\/\/.+/.test(payload.logo_url)) {
@@ -95,6 +96,26 @@ export async function actualizarSucursal(id: string, payload: { nombre: string; 
   }
 
   revalidatePath("/dashboard/configuracion");
+  return { success: true };
+}
+
+export async function actualizarConfigOperacional(sucursalId: string, payload: { items_por_pagina: number; dias_kanban_entregado: number }) {
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { success: false, error: "Sin permisos" };
+
+  const items = Math.min(200, Math.max(5, Math.round(payload.items_por_pagina)));
+  const dias = Math.min(365, Math.max(1, Math.round(payload.dias_kanban_entregado)));
+
+  const { error } = await supabase
+    .from("sucursales")
+    .update({ items_por_pagina: items, dias_kanban_entregado: dias, updated_at: new Date().toISOString() })
+    .eq("id", sucursalId)
+    .eq("tenant_id", tenant_id);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/dashboard/configuracion");
+  revalidatePath("/", "layout");
   return { success: true };
 }
 

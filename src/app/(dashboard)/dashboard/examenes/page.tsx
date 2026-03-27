@@ -4,8 +4,6 @@ import Link from "next/link";
 import { fmtFecha } from "@/lib/date-sv";
 import ExamenesSearch from "./examenes-search";
 
-const PER_PAGE = 25;
-
 function paginasVisibles(actual: number, total: number): (number | "…")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
   const set = new Set([1, total, actual - 1, actual, actual + 1].filter(p => p >= 1 && p <= total));
@@ -26,8 +24,6 @@ export default async function ExamenesPage({
   const params = await searchParams;
   const pagina = Math.max(1, parseInt(params.pagina ?? "1") || 1);
   const q = params.q?.trim() ?? "";
-  const from = (pagina - 1) * PER_PAGE;
-  const to = from + PER_PAGE - 1;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -35,10 +31,15 @@ export default async function ExamenesPage({
 
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("tenant_id, sucursal_id")
+    .select("tenant_id, sucursal_id, sucursal:sucursales(items_por_pagina)")
     .eq("id", user.id)
     .single();
   if (!perfil) redirect("/login");
+
+  const sucursalCfg = Array.isArray(perfil.sucursal) ? perfil.sucursal[0] : perfil.sucursal;
+  const PER_PAGE = Math.max(5, (sucursalCfg as any)?.items_por_pagina ?? 25);
+  const from = (pagina - 1) * PER_PAGE;
+  const to = from + PER_PAGE - 1;
 
   let query = supabase
     .from("examenes_clinicos")

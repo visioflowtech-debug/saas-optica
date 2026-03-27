@@ -10,8 +10,13 @@ export async function obtenerOrdenesLaboratorio() {
   if (!user) throw new Error("No autenticado");
 
   const { data: perfil } = await supabase
-    .from("usuarios").select("tenant_id, sucursal_id").eq("id", user.id).single();
+    .from("usuarios")
+    .select("tenant_id, sucursal_id, sucursal:sucursales(dias_kanban_entregado)")
+    .eq("id", user.id).single();
   if (!perfil) throw new Error("Perfil no encontrado");
+
+  const sucursalCfg = Array.isArray(perfil.sucursal) ? perfil.sucursal[0] : perfil.sucursal;
+  const diasKanban = (sucursalCfg as any)?.dias_kanban_entregado ?? 7;
 
   // Get orders that are "orden_trabajo" and not "cancelada"
   const { data: ordenes, error: ordenesError } = await supabase
@@ -69,11 +74,21 @@ export async function obtenerOrdenesLaboratorio() {
     labNombreMap.set(ld.orden_id, nombre);
   }
 
-  return ordenes.map((orden) => ({
-    ...orden,
-    laboratorio: latestStates.get(orden.id) || null,
-    laboratorioNombre: labNombreMap.get(orden.id) ?? null,
-  }));
+  const ahora = Date.now();
+  const msKanban = diasKanban * 24 * 60 * 60 * 1000;
+
+  return ordenes
+    .filter((orden) => {
+      const estado = latestStates.get(orden.id);
+      if (!estado || estado.estado !== "entregado") return true;
+      if (!estado.updated_at) return true;
+      return ahora - new Date(estado.updated_at).getTime() <= msKanban;
+    })
+    .map((orden) => ({
+      ...orden,
+      laboratorio: latestStates.get(orden.id) || null,
+      laboratorioNombre: labNombreMap.get(orden.id) ?? null,
+    }));
 }
 
 const ESTADOS_LAB_VALIDOS = ["pendiente", "en_laboratorio", "recibido", "entregado"] as const;
@@ -131,6 +146,7 @@ export async function obtenerDatosSobreLaboratorio(ordenId: string) {
     .from("orden_detalle")
     .select("*")
     .eq("orden_id", ordenId)
+    .eq("tenant_id", usuario?.tenant_id)
     .order("created_at", { ascending: true });
 
   const paciente = Array.isArray(orden.paciente) ? orden.paciente[0] : orden.paciente;

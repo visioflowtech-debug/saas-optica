@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { actualizarEmpresa, actualizarSucursal, toggleCampanasActivas } from "./actions";
+import { actualizarEmpresa, actualizarSucursal, toggleCampanasActivas, actualizarConfigOperacional } from "./actions";
 import {
   crearLaboratorio, actualizarLaboratorio, toggleLaboratorioActivo, eliminarLaboratorio,
 } from "./laboratorio-actions";
@@ -12,7 +12,7 @@ import type { CategoriaItem } from "./categorias-actions";
 import { createClient } from "@/lib/supabase/client";
 
 interface Empresa  { id: string; nombre: string; nit: string | null; logo_url: string | null; email: string | null; }
-interface Sucursal { id: string; nombre: string; direccion: string | null; telefono: string | null; campanas_activas: boolean; }
+interface Sucursal { id: string; nombre: string; direccion: string | null; telefono: string | null; campanas_activas: boolean; items_por_pagina: number; dias_kanban_entregado: number; }
 interface Laboratorio { id: string; nombre: string; contacto: string | null; telefono: string | null; email: string | null; activo: boolean; }
 
 interface Props {
@@ -162,10 +162,14 @@ function SucursalesList({ sucursales }: { sucursales: Sucursal[] }) {
   );
 }
 
+const OPCIONES_PAGINACION = [5, 10, 15, 20, 25, 30, 50, 100];
+
 function SucursalCard({ sucursal, index }: { sucursal: Sucursal; index: number }) {
   const [isPending, startTransition] = useTransition();
   const [successMsg, setSuccessMsg] = useState("");
   const [campanas, setCampanas] = useState(sucursal.campanas_activas);
+  const [itemsPagina, setItemsPagina] = useState(sucursal.items_por_pagina ?? 25);
+  const [diasKanban, setDiasKanban] = useState(sucursal.dias_kanban_entregado ?? 7);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -185,13 +189,22 @@ function SucursalCard({ sucursal, index }: { sucursal: Sucursal; index: number }
     });
   };
 
+  const handleGuardarOperacional = () => {
+    startTransition(async () => {
+      const r = await actualizarConfigOperacional(sucursal.id, { items_por_pagina: itemsPagina, dias_kanban_entregado: diasKanban });
+      if (r.success) { setSuccessMsg("✓"); setTimeout(() => setSuccessMsg(""), 3000); } else alert(r.error);
+    });
+  };
+
   return (
-    <div className="bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)] p-5">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)] p-5 space-y-5">
+      <div className="flex items-center gap-2">
         <span className="w-6 h-6 rounded bg-[var(--accent-blue)] text-white flex items-center justify-center text-xs font-bold">{index}</span>
         <h3 className="text-base font-bold text-t-primary uppercase tracking-wide">Configuración Sucursal</h3>
         {successMsg && <span className="ml-auto text-xs font-semibold text-t-green">✓ Guardado</span>}
       </div>
+
+      {/* Datos básicos */}
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
@@ -227,6 +240,58 @@ function SucursalCard({ sucursal, index }: { sucursal: Sucursal; index: number }
           </button>
         </div>
       </form>
+
+      {/* Config operacional */}
+      <div className="pt-4 border-t border-b-subtle">
+        <p className="text-[10px] uppercase font-semibold text-t-muted mb-3 tracking-wider">Parámetros Operacionales</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          {/* Paginación */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-t-secondary">
+              Registros por página
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {OPCIONES_PAGINACION.map((n) => (
+                <button key={n} type="button" onClick={() => setItemsPagina(n)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-lg border transition ${
+                    itemsPagina === n
+                      ? "bg-[var(--accent-blue)] text-white border-[var(--accent-blue)]"
+                      : "bg-input border-b-strong text-t-secondary hover:border-[var(--accent-blue)] hover:text-t-primary"
+                  }`}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-t-muted">Aplica a listas de pacientes y exámenes.</p>
+          </div>
+
+          {/* Kanban entregado */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-t-secondary">
+              Días visibles en kanban — &quot;Entregado&quot;
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1} max={365}
+                value={diasKanban}
+                onChange={(e) => setDiasKanban(Math.min(365, Math.max(1, parseInt(e.target.value) || 1)))}
+                className="w-20 px-3 py-1.5 text-sm bg-input border border-b-strong rounded focus:ring-2 focus:ring-[var(--accent-blue)] text-t-primary text-center"
+              />
+              <span className="text-xs text-t-muted">días</span>
+            </div>
+            <p className="text-[10px] text-t-muted">Órdenes entregadas se ocultan del kanban después de este tiempo.</p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <button type="button" onClick={handleGuardarOperacional} disabled={isPending}
+            className="px-4 py-1.5 text-xs bg-[var(--accent-blue)] hover:bg-blue-600 text-white font-semibold rounded-lg transition disabled:opacity-50">
+            {isPending ? "Guardando..." : "Guardar parámetros"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
