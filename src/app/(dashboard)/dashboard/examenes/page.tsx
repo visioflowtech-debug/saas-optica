@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { fmtFecha } from "@/lib/date-sv";
 
-const PER_PAGE = 25;
+const PER_PAGE = 10;
 
 function paginasVisibles(actual: number, total: number): (number | "…")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -57,7 +57,7 @@ export default async function ExamenesPage({
         </div>
         <div className="flex items-center gap-2">
           <Link href="/dashboard/examenes/nuevo"
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25">
+            className="px-4 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25">
             + Nuevo examen
           </Link>
         </div>

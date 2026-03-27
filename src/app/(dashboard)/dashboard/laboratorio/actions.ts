@@ -143,6 +143,7 @@ export async function obtenerDatosSobreLaboratorio(ordenId: string) {
       .from("examenes_clinicos")
       .select("*")
       .eq("paciente_id", paciente.id)
+      .eq("tenant_id", usuario?.tenant_id)
       .eq("anulado", false)
       .order("fecha_examen", { ascending: false })
       .limit(1);

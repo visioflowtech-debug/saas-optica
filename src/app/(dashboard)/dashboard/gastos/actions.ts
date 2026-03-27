@@ -82,8 +82,12 @@ export async function registrarGasto(formData: FormData) {
   const notas      = (formData.get("notas") as string)?.trim() || null;
   const campana_id = (formData.get("campana_id") as string) || null;
 
+  const CATEGORIAS_VALIDAS = ["transporte", "hospedaje", "alimentacion", "publicidad", "operativo", "otro"];
   if (!concepto || !categoria || isNaN(monto) || monto <= 0) {
     return redirect("/dashboard/gastos/nuevo?error=Datos+incompletos+o+monto+invalido");
+  }
+  if (!CATEGORIAS_VALIDAS.includes(categoria)) {
+    return redirect("/dashboard/gastos/nuevo?error=Categoría+inválida");
   }
 
   const { error } = await supabase.from("gastos").insert({

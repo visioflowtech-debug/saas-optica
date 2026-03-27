@@ -21,7 +21,7 @@ async function getUserContext() {
   if (perfilError) {
     console.error("Error fetching perfil:", perfilError.message, perfilError.code, perfilError.details);
   }
-  if (!perfil) throw new Error(`Perfil no encontrado. User ID: ${user.id}. Error: ${perfilError?.message || "no data"}`);
+  if (!perfil) throw new Error("No se pudo cargar el perfil del usuario");
 
   return { supabase, userId: user.id, ...perfil };
 }

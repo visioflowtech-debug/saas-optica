@@ -95,6 +95,7 @@ export async function obtenerDatosReceta(examenId: string) {
     .from("examenes_clinicos")
     .select("*, paciente:pacientes!examenes_clinicos_paciente_id_fkey(nombre, telefono, email), optometrista:usuarios!examenes_clinicos_optometrista_id_fkey(nombre)")
     .eq("id", examenId)
+    .eq("tenant_id", tenant_id)
     .single();
 
   if (!examen) return null;

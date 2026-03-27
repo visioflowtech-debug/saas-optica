@@ -31,7 +31,7 @@ function paginasVisibles(actual: number, total: number): (number | "…")[] {
   return result;
 }
 
-const PER_PAGE = 25;
+const PER_PAGE = 10;
 
 export default async function PacientesPage({
   searchParams,
@@ -200,7 +200,6 @@ export default async function PacientesPage({
                           <a
                             href={`tel:${p.telefono.replace(/[^+\d]/g, "")}`}
                             className="hover:text-t-primary transition"
-                            onClick={(e) => e.stopPropagation()}
                           >
                             {p.telefono}
                           </a>

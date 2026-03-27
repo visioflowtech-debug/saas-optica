@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { signout } from "@/app/(auth)/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SucursalSwitcher } from "@/components/sucursal-switcher";
 import MobileNav from "@/components/mobile-nav";
-import { getCachedUser, getCachedPerfil, getCachedSucursales } from "@/lib/supabase/server-cache";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -15,11 +15,31 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getCachedUser();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const perfil = await getCachedPerfil();
-  const { todas: todasLasSucursales, actual: sucursalActual } = await getCachedSucursales();
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("nombre, rol, sucursal_id, tenant_id")
+    .eq("id", user.id)
+    .single();
+
+  const [sucursalActual, todasLasSucursales] = perfil?.tenant_id
+    ? await Promise.all([
+        supabase.from("sucursales")
+          .select("id, nombre, activa, campanas_activas")
+          .eq("id", perfil.sucursal_id)
+          .single()
+          .then(({ data }) => data),
+        supabase.from("sucursales")
+          .select("id, nombre, activa, campanas_activas")
+          .eq("tenant_id", perfil.tenant_id)
+          .eq("activa", true)
+          .order("nombre")
+          .then(({ data }) => data || []),
+      ])
+    : [null, []];
 
   const sucursalNombre = sucursalActual?.nombre || "Sin sucursal";
   const campanasActivas = sucursalActual?.campanas_activas ?? false;

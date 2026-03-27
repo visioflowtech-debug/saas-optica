@@ -80,16 +80,28 @@ export async function crearProforma(formData: FormData) {
   }
 
   // Parse line items from JSON hidden field
+  const TIPOS_PRODUCTO_VALIDOS = ["aro", "lente", "tratamiento", "accesorio", "servicio", "otro"];
   let items: { producto_id: string | null; tipo_producto: string; descripcion: string; cantidad: number; precio_unitario: number }[] = [];
   const itemsRaw = formData.get("items_json") as string;
-  try { items = JSON.parse(itemsRaw); } catch { /* empty */ }
+  try {
+    const parsed = JSON.parse(itemsRaw);
+    items = Array.isArray(parsed) ? parsed : [];
+  } catch { /* empty */ }
 
   if (items.length === 0) {
     return redirect("/dashboard/ventas/nueva?error=Agrega+al+menos+un+producto");
   }
 
+  // Validar tipos de producto
+  if (items.some(it => !TIPOS_PRODUCTO_VALIDOS.includes(it.tipo_producto))) {
+    return redirect("/dashboard/ventas/nueva?error=Tipo+de+producto+inválido");
+  }
+
   // Calculate totals
   const subtotal = items.reduce((sum, it) => sum + it.cantidad * it.precio_unitario, 0);
+  if (isNaN(descuento) || descuento < 0 || descuento > subtotal) {
+    return redirect("/dashboard/ventas/nueva?error=Descuento+inválido");
+  }
   const total = Math.max(subtotal - descuento, 0);
 
   // Validar items
@@ -153,8 +165,13 @@ export async function crearProforma(formData: FormData) {
   redirect(`/dashboard/ventas/${orden.id}`);
 }
 
+const ORDEN_ESTADOS_VALIDOS = ["borrador", "confirmada", "facturada", "cancelada"] as const;
+
 /* ── Update Status ──────────────────────────────────────── */
 export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
+  if (!(ORDEN_ESTADOS_VALIDOS as readonly string[]).includes(nuevoEstado)) {
+    throw new Error("Estado de orden inválido");
+  }
   const { supabase, tenant_id } = await getUserContext();
 
   const { data: orden } = await supabase
