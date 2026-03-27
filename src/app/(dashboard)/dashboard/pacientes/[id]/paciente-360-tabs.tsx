@@ -285,6 +285,40 @@ function LabBadge({ estado, lab }: { estado: string; lab: string }) {
   return <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${map[estado] || ""}`}>{labels[estado] || estado}</span>;
 }
 
+interface OjoData { esfera: number | null; cilindro: number | null; eje: number | null; adicion: number | null; }
+function RecetaTabla({ od, oi, highlighted }: { od: OjoData; oi: OjoData; highlighted?: boolean }) {
+  const cellCls = `text-right py-1.5 px-2 font-mono text-sm ${highlighted ? "text-t-primary" : "text-t-secondary"}`;
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-b-subtle">
+          <th className="text-left pb-2 text-[10px] font-medium text-t-muted uppercase tracking-wider w-10">OJO</th>
+          <th className="text-right pb-2 px-2 text-[10px] font-medium text-t-muted uppercase tracking-wider">Esfera</th>
+          <th className="text-right pb-2 px-2 text-[10px] font-medium text-t-muted uppercase tracking-wider">Cilindro</th>
+          <th className="text-right pb-2 px-2 text-[10px] font-medium text-t-muted uppercase tracking-wider">Eje</th>
+          <th className="text-right pb-2 px-2 text-[10px] font-medium text-t-muted uppercase tracking-wider">Adición</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr className="border-b border-b-subtle/50">
+          <td className="py-1.5 pr-2 font-bold text-t-blue text-sm">OD</td>
+          <td className={cellCls}>{fmtNum(od.esfera)}</td>
+          <td className={cellCls}>{fmtNum(od.cilindro)}</td>
+          <td className={cellCls}>{od.eje != null ? `${od.eje}°` : "—"}</td>
+          <td className={cellCls}>{fmtNum(od.adicion)}</td>
+        </tr>
+        <tr>
+          <td className="py-1.5 pr-2 font-bold text-t-purple text-sm">OI</td>
+          <td className={cellCls}>{fmtNum(oi.esfera)}</td>
+          <td className={cellCls}>{fmtNum(oi.cilindro)}</td>
+          <td className={cellCls}>{oi.eje != null ? `${oi.eje}°` : "—"}</td>
+          <td className={cellCls}>{fmtNum(oi.adicion)}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
 function fmtNum(val: number | null): string { return val != null ? val.toFixed(2) : "—"; }
 
 function RecetaPDFButton({ examenId }: { examenId: string }) {
@@ -388,73 +422,30 @@ function VerDetalleExamenModal({ examen, onClose }: { examen: Examen, onClose: (
              </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Refracción Anterior */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-t-primary border-b border-b-subtle pb-2">Refracción Anterior</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-t-muted text-xs uppercase text-right">
-                      <th className="text-left font-medium">Ojo</th>
-                      <th className="font-medium">Esfera</th>
-                      <th className="font-medium">Cilindro</th>
-                      <th className="font-medium">Eje</th>
-                      <th className="font-medium">Adición</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-t-secondary">
-                    <tr>
-                      <td className="font-medium text-t-blue py-1 text-left">OD</td>
-                      <td className="text-right py-1">{fmtNum(examen.ra_od_esfera)}</td>
-                      <td className="text-right py-1">{fmtNum(examen.ra_od_cilindro)}</td>
-                      <td className="text-right py-1">{examen.ra_od_eje != null ? `${examen.ra_od_eje}°` : "—"}</td>
-                      <td className="text-right py-1">{fmtNum(examen.ra_od_adicion)}</td>
-                    </tr>
-                    <tr>
-                      <td className="font-medium text-t-purple py-1 text-left">OI</td>
-                      <td className="text-right py-1">{fmtNum(examen.ra_oi_esfera)}</td>
-                      <td className="text-right py-1">{fmtNum(examen.ra_oi_cilindro)}</td>
-                      <td className="text-right py-1">{examen.ra_oi_eje != null ? `${examen.ra_oi_eje}°` : "—"}</td>
-                      <td className="text-right py-1">{fmtNum(examen.ra_oi_adicion)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+            <div className="bg-card border border-b-default border-t-2 border-t-slate-400 rounded-xl p-4 shadow-[var(--shadow-card)]">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Refracción Anterior</span>
+                <span className="px-2 py-0.5 text-[10px] font-medium bg-input text-t-muted rounded-full">Previa</span>
               </div>
+              <RecetaTabla
+                od={{ esfera: examen.ra_od_esfera, cilindro: examen.ra_od_cilindro, eje: examen.ra_od_eje, adicion: examen.ra_od_adicion }}
+                oi={{ esfera: examen.ra_oi_esfera, cilindro: examen.ra_oi_cilindro, eje: examen.ra_oi_eje, adicion: examen.ra_oi_adicion }}
+              />
             </div>
 
             {/* Refracción Final */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-t-primary border-b border-b-subtle pb-2">Refracción Final</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-t-muted text-xs uppercase text-right">
-                      <th className="text-left font-medium">Ojo</th>
-                      <th className="font-medium">Esfera</th>
-                      <th className="font-medium">Cilindro</th>
-                      <th className="font-medium">Eje</th>
-                      <th className="font-medium">Adición</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-t-secondary">
-                    <tr>
-                      <td className="font-medium text-t-blue py-1 text-left">OD</td>
-                      <td className="text-right py-1">{fmtNum(examen.rf_od_esfera)}</td>
-                      <td className="text-right py-1">{fmtNum(examen.rf_od_cilindro)}</td>
-                      <td className="text-right py-1">{examen.rf_od_eje != null ? `${examen.rf_od_eje}°` : "—"}</td>
-                      <td className="text-right py-1">{fmtNum(examen.rf_od_adicion)}</td>
-                    </tr>
-                    <tr>
-                      <td className="font-medium text-t-purple py-1 text-left">OI</td>
-                      <td className="text-right py-1">{fmtNum(examen.rf_oi_esfera)}</td>
-                      <td className="text-right py-1">{fmtNum(examen.rf_oi_cilindro)}</td>
-                      <td className="text-right py-1">{examen.rf_oi_eje != null ? `${examen.rf_oi_eje}°` : "—"}</td>
-                      <td className="text-right py-1">{fmtNum(examen.rf_oi_adicion)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+            <div className="bg-card border border-b-default border-t-2 border-t-blue-500 rounded-xl p-4 shadow-[var(--shadow-card)]">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-500">Refracción Final</span>
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20">Recetada ✓</span>
               </div>
+              <RecetaTabla
+                od={{ esfera: examen.rf_od_esfera, cilindro: examen.rf_od_cilindro, eje: examen.rf_od_eje, adicion: examen.rf_od_adicion }}
+                oi={{ esfera: examen.rf_oi_esfera, cilindro: examen.rf_oi_cilindro, eje: examen.rf_oi_eje, adicion: examen.rf_oi_adicion }}
+                highlighted
+              />
             </div>
           </div>
 
