@@ -422,12 +422,13 @@ function VerDetalleExamenModal({ examen, onClose }: { examen: Examen, onClose: (
              </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             {/* Refracción Anterior */}
-            <div className="bg-card border border-b-default border-t-2 border-t-slate-400 rounded-xl p-4 shadow-[var(--shadow-card)]">
-              <div className="flex items-center gap-2 mb-4">
+            <div className="rounded-xl p-4 border border-slate-500/40" style={{ background: "color-mix(in srgb, #64748b 8%, var(--bg-card))" }}>
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-500/30">
+                <div className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0" />
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Refracción Anterior</span>
-                <span className="px-2 py-0.5 text-[10px] font-medium bg-input text-t-muted rounded-full">Previa</span>
+                <span className="ml-auto px-2 py-0.5 text-[10px] font-medium bg-slate-500/20 text-slate-400 rounded-full">Previa</span>
               </div>
               <RecetaTabla
                 od={{ esfera: examen.ra_od_esfera, cilindro: examen.ra_od_cilindro, eje: examen.ra_od_eje, adicion: examen.ra_od_adicion }}
@@ -436,10 +437,11 @@ function VerDetalleExamenModal({ examen, onClose }: { examen: Examen, onClose: (
             </div>
 
             {/* Refracción Final */}
-            <div className="bg-card border border-b-default border-t-2 border-t-blue-500 rounded-xl p-4 shadow-[var(--shadow-card)]">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-500">Refracción Final</span>
-                <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20">Recetada ✓</span>
+            <div className="rounded-xl p-4 border border-blue-500/40" style={{ background: "color-mix(in srgb, #3b82f6 8%, var(--bg-card))" }}>
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-blue-500/30">
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-400">Refracción Final</span>
+                <span className="ml-auto px-2 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded-full border border-blue-500/30">Recetada ✓</span>
               </div>
               <RecetaTabla
                 od={{ esfera: examen.rf_od_esfera, cilindro: examen.rf_od_cilindro, eje: examen.rf_od_eje, adicion: examen.rf_od_adicion }}
