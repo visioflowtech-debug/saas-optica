@@ -4,29 +4,38 @@ import { obtenerCampanas } from "./actions";
 import Link from "next/link";
 import { fmtDate } from "@/lib/date-sv";
 
+function paginasVisibles(actual: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const set = new Set([1, total, actual - 1, actual, actual + 1].filter(p => p >= 1 && p <= total));
+  const sorted = [...set].sort((a, b) => a - b);
+  const result: (number | "…")[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && (sorted[i] as number) - (sorted[i - 1] as number) > 1) result.push("…");
+    result.push(sorted[i]);
+  }
+  return result;
+}
+
 export default async function CampanasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ q?: string; estado?: string; pagina?: string; error?: string }>;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const params = await searchParams;
+  const pagina = Math.max(1, parseInt(params.pagina ?? "1") || 1);
 
-  // Verificar que la sucursal tiene campanas activas
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("sucursal_id, rol")
+    .select("sucursal_id, rol, sucursal:sucursales(nombre, campanas_activas, items_por_pagina)")
     .eq("id", user.id)
     .single();
 
-  const { data: suc } = await supabase
-    .from("sucursales")
-    .select("nombre, campanas_activas")
-    .eq("id", perfil?.sucursal_id || "")
-    .single();
+  const sucursalCfg = Array.isArray(perfil?.sucursal) ? perfil?.sucursal[0] : perfil?.sucursal;
+  const suc = sucursalCfg as any;
 
   if (!suc?.campanas_activas) {
     return (
@@ -45,7 +54,24 @@ export default async function CampanasPage({
     );
   }
 
-  const { campanas, error } = await obtenerCampanas();
+  const PER_PAGE = Math.max(5, suc?.items_por_pagina ?? 25);
+  const q = params.q?.trim() ?? "";
+  const estado = ["activa", "cerrada"].includes(params.estado ?? "") ? params.estado! : "";
+
+  const { campanas, error, total } = await obtenerCampanas({ q, estado, pagina, perPage: PER_PAGE });
+  const totalPages = Math.ceil(total / PER_PAGE);
+
+  const buildUrl = (overrides: Record<string, string | undefined>) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (estado) p.set("estado", estado);
+    Object.entries(overrides).forEach(([k, v]) => {
+      if (v === undefined) p.delete(k);
+      else p.set(k, v);
+    });
+    const str = p.toString();
+    return `/dashboard/campanas${str ? `?${str}` : ""}`;
+  };
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -53,7 +79,7 @@ export default async function CampanasPage({
         <div>
           <h1 className="text-2xl font-bold text-t-primary">Campañas</h1>
           <p className="text-t-secondary text-sm mt-1">
-            Gestiona las campañas de atención de <strong>{suc.nombre}</strong>
+            {total} campaña{total !== 1 ? "s" : ""} · <strong>{suc.nombre}</strong>
           </p>
         </div>
         {perfil?.rol === "administrador" && (
@@ -78,11 +104,32 @@ export default async function CampanasPage({
         </div>
       )}
 
+      {/* Búsqueda */}
+      <form className="flex gap-3">
+        <input type="search" name="q" defaultValue={q}
+          placeholder="Buscar campaña..."
+          className="flex-1 px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary placeholder:text-t-muted focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm" />
+        {estado && <input type="hidden" name="estado" value={estado} />}
+        <button type="submit" className="px-4 py-2.5 min-h-11 bg-card border border-b-default rounded-lg text-t-secondary hover:text-t-primary transition text-sm">Buscar</button>
+      </form>
+
+      {/* Filter buttons */}
+      <div className="flex gap-1 p-1 bg-card border border-b-default rounded-lg w-fit">
+        {[{ key: "", label: "Todas" }, { key: "activa", label: "Activas" }, { key: "cerrada", label: "Cerradas" }].map((f) => (
+          <Link key={f.key} href={buildUrl({ estado: f.key || undefined, pagina: undefined })}
+            className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${estado === f.key ? "bg-blue-600 text-white" : "text-t-muted hover:text-t-primary"}`}>
+            {f.label}
+          </Link>
+        ))}
+      </div>
+
       {campanas.length === 0 ? (
         <div className="py-24 text-center border-2 border-dashed border-b-subtle rounded-2xl">
           <p className="text-4xl mb-3">📍</p>
-          <p className="text-t-muted text-sm">No hay campañas creadas aún.</p>
-          {perfil?.rol === "administrador" && (
+          <p className="text-t-muted text-sm">
+            {q || estado ? "Sin resultados para esa búsqueda" : "No hay campañas creadas aún."}
+          </p>
+          {!q && !estado && perfil?.rol === "administrador" && (
             <Link
               href="/dashboard/campanas/nueva"
               className="inline-block mt-4 px-4 py-2 bg-[var(--accent-blue)] text-white text-sm font-semibold rounded-lg hover:bg-blue-500 transition"
@@ -130,6 +177,46 @@ export default async function CampanasPage({
               </div>
             </Link>
           ))}
+        </div>
+      )}
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-sm text-t-muted order-2 sm:order-1">
+            Página {pagina} de {totalPages} — {total} campañas
+          </p>
+          <nav className="flex items-center gap-1 order-1 sm:order-2" aria-label="Paginación">
+            {pagina > 1 ? (
+              <Link href={buildUrl({ pagina: String(pagina - 1) })}
+                className="px-3 py-2 min-h-10 flex items-center text-sm bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition"
+                aria-label="Página anterior">←</Link>
+            ) : (
+              <span className="px-3 py-2 min-h-10 flex items-center text-sm text-t-muted/40 border border-b-default rounded-lg cursor-not-allowed">←</span>
+            )}
+            {paginasVisibles(pagina, totalPages).map((p, i) =>
+              p === "…" ? (
+                <span key={`e-${i}`} className="px-2 py-2 text-sm text-t-muted">…</span>
+              ) : (
+                <Link key={p}
+                  href={buildUrl({ pagina: p === 1 ? undefined : String(p) })}
+                  className={`w-9 h-9 flex items-center justify-center text-sm rounded-lg border transition ${
+                    p === pagina
+                      ? "bg-blue-600 text-white border-blue-600 font-semibold"
+                      : "bg-card border-b-default text-t-secondary hover:text-t-primary hover:bg-card-hover"
+                  }`}
+                  aria-current={p === pagina ? "page" : undefined}
+                >{p}</Link>
+              )
+            )}
+            {pagina < totalPages ? (
+              <Link href={buildUrl({ pagina: String(pagina + 1) })}
+                className="px-3 py-2 min-h-10 flex items-center text-sm bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition"
+                aria-label="Página siguiente">→</Link>
+            ) : (
+              <span className="px-3 py-2 min-h-10 flex items-center text-sm text-t-muted/40 border border-b-default rounded-lg cursor-not-allowed">→</span>
+            )}
+          </nav>
         </div>
       )}
     </div>

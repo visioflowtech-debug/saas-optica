@@ -135,3 +135,60 @@ export async function toggleCampanasActivas(sucursalId: string, activas: boolean
   revalidatePath("/", "layout");
   return { success: true };
 }
+
+export async function obtenerUsuariosTenant() {
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { usuarios: [], error: "Sin permisos" };
+
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("id, nombre, rol, sucursal_id, sucursal:sucursales(nombre)")
+    .eq("tenant_id", tenant_id)
+    .order("nombre", { ascending: true });
+
+  if (error) return { usuarios: [], error: error.message };
+  return { usuarios: data || [], error: null };
+}
+
+const ROLES_VALIDOS = ["administrador", "optometrista", "asesor_visual", "laboratorio", "contador"] as const;
+
+export async function actualizarUsuario(targetUserId: string, payload: { rol: string; sucursal_id: string }) {
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { success: false, error: "Sin permisos" };
+
+  if (!(ROLES_VALIDOS as readonly string[]).includes(payload.rol)) {
+    return { success: false, error: "Rol inválido" };
+  }
+
+  // Verificar que la sucursal pertenece al tenant
+  const { data: suc } = await supabase
+    .from("sucursales")
+    .select("id")
+    .eq("id", payload.sucursal_id)
+    .eq("tenant_id", tenant_id)
+    .single();
+
+  if (!suc) return { success: false, error: "Sucursal no válida" };
+
+  // Verificar que el usuario target pertenece al mismo tenant
+  const { data: targetUser } = await supabase
+    .from("usuarios")
+    .select("id")
+    .eq("id", targetUserId)
+    .eq("tenant_id", tenant_id)
+    .single();
+
+  if (!targetUser) return { success: false, error: "Usuario no encontrado" };
+
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ rol: payload.rol, sucursal_id: payload.sucursal_id })
+    .eq("id", targetUserId)
+    .eq("tenant_id", tenant_id);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/dashboard/configuracion");
+  revalidatePath("/", "layout");
+  return { success: true };
+}

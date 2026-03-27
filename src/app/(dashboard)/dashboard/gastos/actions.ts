@@ -13,15 +13,15 @@ async function getUserContext() {
 
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("tenant_id, sucursal_id, rol")
+    .select("tenant_id, sucursal_id, rol, sucursal:sucursales(items_por_pagina)")
     .eq("id", user.id)
     .single();
 
   if (!perfil) throw new Error("Perfil no encontrado");
-  return { supabase, userId: user.id, ...perfil };
+  const sucursalCfg = Array.isArray(perfil.sucursal) ? perfil.sucursal[0] : perfil.sucursal;
+  const PAGE_SIZE = Math.max(5, (sucursalCfg as any)?.items_por_pagina ?? 25);
+  return { supabase, userId: user.id, PAGE_SIZE, ...perfil };
 }
-
-const PAGE_SIZE = 50;
 
 export async function obtenerGastos(filters?: {
   campana_id?: string;
@@ -30,7 +30,7 @@ export async function obtenerGastos(filters?: {
   hasta?: string;
   pagina?: number;
 }): Promise<{ gastos: Gasto[]; totalMonto: number; porCategoria: Record<string, number>; total: number }> {
-  const { supabase, tenant_id, sucursal_id } = await getUserContext();
+  const { supabase, tenant_id, sucursal_id, PAGE_SIZE } = await getUserContext();
 
   const pagina = filters?.pagina ?? 1;
   const from   = (pagina - 1) * PAGE_SIZE;

@@ -19,11 +19,12 @@ function paginasVisibles(actual: number, total: number): (number | "…")[] {
 export default async function ExamenesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pagina?: string; q?: string }>;
+  searchParams: Promise<{ pagina?: string; q?: string; orden?: string }>;
 }) {
   const params = await searchParams;
   const pagina = Math.max(1, parseInt(params.pagina ?? "1") || 1);
   const q = params.q?.trim() ?? "";
+  const orden = params.orden === "antiguo" ? "antiguo" : "reciente";
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -50,7 +51,7 @@ export default async function ExamenesPage({
     .eq("tenant_id", perfil.tenant_id)
     .eq("sucursal_id", perfil.sucursal_id)
     .eq("anulado", false)
-    .order("fecha_examen", { ascending: false })
+    .order("fecha_examen", { ascending: orden === "antiguo" })
     .range(from, to);
 
   if (q) {
@@ -63,6 +64,7 @@ export default async function ExamenesPage({
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
     if (q) p.set("q", q);
+    if (orden !== "reciente") p.set("orden", orden);
     Object.entries(overrides).forEach(([k, v]) => {
       if (v === undefined) p.delete(k);
       else p.set(k, v);
@@ -87,8 +89,22 @@ export default async function ExamenesPage({
         </Link>
       </div>
 
-      {/* Búsqueda */}
-      <ExamenesSearch defaultValue={q} total={count ?? 0} />
+      {/* Búsqueda + Sort */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1"><ExamenesSearch defaultValue={q} total={count ?? 0} /></div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link href={buildUrl({ orden: undefined, pagina: undefined })}
+            className={`px-3 py-2 min-h-11 flex items-center text-sm rounded-lg border transition ${
+              orden === "reciente" ? "bg-blue-600 text-white border-blue-600 font-medium"
+              : "bg-card border-b-default text-t-secondary hover:text-t-primary hover:bg-card-hover"
+            }`}>Reciente</Link>
+          <Link href={buildUrl({ orden: "antiguo", pagina: undefined })}
+            className={`px-3 py-2 min-h-11 flex items-center text-sm rounded-lg border transition ${
+              orden === "antiguo" ? "bg-blue-600 text-white border-blue-600 font-medium"
+              : "bg-card border-b-default text-t-secondary hover:text-t-primary hover:bg-card-hover"
+            }`}>Antiguo</Link>
+        </div>
+      </div>
 
       {/* Tabla */}
       <div className="bg-card border border-b-default rounded-xl overflow-hidden shadow-[var(--shadow-card)]">

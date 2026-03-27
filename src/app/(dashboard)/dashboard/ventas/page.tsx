@@ -3,27 +3,29 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { fmtFecha } from "@/lib/date-sv";
 
-const PER_PAGE = 50;
-
 export default async function VentasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filtro?: string; q?: string; pagina?: string }>;
+  searchParams: Promise<{ filtro?: string; q?: string; pagina?: string; orden?: string }>;
 }) {
   const params = await searchParams;
   const pagina = Math.max(1, parseInt(params.pagina ?? "1") || 1);
-  const from = (pagina - 1) * PER_PAGE;
-  const to = from + PER_PAGE - 1;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("tenant_id, sucursal_id")
+    .select("tenant_id, sucursal_id, sucursal:sucursales(items_por_pagina)")
     .eq("id", user.id)
     .single();
   if (!perfil) redirect("/login");
+
+  const sucursalCfg = Array.isArray(perfil.sucursal) ? perfil.sucursal[0] : perfil.sucursal;
+  const PER_PAGE = Math.max(5, (sucursalCfg as any)?.items_por_pagina ?? 25);
+  const orden = params.orden === "antiguo" ? "antiguo" : "reciente";
+  const from = (pagina - 1) * PER_PAGE;
+  const to = from + PER_PAGE - 1;
 
   const q = params.q?.trim() ?? "";
 
@@ -44,7 +46,7 @@ export default async function VentasPage({
     .select("id, tipo, estado, total, created_at, paciente:pacientes!ordenes_paciente_id_fkey(nombre), asesor:usuarios!ordenes_asesor_id_fkey(nombre)", { count: "exact" })
     .eq("tenant_id", perfil.tenant_id)
     .eq("sucursal_id", perfil.sucursal_id)
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: orden === "antiguo" })
     .range(from, to);
 
   if (params.filtro === "proforma") query = query.eq("tipo", "proforma");
@@ -61,10 +63,23 @@ export default async function VentasPage({
 
   const currentFilter = params.filtro ?? "todas";
 
+  const buildUrl = (overrides: Record<string, string | undefined>) => {
+    const p = new URLSearchParams();
+    if (params.filtro) p.set("filtro", params.filtro);
+    if (q) p.set("q", q);
+    if (orden !== "reciente") p.set("orden", orden);
+    Object.entries(overrides).forEach(([k, v]) => {
+      if (v === undefined) p.delete(k);
+      else p.set(k, v);
+    });
+    const str = p.toString();
+    return `/dashboard/ventas${str ? `?${str}` : ""}`;
+  };
+
   const filterTabs = [
-    { key: "todas", label: "Todas", href: "/dashboard/ventas" },
-    { key: "proforma", label: "Proformas", href: "/dashboard/ventas?filtro=proforma" },
-    { key: "orden_trabajo", label: "Órdenes de Trabajo", href: "/dashboard/ventas?filtro=orden_trabajo" },
+    { key: "todas", label: "Todas" },
+    { key: "proforma", label: "Proformas" },
+    { key: "orden_trabajo", label: "Órdenes de Trabajo" },
   ];
 
   return (
@@ -96,6 +111,7 @@ export default async function VentasPage({
           className="flex-1 px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary placeholder:text-t-muted focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm"
         />
         {params.filtro && <input type="hidden" name="filtro" value={params.filtro} />}
+        {orden !== "reciente" && <input type="hidden" name="orden" value={orden} />}
         <button
           type="submit"
           className="px-4 py-2.5 min-h-11 bg-card border border-b-default rounded-lg text-t-secondary hover:text-t-primary transition text-sm"
@@ -104,21 +120,35 @@ export default async function VentasPage({
         </button>
       </form>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-1 p-1 bg-card border border-b-default rounded-lg w-fit">
-        {filterTabs.map((tab) => (
-          <Link
-            key={tab.key}
-            href={tab.href}
-            className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${
-              currentFilter === tab.key
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-t-muted hover:text-t-primary"
-            }`}
-          >
-            {tab.label}
-          </Link>
-        ))}
+      {/* Filter Tabs + Sort */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-1 p-1 bg-card border border-b-default rounded-lg">
+          {filterTabs.map((tab) => (
+            <Link
+              key={tab.key}
+              href={buildUrl({ filtro: tab.key === "todas" ? undefined : tab.key, pagina: undefined })}
+              className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${
+                currentFilter === tab.key
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-t-muted hover:text-t-primary"
+              }`}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </div>
+        <div className="flex gap-1 ml-auto">
+          <Link href={buildUrl({ orden: undefined, pagina: undefined })}
+            className={`px-3 py-2 min-h-11 flex items-center text-sm rounded-lg border transition ${
+              orden === "reciente" ? "bg-blue-600 text-white border-blue-600 font-medium"
+              : "bg-card border-b-default text-t-secondary hover:text-t-primary hover:bg-card-hover"
+            }`}>Reciente</Link>
+          <Link href={buildUrl({ orden: "antiguo", pagina: undefined })}
+            className={`px-3 py-2 min-h-11 flex items-center text-sm rounded-lg border transition ${
+              orden === "antiguo" ? "bg-blue-600 text-white border-blue-600 font-medium"
+              : "bg-card border-b-default text-t-secondary hover:text-t-primary hover:bg-card-hover"
+            }`}>Antiguo</Link>
+        </div>
       </div>
 
       {/* Orders Table */}
@@ -180,7 +210,7 @@ export default async function VentasPage({
           <div className="flex gap-2">
             {pagina > 1 && (
               <Link
-                href={`/dashboard/ventas?${params.filtro ? `filtro=${params.filtro}&` : ""}${params.q ? `q=${params.q}&` : ""}pagina=${pagina - 1}`}
+                href={buildUrl({ pagina: String(pagina - 1) })}
                 className="px-4 py-2 min-h-11 flex items-center bg-card border border-b-default text-sm text-t-secondary hover:text-t-primary rounded-lg transition"
               >
                 ← Anterior
@@ -188,7 +218,7 @@ export default async function VentasPage({
             )}
             {pagina < totalPages && (
               <Link
-                href={`/dashboard/ventas?${params.filtro ? `filtro=${params.filtro}&` : ""}${params.q ? `q=${params.q}&` : ""}pagina=${pagina + 1}`}
+                href={buildUrl({ pagina: String(pagina + 1) })}
                 className="px-4 py-2 min-h-11 flex items-center bg-card border border-b-default text-sm text-t-secondary hover:text-t-primary rounded-lg transition"
               >
                 Siguiente →

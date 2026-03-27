@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import ConfiguracionTabs from "./configuracion-tabs";
-import { obtenerConfiguracion } from "./actions";
+import { obtenerConfiguracion, obtenerUsuariosTenant } from "./actions";
 import { obtenerLaboratorios } from "./laboratorio-actions";
 import { obtenerCategoriasGasto } from "./categorias-actions";
 
@@ -10,10 +10,11 @@ export default async function ConfiguracionPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ empresa, sucursales, error }, laboratorios, categoriasGasto] = await Promise.all([
+  const [{ empresa, sucursales, error }, laboratorios, categoriasGasto, { usuarios }] = await Promise.all([
     obtenerConfiguracion(),
     obtenerLaboratorios(),
     obtenerCategoriasGasto(),
+    obtenerUsuariosTenant(),
   ]);
 
   if (error || !empresa) {
@@ -36,6 +37,7 @@ export default async function ConfiguracionPage() {
         sucursales={sucursales}
         laboratorios={laboratorios}
         categoriasGasto={categoriasGasto}
+        usuarios={usuarios}
       />
     </div>
   );

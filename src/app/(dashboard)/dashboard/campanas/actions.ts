@@ -19,18 +19,37 @@ async function getUserContext() {
   return { supabase, userId: user.id, ...perfil };
 }
 
-export async function obtenerCampanas() {
+export async function obtenerCampanas(opts?: {
+  q?: string;
+  estado?: string;
+  pagina?: number;
+  perPage?: number;
+}) {
   const { supabase, tenant_id, sucursal_id } = await getUserContext();
 
-  const { data, error } = await supabase
+  const pagina = opts?.pagina ?? 1;
+  const perPage = opts?.perPage ?? 25;
+  const from = (pagina - 1) * perPage;
+  const to = from + perPage - 1;
+
+  let query = supabase
     .from("campanas")
-    .select("id, nombre, descripcion, fecha_inicio, fecha_fin, activa, created_at")
+    .select("id, nombre, descripcion, fecha_inicio, fecha_fin, activa, created_at", { count: "exact" })
     .eq("tenant_id", tenant_id)
     .eq("sucursal_id", sucursal_id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
-  if (error) return { campanas: [], error: error.message };
-  return { campanas: data || [], error: null };
+  if (opts?.q?.trim()) {
+    const qSafe = opts.q.trim().replace(/[%_\\]/g, "\\$&");
+    query = query.ilike("nombre", `%${qSafe}%`);
+  }
+  if (opts?.estado === "activa") query = query.eq("activa", true);
+  if (opts?.estado === "cerrada") query = query.eq("activa", false);
+
+  const { data, error, count } = await query;
+  if (error) return { campanas: [], error: error.message, total: 0 };
+  return { campanas: data || [], error: null, total: count ?? 0 };
 }
 
 export async function obtenerCampana(id: string) {
@@ -77,6 +96,55 @@ export async function obtenerPacientesDeCampana(campanaId: string) {
     .limit(500);
 
   return data || [];
+}
+
+export async function obtenerPacientesPaginados(campanaId: string, opts?: { q?: string; pagina?: number; perPage?: number }) {
+  const { supabase, tenant_id } = await getUserContext();
+  const pagina = opts?.pagina ?? 1;
+  const perPage = opts?.perPage ?? 20;
+  const from = (pagina - 1) * perPage;
+  const to = from + perPage - 1;
+
+  let query = supabase
+    .from("pacientes")
+    .select("id, nombre, telefono, email, created_at", { count: "exact" })
+    .eq("campana_id", campanaId)
+    .eq("tenant_id", tenant_id)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (opts?.q?.trim()) {
+    const qSafe = opts.q.trim().replace(/[%_\\]/g, "\\$&");
+    query = query.ilike("nombre", `%${qSafe}%`);
+  }
+
+  const { data, count } = await query;
+  return { data: data || [], total: count ?? 0 };
+}
+
+export async function obtenerVentasPaginadas(campanaId: string, opts?: { q?: string; pagina?: number; perPage?: number }) {
+  const { supabase, tenant_id } = await getUserContext();
+  const pagina = opts?.pagina ?? 1;
+  const perPage = opts?.perPage ?? 20;
+  const from = (pagina - 1) * perPage;
+  const to = from + perPage - 1;
+
+  let query = supabase
+    .from("ordenes")
+    .select("id, tipo, estado, total, created_at, paciente_id, paciente:pacientes!ordenes_paciente_id_fkey(nombre)", { count: "exact" })
+    .eq("campana_id", campanaId)
+    .eq("tenant_id", tenant_id)
+    .neq("estado", "anulada")
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (opts?.q?.trim()) {
+    const qSafe = opts.q.trim().replace(/[%_\\]/g, "\\$&");
+    query = query.ilike("paciente.nombre", `%${qSafe}%`);
+  }
+
+  const { data, count } = await query;
+  return { data: data || [], total: count ?? 0 };
 }
 
 export async function crearCampana(formData: FormData) {

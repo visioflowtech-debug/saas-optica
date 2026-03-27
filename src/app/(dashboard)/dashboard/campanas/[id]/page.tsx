@@ -1,30 +1,46 @@
-import { obtenerCampana, obtenerPacientesDeCampana, toggleCampanaActiva, obtenerVentasDeCampana, obtenerGastosDeCampana, obtenerIngresosDeCampana } from "../actions";
+import { obtenerCampana, obtenerPacientesDeCampana, toggleCampanaActiva, obtenerVentasDeCampana, obtenerGastosDeCampana, obtenerIngresosDeCampana, obtenerPacientesPaginados, obtenerVentasPaginadas } from "../actions";
 import { CATEGORIAS_GASTO } from "../../gastos/types";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import CampanaGastosTabla from "./campana-gastos-tabla";
 import { fmtFecha } from "@/lib/date-sv";
 
+const DETAIL_PER_PAGE = 20;
+
 export default async function CampanaDetallePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{
+    pag_v?: string; q_v?: string;
+    pag_p?: string; q_p?: string;
+  }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
+
+  const pagV = Math.max(1, parseInt(sp.pag_v ?? "1") || 1);
+  const pagP = Math.max(1, parseInt(sp.pag_p ?? "1") || 1);
+  const q_v = sp.q_v?.trim() ?? "";
+  const q_p = sp.q_p?.trim() ?? "";
+
   const resultado = await obtenerCampana(id);
   if (!resultado) redirect("/dashboard/campanas");
 
   const { campana, counts } = resultado;
 
-  // Obtener todos los datos de detalle en paralelo
-  const [pacientes, ventas, gastos] = await Promise.all([
-    obtenerPacientesDeCampana(id),
+  // KPIs: usar funciones originales sin paginar (limit 500)
+  // Tabla paginada: usar nuevas funciones
+  const [ventasKpi, gastos, pacientesPaginados, ventasPaginadas] = await Promise.all([
     obtenerVentasDeCampana(id),
     obtenerGastosDeCampana(id),
+    obtenerPacientesPaginados(id, { q: q_p, pagina: pagP, perPage: DETAIL_PER_PAGE }),
+    obtenerVentasPaginadas(id, { q: q_v, pagina: pagV, perPage: DETAIL_PER_PAGE }),
   ]);
 
-  // Calcular los KPIs financieros desde los mismos datos del listado
-  const ventasActivas = ventas.filter((v) => v.estado !== "anulada");
+  // Calcular los KPIs financieros desde los datos sin paginar
+  const ventasActivas = ventasKpi.filter((v) => v.estado !== "anulada");
   const ordenIds = ventasActivas.map((v) => v.id);
   const totalIngresos = await obtenerIngresosDeCampana(ordenIds);
 
@@ -68,6 +84,24 @@ export default async function CampanaDetallePage({
     facturada:  { label: "Facturada",  cls: "bg-green-500/15 text-green-400" },
     anulada:    { label: "Anulada",    cls: "bg-red-500/15 text-red-400" },
   };
+
+  // Helper para construir URLs preservando todos los params de sección
+  const buildSectionUrl = (overrides: Record<string, string | undefined>) => {
+    const p = new URLSearchParams();
+    if (q_v) p.set("q_v", q_v);
+    if (q_p) p.set("q_p", q_p);
+    if (pagV > 1) p.set("pag_v", String(pagV));
+    if (pagP > 1) p.set("pag_p", String(pagP));
+    Object.entries(overrides).forEach(([k, v]) => {
+      if (v === undefined) p.delete(k);
+      else p.set(k, v);
+    });
+    const str = p.toString();
+    return `/dashboard/campanas/${id}${str ? `?${str}` : ""}`;
+  };
+
+  const totalVentasPaginadas = ventasPaginadas.total;
+  const totalPacientesPaginados = pacientesPaginados.total;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -280,28 +314,40 @@ export default async function CampanaDetallePage({
 
       {/* ── Detalle de Ventas ─────────────────────────────────── */}
       <div className="bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)]">
-        <div className="px-5 py-4 border-b border-b-subtle flex items-center justify-between">
-          <h2 className="font-semibold text-t-primary text-sm">
-            Ventas / Órdenes <span className="text-t-muted font-normal">({ventas.length})</span>
-          </h2>
-          {campana.activa && (
-            <Link
-              href={`/dashboard/ventas/nueva?campana_id=${id}`}
-              className="text-xs text-blue-400 hover:text-blue-300 transition"
-            >
-              + Nueva proforma
-            </Link>
-          )}
+        <div className="px-5 py-4 border-b border-b-subtle space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-t-primary text-sm">
+              Ventas / Órdenes <span className="text-t-muted font-normal">({totalVentasPaginadas})</span>
+            </h2>
+            {campana.activa && (
+              <Link
+                href={`/dashboard/ventas/nueva?campana_id=${id}`}
+                className="text-xs text-blue-400 hover:text-blue-300 transition"
+              >
+                + Nueva proforma
+              </Link>
+            )}
+          </div>
+          {/* Mini búsqueda ventas */}
+          <form className="flex gap-2">
+            {pagP > 1 && <input type="hidden" name="pag_p" value={String(pagP)} />}
+            {q_p && <input type="hidden" name="q_p" value={q_p} />}
+            <input type="hidden" name="pag_v" value="1" />
+            <input type="search" name="q_v" defaultValue={q_v}
+              placeholder="Buscar por paciente..."
+              className="flex-1 text-xs px-3 py-1.5 bg-input border border-b-default rounded-lg text-t-primary placeholder:text-t-muted focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            <button type="submit" className="text-xs px-3 py-1.5 bg-input border border-b-default rounded-lg text-t-muted hover:text-t-primary transition">Buscar</button>
+          </form>
         </div>
-        {ventas.length === 0 ? (
+        {ventasPaginadas.data.length === 0 ? (
           <div className="py-8 text-center text-t-muted text-sm">
-            No hay ventas registradas en esta campaña.
+            {q_v ? `Sin resultados para "${q_v}"` : "No hay ventas registradas en esta campaña."}
           </div>
         ) : (
           <div className="divide-y divide-b-subtle">
-            {ventas.map((v) => {
+            {ventasPaginadas.data.map((v) => {
               const badge = estadoBadge[v.estado] || { label: v.estado, cls: "bg-gray-500/15 text-t-muted" };
-              const pacNombre = v.paciente && !Array.isArray(v.paciente) ? v.paciente.nombre : "—";
+              const pacNombre = v.paciente && !Array.isArray(v.paciente) ? (v.paciente as { nombre: string }).nombre : "—";
               return (
                 <Link
                   key={v.id}
@@ -318,11 +364,33 @@ export default async function CampanaDetallePage({
                       <span className="text-[10px] text-t-muted">{fmt(v.created_at)}</span>
                     </div>
                   </div>
-                  <p className="text-sm font-bold text-green-400 shrink-0">{fmtMoney(v.total)}</p>
+                  <p className="text-sm font-bold text-green-400 shrink-0">{fmtMoney(Number(v.total))}</p>
                   <span className="text-t-muted text-xs">→</span>
                 </Link>
               );
             })}
+          </div>
+        )}
+        {/* Paginación ventas */}
+        {totalVentasPaginadas > DETAIL_PER_PAGE && (
+          <div className="px-5 py-3 border-t border-b-subtle flex items-center justify-between">
+            <span className="text-xs text-t-muted">
+              {totalVentasPaginadas} ventas{q_v && ` · "${q_v}"`}
+            </span>
+            <div className="flex gap-2">
+              {pagV > 1 && (
+                <Link href={buildSectionUrl({ pag_v: String(pagV - 1) })}
+                  className="text-xs px-3 py-1.5 bg-input border border-b-default rounded-lg text-t-secondary hover:text-t-primary transition">
+                  ← Anterior
+                </Link>
+              )}
+              {pagV * DETAIL_PER_PAGE < totalVentasPaginadas && (
+                <Link href={buildSectionUrl({ pag_v: String(pagV + 1) })}
+                  className="text-xs px-3 py-1.5 bg-input border border-b-default rounded-lg text-t-secondary hover:text-t-primary transition">
+                  Siguiente →
+                </Link>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -351,24 +419,36 @@ export default async function CampanaDetallePage({
 
       {/* ── Lista de pacientes ────────────────────────────────── */}
       <div className="bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)]">
-        <div className="px-5 py-4 border-b border-b-subtle flex items-center justify-between">
-          <h2 className="font-semibold text-t-primary text-sm">
-            Pacientes <span className="text-t-muted font-normal">({pacientes.length})</span>
-          </h2>
-          {campana.activa && (
-            <Link href={`/dashboard/pacientes/nuevo?campana_id=${id}`}
-              className="text-xs text-blue-400 hover:text-blue-300 transition">
-              + Nuevo paciente
-            </Link>
-          )}
+        <div className="px-5 py-4 border-b border-b-subtle space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-t-primary text-sm">
+              Pacientes <span className="text-t-muted font-normal">({totalPacientesPaginados})</span>
+            </h2>
+            {campana.activa && (
+              <Link href={`/dashboard/pacientes/nuevo?campana_id=${id}`}
+                className="text-xs text-blue-400 hover:text-blue-300 transition">
+                + Nuevo paciente
+              </Link>
+            )}
+          </div>
+          {/* Mini búsqueda pacientes */}
+          <form className="flex gap-2">
+            {pagV > 1 && <input type="hidden" name="pag_v" value={String(pagV)} />}
+            {q_v && <input type="hidden" name="q_v" value={q_v} />}
+            <input type="hidden" name="pag_p" value="1" />
+            <input type="search" name="q_p" defaultValue={q_p}
+              placeholder="Buscar paciente..."
+              className="flex-1 text-xs px-3 py-1.5 bg-input border border-b-default rounded-lg text-t-primary placeholder:text-t-muted focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            <button type="submit" className="text-xs px-3 py-1.5 bg-input border border-b-default rounded-lg text-t-muted hover:text-t-primary transition">Buscar</button>
+          </form>
         </div>
-        {pacientes.length === 0 ? (
+        {pacientesPaginados.data.length === 0 ? (
           <div className="py-10 text-center text-t-muted text-sm">
-            No hay pacientes registrados en esta campaña aún.
+            {q_p ? `Sin resultados para "${q_p}"` : "No hay pacientes registrados en esta campaña aún."}
           </div>
         ) : (
           <div className="divide-y divide-b-subtle">
-            {pacientes.map((p) => (
+            {pacientesPaginados.data.map((p) => (
               <Link key={p.id} href={`/dashboard/pacientes/${p.id}`}
                 className="flex items-center justify-between px-5 py-3 hover:bg-empty transition">
                 <div>
@@ -380,6 +460,28 @@ export default async function CampanaDetallePage({
                 </span>
               </Link>
             ))}
+          </div>
+        )}
+        {/* Paginación pacientes */}
+        {totalPacientesPaginados > DETAIL_PER_PAGE && (
+          <div className="px-5 py-3 border-t border-b-subtle flex items-center justify-between">
+            <span className="text-xs text-t-muted">
+              {totalPacientesPaginados} pacientes{q_p && ` · "${q_p}"`}
+            </span>
+            <div className="flex gap-2">
+              {pagP > 1 && (
+                <Link href={buildSectionUrl({ pag_p: String(pagP - 1) })}
+                  className="text-xs px-3 py-1.5 bg-input border border-b-default rounded-lg text-t-secondary hover:text-t-primary transition">
+                  ← Anterior
+                </Link>
+              )}
+              {pagP * DETAIL_PER_PAGE < totalPacientesPaginados && (
+                <Link href={buildSectionUrl({ pag_p: String(pagP + 1) })}
+                  className="text-xs px-3 py-1.5 bg-input border border-b-default rounded-lg text-t-secondary hover:text-t-primary transition">
+                  Siguiente →
+                </Link>
+              )}
+            </div>
           </div>
         )}
       </div>

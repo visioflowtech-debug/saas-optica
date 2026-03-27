@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { actualizarEmpresa, actualizarSucursal, toggleCampanasActivas, actualizarConfigOperacional } from "./actions";
+import { actualizarEmpresa, actualizarSucursal, toggleCampanasActivas, actualizarConfigOperacional, actualizarUsuario } from "./actions";
 import {
   crearLaboratorio, actualizarLaboratorio, toggleLaboratorioActivo, eliminarLaboratorio,
 } from "./laboratorio-actions";
@@ -14,17 +14,19 @@ import { createClient } from "@/lib/supabase/client";
 interface Empresa  { id: string; nombre: string; nit: string | null; logo_url: string | null; email: string | null; }
 interface Sucursal { id: string; nombre: string; direccion: string | null; telefono: string | null; campanas_activas: boolean; items_por_pagina: number; dias_kanban_entregado: number; }
 interface Laboratorio { id: string; nombre: string; contacto: string | null; telefono: string | null; email: string | null; activo: boolean; }
+interface UsuarioItem { id: string; nombre: string; rol: string; sucursal_id: string; sucursal: { nombre: string } | { nombre: string }[] | null; }
 
 interface Props {
   empresa: Empresa;
   sucursales: Sucursal[];
   laboratorios: Laboratorio[];
   categoriasGasto: CategoriaItem[];
+  usuarios: UsuarioItem[];
 }
 
-type TabMode = "empresa" | "sucursales" | "laboratorios" | "categorias";
+type TabMode = "empresa" | "sucursales" | "laboratorios" | "categorias" | "usuarios";
 
-export default function ConfiguracionTabs({ empresa, sucursales, laboratorios, categoriasGasto }: Props) {
+export default function ConfiguracionTabs({ empresa, sucursales, laboratorios, categoriasGasto, usuarios }: Props) {
   const [activeTab, setActiveTab] = useState<TabMode>("empresa");
 
   const tabs: { key: TabMode; label: string }[] = [
@@ -32,6 +34,7 @@ export default function ConfiguracionTabs({ empresa, sucursales, laboratorios, c
     { key: "sucursales",   label: `Sucursales (${sucursales.length})` },
     { key: "laboratorios", label: `Laboratorios (${laboratorios.length})` },
     { key: "categorias",   label: "Categorías" },
+    { key: "usuarios",     label: `Usuarios (${usuarios.length})` },
   ];
 
   return (
@@ -57,6 +60,7 @@ export default function ConfiguracionTabs({ empresa, sucursales, laboratorios, c
         {activeTab === "sucursales"   && <SucursalesList sucursales={sucursales} />}
         {activeTab === "laboratorios" && <LaboratoriosTab laboratorios={laboratorios} />}
         {activeTab === "categorias"   && <CategoriasTab categoriasGasto={categoriasGasto} />}
+        {activeTab === "usuarios"     && <UsuariosTab usuarios={usuarios} sucursales={sucursales} />}
       </div>
     </>
   );
@@ -560,6 +564,157 @@ function CategoriasTab({ categoriasGasto: initial }: { categoriasGasto: Categori
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── UsuariosTab ──────────────────────────────────────── */
+const ROLES_LABELS: Record<string, string> = {
+  administrador: "Administrador",
+  optometrista:  "Optometrista",
+  asesor_visual: "Asesor Visual",
+  laboratorio:   "Laboratorio",
+  contador:      "Contador",
+};
+
+function UsuariosTab({ usuarios: initial, sucursales }: { usuarios: UsuarioItem[]; sucursales: Sucursal[] }) {
+  const [usuarios, setUsuarios] = useState(initial);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ rol: "", sucursal_id: "" });
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState("");
+  const [successId, setSuccessId] = useState<string | null>(null);
+
+  const startEdit = (u: UsuarioItem) => {
+    setEditingId(u.id);
+    setEditForm({ rol: u.rol, sucursal_id: u.sucursal_id });
+    setError("");
+  };
+
+  const handleSave = (userId: string) => {
+    setError("");
+    startTransition(async () => {
+      const r = await actualizarUsuario(userId, editForm);
+      if (!r.success) { setError(r.error ?? "Error"); return; }
+      setUsuarios((prev) => prev.map((u) => u.id === userId ? { ...u, rol: editForm.rol, sucursal_id: editForm.sucursal_id } : u));
+      setEditingId(null);
+      setSuccessId(userId);
+      setTimeout(() => setSuccessId(null), 3000);
+    });
+  };
+
+  const getSucursalNombre = (u: UsuarioItem) => {
+    const suc = Array.isArray(u.sucursal) ? u.sucursal[0] : u.sucursal;
+    return (suc as any)?.nombre ?? sucursales.find((s) => s.id === u.sucursal_id)?.nombre ?? "—";
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-sm font-semibold text-t-primary">Gestión de Usuarios</h2>
+        <p className="text-xs text-t-muted mt-0.5">Asigna roles y sucursales a cada usuario de tu organización.</p>
+      </div>
+
+      {error && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2 rounded-lg">{error}</p>}
+
+      <div className="bg-card border border-b-default rounded-xl overflow-hidden">
+        {usuarios.length === 0 ? (
+          <div className="py-10 text-center text-t-muted text-sm">
+            No hay usuarios registrados en esta organización.
+          </div>
+        ) : (
+          <div className="divide-y divide-b-subtle">
+            {usuarios.map((u) => (
+              <div key={u.id}>
+                {editingId === u.id ? (
+                  <div className="px-5 py-4 bg-a-blue-bg/30 space-y-3">
+                    <p className="text-sm font-semibold text-t-primary">{u.nombre}</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-t-muted uppercase block mb-1">Rol</label>
+                        <select value={editForm.rol} onChange={(e) => setEditForm((f) => ({ ...f, rol: e.target.value }))}
+                          className="w-full px-3 py-1.5 text-sm bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500">
+                          {Object.entries(ROLES_LABELS).map(([val, label]) => (
+                            <option key={val} value={val}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-t-muted uppercase block mb-1">Sucursal</label>
+                        <select value={editForm.sucursal_id} onChange={(e) => setEditForm((f) => ({ ...f, sucursal_id: e.target.value }))}
+                          className="w-full px-3 py-1.5 text-sm bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500">
+                          {sucursales.map((s) => (
+                            <option key={s.id} value={s.id}>{s.nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleSave(u.id)} disabled={isPending}
+                        className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50">
+                        {isPending ? "Guardando..." : "Guardar"}
+                      </button>
+                      <button onClick={() => setEditingId(null)}
+                        className="px-4 py-1.5 text-xs text-t-muted border border-b-default rounded-lg hover:text-t-primary transition">
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-empty transition">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                      {u.nombre.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-t-primary">{u.nombre}</p>
+                      <p className="text-xs text-t-muted">{getSucursalNombre(u)}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {successId === u.id && <span className="text-xs text-t-green font-semibold">✓ Guardado</span>}
+                      <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold ${
+                        u.rol === "administrador" ? "bg-blue-500/15 text-blue-400" :
+                        u.rol === "optometrista"  ? "bg-purple-500/15 text-purple-400" :
+                        u.rol === "asesor_visual" ? "bg-green-500/15 text-green-400" :
+                        u.rol === "laboratorio"   ? "bg-orange-500/15 text-orange-400" :
+                        u.rol === "contador"      ? "bg-yellow-500/15 text-yellow-400" :
+                        "bg-gray-500/15 text-t-muted"
+                      }`}>
+                        {ROLES_LABELS[u.rol] ?? u.rol}
+                      </span>
+                      <button onClick={() => startEdit(u)}
+                        className="px-2.5 py-1 text-[10px] border border-b-default rounded text-t-muted hover:text-t-primary hover:border-blue-500/50 transition">
+                        Editar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="p-4 bg-card border border-b-default rounded-xl">
+        <p className="text-xs font-semibold text-t-secondary mb-2">Roles disponibles</p>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(ROLES_LABELS).map(([val, label]) => (
+            <span key={val} className={`text-[10px] px-2.5 py-1 rounded-full font-semibold ${
+              val === "administrador" ? "bg-blue-500/15 text-blue-400" :
+              val === "optometrista"  ? "bg-purple-500/15 text-purple-400" :
+              val === "asesor_visual" ? "bg-green-500/15 text-green-400" :
+              val === "laboratorio"   ? "bg-orange-500/15 text-orange-400" :
+              val === "contador"      ? "bg-yellow-500/15 text-yellow-400" :
+              "bg-gray-500/15 text-t-muted"
+            }`}>
+              {label}
+            </span>
+          ))}
+        </div>
+        <p className="text-[10px] text-t-muted mt-2">
+          El rol determina qué módulos ve y puede usar cada usuario.
+          La sucursal define qué datos puede acceder.
+        </p>
       </div>
     </div>
   );
