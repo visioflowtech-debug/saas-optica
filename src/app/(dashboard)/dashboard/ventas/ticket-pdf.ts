@@ -65,7 +65,7 @@ export async function generarTicketPDF(data: TicketData) {
   // Estimate height based on content
   const baseHeight = 120;
   const itemHeight = data.detalles.length * 8;
-  const pagosHeight = data.pagos.length > 0 ? 20 + data.pagos.length * 4 : 0;
+  const pagosHeight = 15 + (data.pagos.length > 0 ? 15 + data.pagos.length * 4 : 0);
   const ticketHeight = baseHeight + itemHeight + pagosHeight + (data.orden.notas ? 20 : 0);
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [ticketWidth, ticketHeight] });
@@ -143,8 +143,7 @@ export async function generarTicketPDF(data: TicketData) {
   doc.text(`Paciente: ${paciente.nombre}`, margin, y);
   y += 3.5;
   if (paciente.telefono) { doc.text(`Tel: ${paciente.telefono}`, margin, y); y += 3.5; }
-  doc.text(`Atendido por: ${asesor}`, margin, y);
-  y += 4;
+  y += 1;
 
   // ── Separator ───────────────────────────────────────────
   doc.line(margin, y, ticketWidth - margin, y);
@@ -226,11 +225,11 @@ export async function generarTicketPDF(data: TicketData) {
   }
 
   // ── Payment Summary ──────────────────────────────────────
-  if (data.pagos.length > 0) {
-    doc.setLineDashPattern([1, 1], 0);
-    doc.line(margin, y, ticketWidth - margin, y);
-    y += 3;
+  doc.setLineDashPattern([1, 1], 0);
+  doc.line(margin, y, ticketWidth - margin, y);
+  y += 3;
 
+  if (data.pagos.length > 0) {
     doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
     doc.text("ABONOS", margin, y);
@@ -254,12 +253,13 @@ export async function generarTicketPDF(data: TicketData) {
     doc.text("Total Abonado:", margin, y);
     doc.text(fmtCurrency(data.totalAbonado), ticketWidth - margin, y, { align: "right" });
     y += 4;
-
-    doc.setFontSize(8);
-    doc.text("SALDO PENDIENTE:", margin, y);
-    doc.text(fmtCurrency(Math.max(data.saldoPendiente, 0)), ticketWidth - margin, y, { align: "right" });
-    y += 5;
   }
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.text("SALDO PENDIENTE:", margin, y);
+  doc.text(fmtCurrency(Math.max(data.saldoPendiente, 0)), ticketWidth - margin, y, { align: "right" });
+  y += 5;
 
   // ── Footer ──────────────────────────────────────────────
   doc.setLineDashPattern([1, 1], 0);

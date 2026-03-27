@@ -99,6 +99,11 @@ export async function crearProforma(formData: FormData) {
     return redirect("/dashboard/ventas/nueva?error=Agrega+al+menos+un+producto");
   }
 
+  // Todos los items deben tener un producto del catálogo
+  if (items.some(it => !it.producto_id)) {
+    return redirect("/dashboard/ventas/nueva?error=Selecciona+todos+los+productos+del+catálogo");
+  }
+
   // Validar tipos de producto
   if (items.some(it => !TIPOS_PRODUCTO_VALIDOS.includes(it.tipo_producto))) {
     return redirect("/dashboard/ventas/nueva?error=Tipo+de+producto+inválido");
@@ -471,6 +476,113 @@ export async function registrarPago(ordenId: string, monto: number, metodoPago: 
 
   revalidatePath(`/dashboard/ventas/${ordenId}`);
   revalidatePath("/dashboard/ventas");
+}
+
+/* ── Helpers internos ───────────────────────────────────── */
+async function verificarProformaBorrador(
+  supabase: Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>>,
+  ordenId: string,
+  tenant_id: string
+) {
+  const { data } = await supabase
+    .from("ordenes")
+    .select("id, subtotal, descuento")
+    .eq("id", ordenId)
+    .eq("tenant_id", tenant_id)
+    .eq("tipo", "proforma")
+    .eq("estado", "borrador")
+    .single();
+  return data;
+}
+
+async function recalcularTotalesOrden(
+  supabase: Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>>,
+  ordenId: string,
+  tenant_id: string,
+  descuento: number
+) {
+  const { data: lineas } = await supabase
+    .from("orden_detalle")
+    .select("cantidad, precio_unitario")
+    .eq("orden_id", ordenId);
+  const nuevoSubtotal = (lineas ?? []).reduce((s, l) => s + Number(l.cantidad) * Number(l.precio_unitario), 0);
+  const nuevoTotal = Math.max(nuevoSubtotal - descuento, 0);
+  await supabase.from("ordenes")
+    .update({ subtotal: nuevoSubtotal, total: nuevoTotal, updated_at: new Date().toISOString() })
+    .eq("id", ordenId)
+    .eq("tenant_id", tenant_id);
+  return { subtotal: nuevoSubtotal, total: nuevoTotal };
+}
+
+/* ── Agregar línea a proforma en borrador ───────────────── */
+export async function agregarLineaProforma(
+  ordenId: string,
+  line: { producto_id: string; tipo_producto: string; descripcion: string; cantidad: number; precio_unitario: number }
+) {
+  const { supabase, tenant_id } = await getUserContext();
+  const orden = await verificarProformaBorrador(supabase, ordenId, tenant_id);
+  if (!orden) return { success: false, error: "Solo se pueden editar proformas en borrador" };
+
+  const TIPOS_VALIDOS = ["aro", "lente", "tratamiento", "accesorio", "servicio", "otro"];
+  if (!TIPOS_VALIDOS.includes(line.tipo_producto)) return { success: false, error: "Tipo inválido" };
+  if (line.cantidad < 1 || line.precio_unitario < 0) return { success: false, error: "Cantidad o precio inválido" };
+
+  const { error } = await supabase.from("orden_detalle").insert({
+    orden_id: ordenId,
+    tenant_id,
+    producto_id: line.producto_id || null,
+    tipo_producto: line.tipo_producto,
+    descripcion: line.descripcion,
+    cantidad: line.cantidad,
+    precio_unitario: line.precio_unitario,
+    subtotal: line.cantidad * line.precio_unitario,
+  });
+
+  if (error) return { success: false, error: error.message };
+
+  const totales = await recalcularTotalesOrden(supabase, ordenId, tenant_id, Number(orden.descuento));
+  revalidatePath(`/dashboard/ventas/${ordenId}`);
+  return { success: true, ...totales };
+}
+
+/* ── Eliminar línea de proforma en borrador ─────────────── */
+export async function eliminarLineaProforma(ordenId: string, lineaId: string) {
+  const { supabase, tenant_id } = await getUserContext();
+  const orden = await verificarProformaBorrador(supabase, ordenId, tenant_id);
+  if (!orden) return { success: false, error: "Solo se pueden editar proformas en borrador" };
+
+  // Verificar que quedan al menos 2 líneas (al eliminar quedará ≥1)
+  const { count } = await supabase
+    .from("orden_detalle").select("id", { count: "exact", head: true }).eq("orden_id", ordenId);
+  if ((count ?? 0) <= 1) return { success: false, error: "La proforma debe tener al menos un producto" };
+
+  await supabase.from("orden_detalle").delete().eq("id", lineaId).eq("orden_id", ordenId);
+
+  const totales = await recalcularTotalesOrden(supabase, ordenId, tenant_id, Number(orden.descuento));
+  revalidatePath(`/dashboard/ventas/${ordenId}`);
+  return { success: true, ...totales };
+}
+
+/* ── Actualizar precio de línea en proforma en borrador ─── */
+export async function actualizarPrecioLinea(ordenId: string, lineaId: string, nuevoPrecio: number) {
+  const { supabase, tenant_id } = await getUserContext();
+  const orden = await verificarProformaBorrador(supabase, ordenId, tenant_id);
+  if (!orden) return { success: false, error: "Solo se pueden editar proformas en borrador" };
+  if (nuevoPrecio < 0) return { success: false, error: "El precio no puede ser negativo" };
+
+  const { data: linea } = await supabase
+    .from("orden_detalle").select("cantidad").eq("id", lineaId).eq("orden_id", ordenId).single();
+  if (!linea) return { success: false, error: "Línea no encontrada" };
+
+  const nuevoSubtotal = Number(linea.cantidad) * nuevoPrecio;
+  await supabase.from("orden_detalle")
+    .update({ precio_unitario: nuevoPrecio, subtotal: nuevoSubtotal })
+    .eq("id", lineaId)
+    .eq("orden_id", ordenId);
+
+  const totales = await recalcularTotalesOrden(supabase, ordenId, tenant_id, Number(orden.descuento));
+  revalidatePath(`/dashboard/ventas/${ordenId}`);
+  return { success: true, ...totales };
 }
 
 /* ── Get Payments for an Order ──────────────────────────── */

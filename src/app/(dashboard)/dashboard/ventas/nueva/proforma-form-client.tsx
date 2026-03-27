@@ -192,25 +192,20 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
                 />
               </div>
 
-              {/* Details row */}
-              <div className="grid grid-cols-12 gap-2 items-end">
-                <div className="col-span-12 md:col-span-2">
-                  <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Tipo</label>
-                  <span className="block px-3 py-2 bg-input border border-b-default rounded-lg text-t-secondary text-sm">
+              {/* Details row — descripción y tipo son solo lectura del catálogo */}
+              {item.catalogId && (
+                <div className="flex items-center gap-2 px-1">
+                  <span className="px-2 py-0.5 text-[10px] font-medium uppercase rounded-full bg-a-blue-bg text-t-blue border border-a-blue-border">
                     {TIPO_LABELS[item.tipo_producto] ?? item.tipo_producto}
                   </span>
+                  <span className="text-sm text-t-secondary truncate">{item.descripcion}</span>
                 </div>
-                <div className="col-span-12 md:col-span-4">
-                  <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Descripción</label>
-                  <input
-                    type="text"
-                    value={item.descripcion}
-                    onChange={(e) => updateItem(item.id, "descripcion", e.target.value)}
-                    placeholder="Descripción..."
-                    className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-                  />
-                </div>
-                <div className="col-span-4 md:col-span-2">
+              )}
+              {!item.catalogId && (
+                <p className="text-xs text-t-amber px-1">⚠ Selecciona un producto del catálogo para continuar</p>
+              )}
+              <div className="grid grid-cols-8 gap-2 items-end">
+                <div className="col-span-2">
                   <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Cantidad</label>
                   <input
                     type="number"
@@ -220,8 +215,8 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
                     className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
-                <div className="col-span-4 md:col-span-2">
-                  <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Precio</label>
+                <div className="col-span-3">
+                  <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Precio unitario ($)</label>
                   <input
                     type="number"
                     min="0"
@@ -231,7 +226,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
                     className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
-                <div className="col-span-4 md:col-span-2 text-right">
+                <div className="col-span-3 text-right">
                   <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Subtotal</label>
                   <span className="block px-3 py-2 text-t-primary text-sm font-mono font-medium">
                     {fmtCurrency(item.cantidad * item.precio_unitario)}
@@ -288,7 +283,9 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
       <div className="flex gap-3">
         <button
           formAction={crearProforma}
-          className="px-6 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25"
+          disabled={items.some(it => !it.catalogId)}
+          title={items.some(it => !it.catalogId) ? "Selecciona todos los productos del catálogo" : undefined}
+          className="px-6 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Guardar Proforma
         </button>

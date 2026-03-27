@@ -3,6 +3,8 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import OrdenAcciones from "./orden-acciones";
 import PagosSection from "./pagos-section";
+import ProformaLineasEdit from "./proforma-lineas-edit";
+import { obtenerCatalogo } from "../actions";
 import { fmtFecha } from "@/lib/date-sv";
 
 export default async function OrdenDetallePage({
@@ -48,6 +50,9 @@ export default async function OrdenDetallePage({
     .select("*")
     .eq("orden_id", id)
     .single();
+
+  const esProformaBorrador = orden.tipo === "proforma" && orden.estado === "borrador";
+  const catalogo = esProformaBorrador ? await obtenerCatalogo() : [];
 
   const paciente = getNested(orden.paciente);
   const asesor = getNested(orden.asesor);
@@ -106,58 +111,74 @@ export default async function OrdenDetallePage({
       </div>
 
       {/* Line Items */}
-      <div className="bg-card border border-b-default rounded-2xl overflow-hidden shadow-[var(--shadow-card)]">
-        <div className="px-6 py-4 border-b border-b-subtle">
-          <h2 className="text-sm font-semibold text-t-primary uppercase tracking-wider">Detalle de Productos</h2>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-b-subtle">
-              <th className="text-left px-6 py-3 text-xs font-medium text-t-muted uppercase">Tipo</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-t-muted uppercase">Descripción</th>
-              <th className="text-center px-6 py-3 text-xs font-medium text-t-muted uppercase">Cant.</th>
-              <th className="text-right px-6 py-3 text-xs font-medium text-t-muted uppercase">Precio</th>
-              <th className="text-right px-6 py-3 text-xs font-medium text-t-muted uppercase">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-b-subtle">
-            {(detalles ?? []).map((d) => (
-              <tr key={d.id}>
-                <td className="px-6 py-3">
-                  <span className="px-2 py-0.5 text-[10px] font-medium uppercase rounded-full bg-a-blue-bg text-t-blue">
-                    {tipoLabels[d.tipo_producto] ?? d.tipo_producto}
-                  </span>
-                </td>
-                <td className="px-6 py-3 text-t-primary">{d.descripcion ?? "—"}</td>
-                <td className="px-6 py-3 text-center text-t-secondary">{d.cantidad}</td>
-                <td className="px-6 py-3 text-right text-t-secondary font-mono">{fmtCurrency(Number(d.precio_unitario))}</td>
-                <td className="px-6 py-3 text-right text-t-primary font-mono font-medium">{fmtCurrency(Number(d.subtotal))}</td>
+      {esProformaBorrador ? (
+        <ProformaLineasEdit
+          ordenId={id}
+          lineasIniciales={(detalles ?? []).map((d) => ({
+            id: d.id,
+            tipo_producto: d.tipo_producto,
+            descripcion: d.descripcion,
+            cantidad: Number(d.cantidad),
+            precio_unitario: Number(d.precio_unitario),
+            subtotal: Number(d.subtotal),
+          }))}
+          catalogo={catalogo}
+          descuento={Number(orden.descuento)}
+        />
+      ) : (
+        <div className="bg-card border border-b-default rounded-2xl overflow-hidden shadow-[var(--shadow-card)]">
+          <div className="px-6 py-4 border-b border-b-subtle">
+            <h2 className="text-sm font-semibold text-t-primary uppercase tracking-wider">Detalle de Productos</h2>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-b-subtle">
+                <th className="text-left px-6 py-3 text-xs font-medium text-t-muted uppercase">Tipo</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-t-muted uppercase">Descripción</th>
+                <th className="text-center px-6 py-3 text-xs font-medium text-t-muted uppercase">Cant.</th>
+                <th className="text-right px-6 py-3 text-xs font-medium text-t-muted uppercase">Precio</th>
+                <th className="text-right px-6 py-3 text-xs font-medium text-t-muted uppercase">Subtotal</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {/* Totals */}
-        <div className="px-6 py-4 border-t border-b-subtle bg-input/30">
-          <div className="flex justify-end">
-            <div className="w-64 space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-t-muted">Subtotal</span>
-                <span className="text-t-primary font-mono">{fmtCurrency(Number(orden.subtotal))}</span>
-              </div>
-              {Number(orden.descuento) > 0 && (
+            </thead>
+            <tbody className="divide-y divide-b-subtle">
+              {(detalles ?? []).map((d) => (
+                <tr key={d.id}>
+                  <td className="px-6 py-3">
+                    <span className="px-2 py-0.5 text-[10px] font-medium uppercase rounded-full bg-a-blue-bg text-t-blue">
+                      {tipoLabels[d.tipo_producto] ?? d.tipo_producto}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3 text-t-primary">{d.descripcion ?? "—"}</td>
+                  <td className="px-6 py-3 text-center text-t-secondary">{d.cantidad}</td>
+                  <td className="px-6 py-3 text-right text-t-secondary font-mono">{fmtCurrency(Number(d.precio_unitario))}</td>
+                  <td className="px-6 py-3 text-right text-t-primary font-mono font-medium">{fmtCurrency(Number(d.subtotal))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {/* Totals */}
+          <div className="px-6 py-4 border-t border-b-subtle bg-input/30">
+            <div className="flex justify-end">
+              <div className="w-64 space-y-1.5">
                 <div className="flex justify-between text-sm">
-                  <span className="text-t-muted">Descuento</span>
-                  <span className="text-t-red font-mono">-{fmtCurrency(Number(orden.descuento))}</span>
+                  <span className="text-t-muted">Subtotal</span>
+                  <span className="text-t-primary font-mono">{fmtCurrency(Number(orden.subtotal))}</span>
                 </div>
-              )}
-              <div className="flex justify-between text-base font-bold pt-2 border-t border-b-subtle">
-                <span className="text-t-primary">Total</span>
-                <span className="text-t-blue font-mono">{fmtCurrency(Number(orden.total))}</span>
+                {Number(orden.descuento) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-t-muted">Descuento</span>
+                    <span className="text-t-red font-mono">-{fmtCurrency(Number(orden.descuento))}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-base font-bold pt-2 border-t border-b-subtle">
+                  <span className="text-t-primary">Total</span>
+                  <span className="text-t-blue font-mono">{fmtCurrency(Number(orden.total))}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Notes */}
       {orden.notas && (
