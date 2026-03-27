@@ -26,6 +26,7 @@ export async function obtenerOrdenesLaboratorio() {
       asesor:usuarios!ordenes_asesor_id_fkey(nombre)
     `)
     .eq("tenant_id", perfil.tenant_id)
+    .eq("sucursal_id", perfil.sucursal_id)
     .eq("tipo", "orden_trabajo")
     .neq("estado", "cancelada")
     .order("created_at", { ascending: false })
@@ -75,7 +76,13 @@ export async function obtenerOrdenesLaboratorio() {
   }));
 }
 
+const ESTADOS_LAB_VALIDOS = ["pendiente", "en_laboratorio", "recibido", "entregado"] as const;
+
 export async function actualizarEstadoLaboratorio(ordenId: string, nuevoEstado: string, laboratorioExterno?: string) {
+  if (!(ESTADOS_LAB_VALIDOS as readonly string[]).includes(nuevoEstado)) {
+    throw new Error("Estado de laboratorio inválido");
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
