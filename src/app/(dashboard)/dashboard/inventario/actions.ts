@@ -99,9 +99,8 @@ export async function upsertProducto(payload: Partial<Producto>) {
   const esProductoFisico = payload.maneja_stock ||
     (payload.categoria && ["aro_economico", "aro_marca", "aro_sol", "accesorio", "lente"].includes(payload.categoria));
 
-  const dbPayload = {
-    tenant_id,
-    sucursal_id: esProductoFisico ? sucursal_id : null, // servicios/tratamientos son compartidos entre sucursales
+  // Campos comunes para INSERT y UPDATE
+  const camposBase = {
     categoria: payload.categoria,
     nombre: payload.nombre || null,
     marca: payload.marca || null,
@@ -116,10 +115,19 @@ export async function upsertProducto(payload: Partial<Producto>) {
 
   let errorInfo = null;
   if (isNew) {
-    const { error } = await supabase.from("productos").insert(dbPayload);
+    // Al crear: asignar sucursal_id según tipo de producto
+    const { error } = await supabase.from("productos").insert({
+      ...camposBase,
+      tenant_id,
+      sucursal_id: esProductoFisico ? sucursal_id : null,
+    });
     errorInfo = error;
   } else {
-    const { error } = await supabase.from("productos").update(dbPayload).eq("id", payload.id).eq("tenant_id", tenant_id);
+    // Al editar: NO tocar sucursal_id para no reasignar el producto entre sucursales
+    const { error } = await supabase.from("productos")
+      .update(camposBase)
+      .eq("id", payload.id)
+      .eq("tenant_id", tenant_id);
     errorInfo = error;
   }
 
