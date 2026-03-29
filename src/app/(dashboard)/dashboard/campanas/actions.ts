@@ -137,14 +137,13 @@ export async function obtenerPacientesPaginados(campanaId: string, opts?: { q?: 
 export async function obtenerVentasPaginadas(campanaId: string, opts?: { q?: string; pagina?: number; perPage?: number }) {
   const { supabase, tenant_id } = await getUserContext();
 
+  // Obtener IDs de pacientes de la campaña para el filtro OR
   const { data: pacs } = await supabase
     .from("pacientes")
     .select("id")
     .eq("campana_id", campanaId)
     .eq("tenant_id", tenant_id);
   const patientIds = (pacs || []).map((p) => p.id);
-
-  if (patientIds.length === 0) return { data: [], total: 0 };
 
   const pagina = opts?.pagina ?? 1;
   const perPage = opts?.perPage ?? 20;
@@ -154,11 +153,17 @@ export async function obtenerVentasPaginadas(campanaId: string, opts?: { q?: str
   let query = supabase
     .from("ordenes")
     .select("id, tipo, estado, total, created_at, paciente_id, paciente:pacientes!ordenes_paciente_id_fkey(nombre)", { count: "exact" })
-    .in("paciente_id", patientIds)
     .eq("tenant_id", tenant_id)
     .neq("estado", "anulada")
     .order("created_at", { ascending: false })
     .range(from, to);
+
+  // campana_id directo (nuevas órdenes) OR paciente en campaña (órdenes sin campana_id)
+  if (patientIds.length > 0) {
+    query = query.or(`campana_id.eq.${campanaId},paciente_id.in.(${patientIds.join(",")})`);
+  } else {
+    query = query.eq("campana_id", campanaId);
+  }
 
   if (opts?.q?.trim()) {
     const qSafe = opts.q.trim().replace(/[%_\\]/g, "\\$&");
@@ -234,19 +239,20 @@ export async function obtenerVentasDeCampana(campanaId: string) {
     .eq("tenant_id", tenant_id);
   const patientIds = (pacs || []).map((p) => p.id);
 
-  if (patientIds.length === 0) return [] as Array<{
-    id: string; created_at: string; tipo: string; estado: string;
-    total: number; paciente_id: string; notas: string | null;
-    paciente: { nombre: string } | null;
-  }>;
-
-  const { data } = await supabase
+  let ordenesQuery = supabase
     .from("ordenes")
     .select("id, created_at, tipo, estado, total, paciente_id, notas, paciente:pacientes(nombre)")
-    .in("paciente_id", patientIds)
     .eq("tenant_id", tenant_id)
     .order("created_at", { ascending: false })
     .limit(500);
+
+  if (patientIds.length > 0) {
+    ordenesQuery = ordenesQuery.or(`campana_id.eq.${campanaId},paciente_id.in.(${patientIds.join(",")})`);
+  } else {
+    ordenesQuery = ordenesQuery.eq("campana_id", campanaId);
+  }
+
+  const { data } = await ordenesQuery;
 
   return (data || []) as unknown as Array<{
     id: string;
