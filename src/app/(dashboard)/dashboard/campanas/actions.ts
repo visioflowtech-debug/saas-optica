@@ -65,21 +65,33 @@ export async function obtenerCampana(id: string) {
 
   if (error || !campana) return null;
 
-  // Solo conteos — HEAD queries que no retornan filas (evita problema de RLS con ordenes)
-  const [{ count: totalPacientes }, { count: totalExaminados }] = await Promise.all([
+  // Obtener IDs de pacientes de la campaña para contar examinados via JOIN
+  const [{ count: totalPacientes }, { data: campanaPatients }] = await Promise.all([
     supabase.from("pacientes")
       .select("id", { count: "exact", head: true })
       .eq("campana_id", id).eq("tenant_id", tenant_id),
-    supabase.from("examenes_clinicos")
-      .select("id", { count: "exact", head: true })
+    supabase.from("pacientes")
+      .select("id")
       .eq("campana_id", id).eq("tenant_id", tenant_id),
   ]);
+
+  const patientIds = (campanaPatients || []).map((p) => p.id);
+
+  let totalExaminados = 0;
+  if (patientIds.length > 0) {
+    const { data: examinadosRes } = await supabase
+      .from("examenes_clinicos")
+      .select("paciente_id")
+      .in("paciente_id", patientIds)
+      .eq("tenant_id", tenant_id);
+    totalExaminados = new Set((examinadosRes || []).map((e) => e.paciente_id)).size;
+  }
 
   return {
     campana,
     counts: {
       totalPacientes: totalPacientes ?? 0,
-      totalExaminados: totalExaminados ?? 0,
+      totalExaminados,
     },
   };
 }
@@ -124,6 +136,16 @@ export async function obtenerPacientesPaginados(campanaId: string, opts?: { q?: 
 
 export async function obtenerVentasPaginadas(campanaId: string, opts?: { q?: string; pagina?: number; perPage?: number }) {
   const { supabase, tenant_id } = await getUserContext();
+
+  const { data: pacs } = await supabase
+    .from("pacientes")
+    .select("id")
+    .eq("campana_id", campanaId)
+    .eq("tenant_id", tenant_id);
+  const patientIds = (pacs || []).map((p) => p.id);
+
+  if (patientIds.length === 0) return { data: [], total: 0 };
+
   const pagina = opts?.pagina ?? 1;
   const perPage = opts?.perPage ?? 20;
   const from = (pagina - 1) * perPage;
@@ -132,7 +154,7 @@ export async function obtenerVentasPaginadas(campanaId: string, opts?: { q?: str
   let query = supabase
     .from("ordenes")
     .select("id, tipo, estado, total, created_at, paciente_id, paciente:pacientes!ordenes_paciente_id_fkey(nombre)", { count: "exact" })
-    .eq("campana_id", campanaId)
+    .in("paciente_id", patientIds)
     .eq("tenant_id", tenant_id)
     .neq("estado", "anulada")
     .order("created_at", { ascending: false })
@@ -205,10 +227,23 @@ export async function toggleCampanaActiva(campanaId: string, activa: boolean) {
 export async function obtenerVentasDeCampana(campanaId: string) {
   const { supabase, tenant_id } = await getUserContext();
 
+  const { data: pacs } = await supabase
+    .from("pacientes")
+    .select("id")
+    .eq("campana_id", campanaId)
+    .eq("tenant_id", tenant_id);
+  const patientIds = (pacs || []).map((p) => p.id);
+
+  if (patientIds.length === 0) return [] as Array<{
+    id: string; created_at: string; tipo: string; estado: string;
+    total: number; paciente_id: string; notas: string | null;
+    paciente: { nombre: string } | null;
+  }>;
+
   const { data } = await supabase
     .from("ordenes")
     .select("id, created_at, tipo, estado, total, paciente_id, notas, paciente:pacientes(nombre)")
-    .eq("campana_id", campanaId)
+    .in("paciente_id", patientIds)
     .eq("tenant_id", tenant_id)
     .order("created_at", { ascending: false })
     .limit(500);
