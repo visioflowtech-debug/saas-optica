@@ -1,7 +1,8 @@
-import { actualizarPaciente } from "../../actions";
+import { actualizarPaciente, obtenerProfesiones } from "../../actions";
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import ProfesionCombobox from "@/components/profesion-combobox";
 
 const ETIQUETAS_COMUNES = [
   "Diabetes", "Hipertensión", "Glaucoma", "Cataratas",
@@ -31,6 +32,8 @@ export default async function EditarPacientePage({
   const etiquetasActuales = Array.isArray(paciente.etiquetas_medicas)
     ? (paciente.etiquetas_medicas as string[]).join(", ")
     : "";
+
+  const profesionesList = await obtenerProfesiones();
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -77,9 +80,7 @@ export default async function EditarPacientePage({
           </div>
           <div>
             <label htmlFor="profesion" className="block text-sm font-medium text-t-secondary mb-1.5">Profesión</label>
-            <input id="profesion" name="profesion" type="text" placeholder="Ej: Contador, Ingeniero..."
-              defaultValue={paciente.profesion ?? ""}
-              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+            <ProfesionCombobox profesionesList={profesionesList} defaultValue={paciente.profesion ?? ""} />
           </div>
         </div>
 

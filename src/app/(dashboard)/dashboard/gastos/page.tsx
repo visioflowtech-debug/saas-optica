@@ -33,19 +33,17 @@ export default async function GastosPage({
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-t-primary">Gastos</h1>
           <p className="text-t-secondary text-sm mt-1">Control de gastos operativos y de campaña</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/gastos/nuevo"
-            className="px-4 py-2 bg-[var(--accent-blue)] hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition"
-          >
-            + Registrar Gasto
-          </Link>
-        </div>
+        <Link
+          href="/dashboard/gastos/nuevo"
+          className="px-4 py-2 bg-[var(--accent-blue)] hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition whitespace-nowrap"
+        >
+          + Registrar Gasto
+        </Link>
       </div>
 
       {params.error && (
@@ -55,14 +53,14 @@ export default async function GastosPage({
       )}
 
       {/* KPI principal */}
-      <div className="p-5 bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)] flex items-center justify-between">
+      <div className="p-5 bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Total Gastos</p>
           <p className="text-3xl font-bold text-t-primary">${totalMonto.toFixed(2)}</p>
           <p className="text-xs text-t-muted mt-1">{total} registro{total !== 1 ? "s" : ""}</p>
         </div>
         {/* Mini breakdown por categoría */}
-        <div className="flex flex-wrap gap-2 justify-end max-w-sm">
+        <div className="flex flex-wrap gap-2 sm:justify-end sm:max-w-sm">
           {Object.entries(porCategoria).map(([cat, monto]) => {
             const label = categorias.find((c) => c.valor === cat)?.label || cat;
             return (

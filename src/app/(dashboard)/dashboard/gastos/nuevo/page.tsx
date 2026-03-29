@@ -49,10 +49,10 @@ export default async function NuevoGastoPage({
   return (
     <div className="space-y-6 max-w-2xl">
       <Link
-        href="/dashboard/gastos"
+        href={params.campana_id ? `/dashboard/campanas/${params.campana_id}` : "/dashboard/gastos"}
         className="inline-flex items-center gap-1 text-sm text-t-muted hover:text-t-primary transition"
       >
-        ← Volver a gastos
+        {params.campana_id ? "← Volver a campaña" : "← Volver a gastos"}
       </Link>
 
       <div>
@@ -163,7 +163,7 @@ export default async function NuevoGastoPage({
 
         <div className="pt-4 border-t border-b-subtle flex justify-end gap-3">
           <Link
-            href="/dashboard/gastos"
+            href={params.campana_id ? `/dashboard/campanas/${params.campana_id}` : "/dashboard/gastos"}
             className="px-4 py-2 text-sm text-t-muted hover:text-t-primary border border-b-default rounded-lg transition"
           >
             Cancelar

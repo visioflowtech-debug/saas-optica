@@ -37,6 +37,19 @@ export async function crearPaciente(formData: FormData) {
   const acepta_marketing = formData.get("acepta_marketing") === "on";
   const campana_id = (formData.get("campana_id") as string) || null;
 
+  // Si viene de una campaña, usar la sucursal de la campaña (no la del usuario)
+  // para evitar que pacientes queden en la sucursal equivocada
+  let pacienteSucursalId = sucursal_id;
+  if (campana_id) {
+    const { data: campana } = await supabase
+      .from("campanas")
+      .select("sucursal_id")
+      .eq("id", campana_id)
+      .eq("tenant_id", tenant_id)
+      .single();
+    if (campana?.sucursal_id) pacienteSucursalId = campana.sucursal_id;
+  }
+
   // Parse medical tags from comma-separated input
   const etiquetasRaw = formData.get("etiquetas_medicas") as string;
   const etiquetas_medicas = etiquetasRaw
@@ -47,7 +60,7 @@ export async function crearPaciente(formData: FormData) {
     .from("pacientes")
     .insert({
       tenant_id,
-      sucursal_id,
+      sucursal_id: pacienteSucursalId,
       nombre,
       telefono: telefono || null,
       email: email || null,
@@ -61,13 +74,44 @@ export async function crearPaciente(formData: FormData) {
     .single();
 
   if (error) {
-    return redirect(
-      "/dashboard/pacientes/nuevo?error=" + encodeURIComponent(error.message)
-    );
+    const base = campana_id
+      ? `/dashboard/pacientes/nuevo?campana_id=${campana_id}`
+      : "/dashboard/pacientes/nuevo";
+    return redirect(base + "&error=" + encodeURIComponent(error.message));
   }
 
   revalidatePath("/dashboard/pacientes");
-  redirect(`/dashboard/pacientes/${data.id}`);
+  if (campana_id) revalidatePath(`/dashboard/campanas/${campana_id}`);
+  // Regresar al contexto de origen
+  redirect(campana_id ? `/dashboard/campanas/${campana_id}` : `/dashboard/pacientes/${data.id}`);
+}
+
+export async function obtenerProfesiones(): Promise<string[]> {
+  const { supabase, tenant_id } = await getUserContext();
+  const { data } = await supabase
+    .from("categorias_config")
+    .select("label")
+    .eq("tenant_id", tenant_id)
+    .eq("modulo", "profesiones")
+    .eq("activo", true)
+    .order("label");
+  return (data ?? []).map((d) => d.label);
+}
+
+export async function crearProfesion(label: string) {
+  const { supabase, tenant_id } = await getUserContext();
+  const valor = label.toLowerCase().trim().replace(/\s+/g, "_").replace(/[^a-z0-9_áéíóúüñ]/g, "");
+  if (!label.trim()) return { error: "Nombre inválido" };
+  const { error } = await supabase.from("categorias_config").insert({
+    tenant_id,
+    modulo: "profesiones",
+    valor: valor || label.trim().substring(0, 30),
+    label: label.trim(),
+    activo: true,
+  });
+  if (error && error.code !== "23505") return { error: error.message };
+  revalidatePath("/dashboard/pacientes");
+  return { success: true };
 }
 
 export async function actualizarPaciente(formData: FormData) {

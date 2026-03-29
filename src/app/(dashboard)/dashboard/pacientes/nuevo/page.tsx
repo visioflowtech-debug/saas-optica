@@ -1,7 +1,8 @@
-import { crearPaciente } from "../actions";
+import { crearPaciente, obtenerProfesiones } from "../actions";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import ProfesionCombobox from "@/components/profesion-combobox";
 
 const ETIQUETAS_COMUNES = [
   "Diabetes", "Hipertensión", "Glaucoma", "Cataratas",
@@ -47,11 +48,18 @@ export default async function NuevoPacientePage({
   }
 
   const campanaPreseleccionada = params.campana_id || "";
+  const profesionesList = await obtenerProfesiones();
+
+  // Contexto de navegación: si viene de una campaña, regresar a ella
+  const backHref = campanaPreseleccionada
+    ? `/dashboard/campanas/${campanaPreseleccionada}`
+    : "/dashboard/pacientes";
+  const backLabel = campanaPreseleccionada ? "← Volver a campaña" : "← Volver a pacientes";
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <Link href="/dashboard/pacientes" className="inline-flex items-center gap-1 text-sm text-t-muted hover:text-t-primary transition">
-        ← Volver a pacientes
+      <Link href={backHref} className="inline-flex items-center gap-1 text-sm text-t-muted hover:text-t-primary transition">
+        {backLabel}
       </Link>
 
       <div>
@@ -64,6 +72,11 @@ export default async function NuevoPacientePage({
       )}
 
       <form className="space-y-6 p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
+        {/* Campo oculto campana_id (siempre incluido para routing context) */}
+        {campanaPreseleccionada && campanas.length === 0 && (
+          <input type="hidden" name="campana_id" value={campanaPreseleccionada} />
+        )}
+
         {/* Selector de campaña (solo si hay campanas activas) */}
         {campanas.length > 0 && (
           <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
@@ -116,8 +129,7 @@ export default async function NuevoPacientePage({
           </div>
           <div>
             <label htmlFor="profesion" className="block text-sm font-medium text-t-secondary mb-1.5">Profesión</label>
-            <input id="profesion" name="profesion" type="text" placeholder="Ej: Contador, Ingeniero..."
-              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+            <ProfesionCombobox profesionesList={profesionesList} />
           </div>
         </div>
 
@@ -148,7 +160,7 @@ export default async function NuevoPacientePage({
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25">
             Guardar paciente
           </button>
-          <Link href="/dashboard/pacientes"
+          <Link href={backHref}
             className="px-6 py-2.5 bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition-colors">
             Cancelar
           </Link>

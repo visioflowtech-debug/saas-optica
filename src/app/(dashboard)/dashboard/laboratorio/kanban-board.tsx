@@ -123,7 +123,7 @@ export default function KanbanBoard({ items: initialItems }: { items: LabItem[] 
 
   if (!isMounted) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start opacity-50">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-start opacity-50">
         {COLUMNAS.map((col) => (
           <div key={col.id} className={`bg-card/50 border-t-2 ${col.color} border border-b-default rounded-xl p-3 min-h-[400px] shadow-[var(--shadow-card)]`} />
         ))}
@@ -139,7 +139,7 @@ export default function KanbanBoard({ items: initialItems }: { items: LabItem[] 
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-start">
         {COLUMNAS.map((col) => {
           const colItems = items.filter((item) => item.estadoLab === col.id);
           const visibleItems = col.id === "entregado"

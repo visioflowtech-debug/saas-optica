@@ -86,19 +86,17 @@ export default async function VentasPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-t-primary">Ventas</h1>
           <p className="text-t-muted text-sm mt-1">Gestión de proformas y órdenes de trabajo</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/ventas/nueva"
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25"
-          >
-            + Nueva Proforma
-          </Link>
-        </div>
+        <Link
+          href="/dashboard/ventas/nueva"
+          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25 whitespace-nowrap"
+        >
+          + Nueva Proforma
+        </Link>
       </div>
 
       {/* Search */}
@@ -205,7 +203,7 @@ export default async function VentasPage({
 
       {/* Paginación */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <p className="text-sm text-t-muted">
             Página {pagina} de {totalPages} — {count} ventas
           </p>

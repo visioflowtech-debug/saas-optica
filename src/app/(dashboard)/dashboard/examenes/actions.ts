@@ -84,7 +84,7 @@ export async function crearExamen(formData: FormData) {
   revalidatePath("/dashboard/examenes");
   revalidatePath(`/dashboard/pacientes/${paciente_id}`);
   if (campana_id) revalidatePath(`/dashboard/campanas/${campana_id}`);
-  redirect("/dashboard/examenes");
+  redirect(campana_id ? `/dashboard/campanas/${campana_id}` : "/dashboard/examenes");
 }
 
 export async function obtenerDatosReceta(examenId: string) {

@@ -17,39 +17,29 @@ export default async function OrdenDetallePage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("tenant_id, sucursal_id")
+    .eq("id", user.id)
+    .single();
+
+  if (!perfil) redirect("/login");
+
   const { data: orden } = await supabase
     .from("ordenes")
     .select("*, paciente:pacientes!ordenes_paciente_id_fkey(nombre, telefono, email), asesor:usuarios!ordenes_asesor_id_fkey(nombre)")
     .eq("id", id)
+    .eq("tenant_id", perfil.tenant_id)
     .single();
 
   if (!orden) notFound();
 
-  const { data: detalles } = await supabase
-    .from("orden_detalle")
-    .select("*")
-    .eq("orden_id", id)
-    .order("created_at", { ascending: true });
-
-  const { data: labEstado } = await supabase
-    .from("laboratorio_estados")
-    .select("*")
-    .eq("orden_id", id)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const { data: pagos } = await supabase
-    .from("pagos")
-    .select("*")
-    .eq("orden_id", id)
-    .order("created_at", { ascending: true });
-
-  const { data: labSpecs } = await supabase
-    .from("orden_laboratorio_datos")
-    .select("*")
-    .eq("orden_id", id)
-    .single();
+  const [{ data: detalles }, { data: labEstado }, { data: pagos }, { data: labSpecs }] = await Promise.all([
+    supabase.from("orden_detalle").select("*").eq("orden_id", id).eq("tenant_id", perfil.tenant_id).order("created_at", { ascending: true }),
+    supabase.from("laboratorio_estados").select("*").eq("orden_id", id).order("updated_at", { ascending: false }).limit(1).maybeSingle().then(r => ({ data: r.data })),
+    supabase.from("pagos").select("*").eq("orden_id", id).eq("tenant_id", perfil.tenant_id).order("created_at", { ascending: true }),
+    supabase.from("orden_laboratorio_datos").select("*").eq("orden_id", id).single().then(r => ({ data: r.data })),
+  ]);
 
   const esProformaBorrador = orden.tipo === "proforma" && orden.estado === "borrador";
   const catalogo = esProformaBorrador ? await obtenerCatalogo() : [];
@@ -130,6 +120,7 @@ export default async function OrdenDetallePage({
           <div className="px-6 py-4 border-b border-b-subtle">
             <h2 className="text-sm font-semibold text-t-primary uppercase tracking-wider">Detalle de Productos</h2>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-b-subtle">
@@ -156,10 +147,11 @@ export default async function OrdenDetallePage({
               ))}
             </tbody>
           </table>
+          </div>
           {/* Totals */}
           <div className="px-6 py-4 border-t border-b-subtle bg-input/30">
             <div className="flex justify-end">
-              <div className="w-64 space-y-1.5">
+              <div className="w-full sm:w-64 space-y-1.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-t-muted">Subtotal</span>
                   <span className="text-t-primary font-mono">{fmtCurrency(Number(orden.subtotal))}</span>

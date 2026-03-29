@@ -504,7 +504,8 @@ async function recalcularTotalesOrden(
   const { data: lineas } = await supabase
     .from("orden_detalle")
     .select("cantidad, precio_unitario")
-    .eq("orden_id", ordenId);
+    .eq("orden_id", ordenId)
+    .eq("tenant_id", tenant_id);
   const nuevoSubtotal = (lineas ?? []).reduce((s, l) => s + Number(l.cantidad) * Number(l.precio_unitario), 0);
   const nuevoTotal = Math.max(nuevoSubtotal - descuento, 0);
   await supabase.from("ordenes")
