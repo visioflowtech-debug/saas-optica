@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import CampanaGastosTabla from "./campana-gastos-tabla";
 import { fmtFecha } from "@/lib/date-sv";
-
-const DETAIL_PER_PAGE = 20;
+import { createClient } from "@/lib/supabase/server";
 
 export default async function CampanaDetallePage({
   params,
@@ -24,6 +23,17 @@ export default async function CampanaDetallePage({
   const pagP = Math.max(1, parseInt(sp.pag_p ?? "1") || 1);
   const q_v = sp.q_v?.trim() ?? "";
   const q_p = sp.q_p?.trim() ?? "";
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("sucursal:sucursales(items_por_pagina)")
+    .eq("id", user.id)
+    .single();
+  const sucursalCfg = Array.isArray(perfil?.sucursal) ? perfil.sucursal[0] : perfil?.sucursal;
+  const DETAIL_PER_PAGE = Math.max(5, (sucursalCfg as any)?.items_por_pagina ?? 25);
 
   const resultado = await obtenerCampana(id);
   if (!resultado) redirect("/dashboard/campanas");
