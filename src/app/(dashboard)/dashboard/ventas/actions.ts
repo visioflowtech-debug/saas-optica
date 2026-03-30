@@ -277,7 +277,7 @@ export async function anularOrden(ordenId: string) {
     .eq("tenant_id", tenant_id)
     .single();
 
-  if (!orden || orden.estado === "anulada") return;
+  if (!orden || orden.estado === "cancelada") return;
 
   // 2. Restitute stock if it was an "orden_trabajo" (because stock was deducted upon conversion)
   // or if it was a proforma that somehow already had stock deducted (though currently we deduct on conversion)
@@ -310,11 +310,11 @@ export async function anularOrden(ordenId: string) {
     }
   }
 
-  // 3. Update status to "anulada"
+  // 3. Update status to "cancelada"
   const { error } = await supabase
     .from("ordenes")
     .update({
-      estado: "anulada",
+      estado: "cancelada",
       updated_at: new Date().toISOString()
     })
     .eq("id", ordenId)

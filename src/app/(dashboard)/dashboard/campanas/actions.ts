@@ -154,7 +154,7 @@ export async function obtenerVentasPaginadas(campanaId: string, opts?: { q?: str
     .from("ordenes")
     .select("id, tipo, estado, total, created_at, paciente_id, paciente:pacientes!ordenes_paciente_id_fkey(nombre)", { count: "exact" })
     .eq("tenant_id", tenant_id)
-    .neq("estado", "anulada")
+    .neq("estado", "cancelada")
     .order("created_at", { ascending: false })
     .range(from, to);
 

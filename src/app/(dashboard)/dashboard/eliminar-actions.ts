@@ -29,7 +29,7 @@ export async function eliminarOrdenCompleta(ordenId: string) {
   if (!orden) return { error: "Orden no encontrada" };
 
   // Restaurar stock si era orden_trabajo confirmada
-  if (orden.tipo === "orden_trabajo" && orden.estado !== "anulada") {
+  if (orden.tipo === "orden_trabajo" && orden.estado !== "cancelada") {
     const { data: items } = await supabase
       .from("orden_detalle").select("producto_id, cantidad").eq("orden_id", ordenId);
     for (const item of items ?? []) {
@@ -113,7 +113,7 @@ export async function eliminarPaciente(pacienteId: string) {
     const { data: ordenesData } = await supabase
       .from("ordenes").select("id, tipo, estado").in("id", ordenIds);
     for (const o of ordenesData ?? []) {
-      if (o.tipo === "orden_trabajo" && o.estado !== "anulada") {
+      if (o.tipo === "orden_trabajo" && o.estado !== "cancelada") {
         const { data: items } = await supabase
           .from("orden_detalle").select("producto_id, cantidad").eq("orden_id", o.id);
         for (const item of items ?? []) {

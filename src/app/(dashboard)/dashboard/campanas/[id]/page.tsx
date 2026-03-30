@@ -50,7 +50,7 @@ export default async function CampanaDetallePage({
   ]);
 
   // Calcular los KPIs financieros desde los datos sin paginar
-  const ventasActivas = ventasKpi.filter((v) => v.estado !== "anulada");
+  const ventasActivas = ventasKpi.filter((v) => v.estado !== "cancelada");
   const ordenIds = ventasActivas.map((v) => v.id);
   const totalIngresos = await obtenerIngresosDeCampana(ordenIds);
 
@@ -92,7 +92,7 @@ export default async function CampanaDetallePage({
     borrador:   { label: "Borrador",   cls: "bg-gray-500/15 text-t-muted" },
     confirmada: { label: "Confirmada", cls: "bg-blue-500/15 text-blue-400" },
     facturada:  { label: "Facturada",  cls: "bg-green-500/15 text-green-400" },
-    anulada:    { label: "Anulada",    cls: "bg-red-500/15 text-red-400" },
+    cancelada:    { label: "Anulada",    cls: "bg-red-500/15 text-red-400" },
   };
 
   // Helper para construir URLs preservando todos los params de sección
