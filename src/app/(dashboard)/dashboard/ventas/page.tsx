@@ -7,7 +7,7 @@ import { puedeAcceder } from "@/lib/acceso";
 export default async function VentasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filtro?: string; q?: string; pagina?: string; orden?: string }>;
+  searchParams: Promise<{ filtro?: string; q?: string; pagina?: string; orden?: string; campana?: string }>;
 }) {
   const params = await searchParams;
   const pagina = Math.max(1, parseInt(params.pagina ?? "1") || 1);
@@ -30,16 +30,39 @@ export default async function VentasPage({
   const to = from + PER_PAGE - 1;
 
   const q = params.q?.trim() ?? "";
+  const campanaFiltro = params.campana ?? "";
 
-  // Si hay búsqueda, resolverla a nivel DB buscando pacientes cuyo nombre coincide
+  // Cargar campañas del tenant para el selector
+  const { data: campanas } = await supabase
+    .from("campanas")
+    .select("id, nombre")
+    .eq("tenant_id", perfil.tenant_id)
+    .order("nombre");
+
+  // Si hay filtro de campaña, obtener pacientes de esa campaña
+  let campanaPatientIds: string[] | null = null;
+  if (campanaFiltro) {
+    const { data: pacs } = await supabase
+      .from("pacientes")
+      .select("id")
+      .eq("campana_id", campanaFiltro)
+      .eq("tenant_id", perfil.tenant_id);
+    campanaPatientIds = (pacs ?? []).map((p) => p.id);
+  }
+
+  // Si hay búsqueda por nombre, resolver a IDs de paciente
   let pacienteIds: string[] | null = null;
   if (q) {
-    const { data: pacs } = await supabase
+    let pacQuery = supabase
       .from("pacientes")
       .select("id")
       .eq("tenant_id", perfil.tenant_id)
       .ilike("nombre", `%${q}%`)
       .limit(200);
+    // Si también hay filtro de campaña, acotar la búsqueda a esos pacientes
+    if (campanaPatientIds !== null && campanaPatientIds.length > 0)
+      pacQuery = pacQuery.in("id", campanaPatientIds);
+    const { data: pacs } = await pacQuery;
     pacienteIds = (pacs ?? []).map((p) => p.id);
   }
 
@@ -53,8 +76,18 @@ export default async function VentasPage({
 
   if (params.filtro === "proforma") query = query.eq("tipo", "proforma");
   if (params.filtro === "orden_trabajo") query = query.eq("tipo", "orden_trabajo");
+
+  // Filtro de campaña: campana_id directo OR paciente en esa campaña
+  if (campanaFiltro) {
+    if (!campanaPatientIds || campanaPatientIds.length === 0) {
+      query = query.eq("campana_id", campanaFiltro);
+    } else {
+      query = query.or(`campana_id.eq.${campanaFiltro},paciente_id.in.(${campanaPatientIds.join(",")})`);
+    }
+  }
+
   if (pacienteIds !== null) {
-    if (pacienteIds.length === 0) query = query.eq("paciente_id", "00000000-0000-0000-0000-000000000000"); // sin resultados
+    if (pacienteIds.length === 0) query = query.eq("paciente_id", "00000000-0000-0000-0000-000000000000");
     else query = query.in("paciente_id", pacienteIds);
   }
 
@@ -69,6 +102,7 @@ export default async function VentasPage({
     const p = new URLSearchParams();
     if (params.filtro) p.set("filtro", params.filtro);
     if (q) p.set("q", q);
+    if (campanaFiltro) p.set("campana", campanaFiltro);
     if (orden !== "reciente") p.set("orden", orden);
     Object.entries(overrides).forEach(([k, v]) => {
       if (v === undefined) p.delete(k);
@@ -111,6 +145,7 @@ export default async function VentasPage({
           className="flex-1 px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary placeholder:text-t-muted focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm"
         />
         {params.filtro && <input type="hidden" name="filtro" value={params.filtro} />}
+        {campanaFiltro && <input type="hidden" name="campana" value={campanaFiltro} />}
         {orden !== "reciente" && <input type="hidden" name="orden" value={orden} />}
         <button
           type="submit"
@@ -137,6 +172,29 @@ export default async function VentasPage({
             </Link>
           ))}
         </div>
+
+        {/* Filtro por campaña */}
+        {campanas && campanas.length > 0 && (
+          <form className="contents">
+            {params.filtro && <input type="hidden" name="filtro" value={params.filtro} />}
+            {q && <input type="hidden" name="q" value={q} />}
+            {orden !== "reciente" && <input type="hidden" name="orden" value={orden} />}
+            <select
+              name="campana"
+              defaultValue={campanaFiltro}
+              className="px-3 py-1.5 text-xs bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Todas las campañas</option>
+              {campanas.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+            <button type="submit" className="px-3 py-1.5 text-xs bg-card border border-b-default rounded-lg text-t-muted hover:text-t-primary transition">
+              Filtrar
+            </button>
+          </form>
+        )}
+
         <div className="flex gap-1 ml-auto">
           <Link href={buildUrl({ orden: undefined, pagina: undefined })}
             className={`px-3 py-2 min-h-11 flex items-center text-sm rounded-lg border transition ${

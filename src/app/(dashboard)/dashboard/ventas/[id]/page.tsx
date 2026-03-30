@@ -9,10 +9,15 @@ import { fmtFecha } from "@/lib/date-sv";
 
 export default async function OrdenDetallePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
+  const backHref = sp.from ? `/dashboard/campanas/${sp.from}` : "/dashboard/ventas";
+  const backLabel = sp.from ? "← Volver a campaña" : "← Volver a ventas";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -62,8 +67,8 @@ export default async function OrdenDetallePage({
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <Link href="/dashboard/ventas" className="inline-flex items-center gap-1 text-sm text-t-muted hover:text-t-primary transition">
-        ← Volver a ventas
+      <Link href={backHref} className="inline-flex items-center gap-1 text-sm text-t-muted hover:text-t-primary transition">
+        {backLabel}
       </Link>
 
       {/* Header */}

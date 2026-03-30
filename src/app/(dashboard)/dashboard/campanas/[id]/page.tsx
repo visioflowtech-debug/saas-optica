@@ -361,7 +361,7 @@ export default async function CampanaDetallePage({
               return (
                 <Link
                   key={v.id}
-                  href={`/dashboard/ventas/${v.id}`}
+                  href={`/dashboard/ventas/${v.id}?from=${id}`}
                   className="flex items-center gap-3 px-5 py-3 hover:bg-empty transition"
                 >
                   <div className="flex-1 min-w-0">
