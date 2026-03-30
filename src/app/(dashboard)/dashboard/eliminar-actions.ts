@@ -76,7 +76,7 @@ export async function eliminarExamen(examenId: string) {
 
   // Desvincular de órdenes que lo referencian
   await supabase.from("ordenes")
-    .update({ examen_id: null }).eq("examen_id", examenId);
+    .update({ examen_id: null }).eq("examen_id", examenId).eq("tenant_id", tenant_id);
 
   const { error } = await supabase.from("examenes_clinicos")
     .delete().eq("id", examenId).eq("tenant_id", tenant_id);

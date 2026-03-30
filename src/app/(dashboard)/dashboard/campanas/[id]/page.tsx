@@ -92,7 +92,7 @@ export default async function CampanaDetallePage({
     borrador:   { label: "Borrador",   cls: "bg-gray-500/15 text-t-muted" },
     confirmada: { label: "Confirmada", cls: "bg-blue-500/15 text-blue-400" },
     facturada:  { label: "Facturada",  cls: "bg-green-500/15 text-green-400" },
-    cancelada:    { label: "Anulada",    cls: "bg-red-500/15 text-red-400" },
+    cancelada:    { label: "Cancelada",  cls: "bg-red-500/15 text-red-400" },
   };
 
   // Helper para construir URLs preservando todos los params de sección

@@ -158,16 +158,25 @@ export async function obtenerVentasPaginadas(campanaId: string, opts?: { q?: str
     .order("created_at", { ascending: false })
     .range(from, to);
 
-  // campana_id directo (nuevas órdenes) OR paciente en campaña (órdenes sin campana_id)
-  if (patientIds.length > 0) {
-    query = query.or(`campana_id.eq.${campanaId},paciente_id.in.(${patientIds.join(",")})`);
-  } else {
-    query = query.eq("campana_id", campanaId);
-  }
-
+  // Si hay búsqueda por nombre, filtrar patientIds por nombre primero
+  let finalPatientIds = patientIds;
   if (opts?.q?.trim()) {
     const qSafe = opts.q.trim().replace(/[%_\\]/g, "\\$&");
-    query = query.ilike("paciente.nombre", `%${qSafe}%`);
+    const { data: pacsFiltrados } = await supabase
+      .from("pacientes")
+      .select("id")
+      .eq("campana_id", campanaId)
+      .eq("tenant_id", tenant_id)
+      .ilike("nombre", `%${qSafe}%`);
+    finalPatientIds = (pacsFiltrados || []).map((p) => p.id);
+    if (finalPatientIds.length === 0) return { data: [], total: 0 };
+  }
+
+  // campana_id directo (nuevas órdenes) OR paciente en campaña (órdenes sin campana_id)
+  if (finalPatientIds.length > 0) {
+    query = query.or(`campana_id.eq.${campanaId},paciente_id.in.(${finalPatientIds.join(",")})`);
+  } else {
+    query = query.eq("campana_id", campanaId);
   }
 
   const { data, count } = await query;
@@ -243,6 +252,7 @@ export async function obtenerVentasDeCampana(campanaId: string) {
     .from("ordenes")
     .select("id, created_at, tipo, estado, total, paciente_id, notas, paciente:pacientes(nombre)")
     .eq("tenant_id", tenant_id)
+    .neq("estado", "cancelada")
     .order("created_at", { ascending: false })
     .limit(500);
 
