@@ -66,6 +66,7 @@ export default async function VentasPage({
     pacienteIds = (pacs ?? []).map((p) => p.id);
   }
 
+  // Query paginada (tabla)
   let query = supabase
     .from("ordenes")
     .select("id, tipo, estado, total, created_at, paciente:pacientes!ordenes_paciente_id_fkey(nombre), asesor:usuarios!ordenes_asesor_id_fkey(nombre)", { count: "exact" })
@@ -74,29 +75,51 @@ export default async function VentasPage({
     .order("created_at", { ascending: orden === "antiguo" })
     .range(from, to);
 
-  if (params.filtro === "proforma") query = query.eq("tipo", "proforma");
-  if (params.filtro === "orden_trabajo") query = query.eq("tipo", "orden_trabajo");
+  // Query KPI: mismos filtros sin paginación
+  let kpiQuery = supabase
+    .from("ordenes")
+    .select("total, tipo, estado")
+    .eq("tenant_id", perfil.tenant_id)
+    .eq("sucursal_id", perfil.sucursal_id);
 
-  // Filtro de campaña: campana_id directo OR paciente en esa campaña
+  // Aplicar filtros comunes a ambas queries
+  if (params.filtro === "proforma") { query = query.eq("tipo", "proforma"); kpiQuery = kpiQuery.eq("tipo", "proforma"); }
+  if (params.filtro === "orden_trabajo") { query = query.eq("tipo", "orden_trabajo"); kpiQuery = kpiQuery.eq("tipo", "orden_trabajo"); }
   if (campanaFiltro) {
     if (!campanaPatientIds || campanaPatientIds.length === 0) {
       query = query.eq("campana_id", campanaFiltro);
+      kpiQuery = kpiQuery.eq("campana_id", campanaFiltro);
     } else {
-      query = query.or(`campana_id.eq.${campanaFiltro},paciente_id.in.(${campanaPatientIds.join(",")})`);
+      const orFilter = `campana_id.eq.${campanaFiltro},paciente_id.in.(${campanaPatientIds.join(",")})`;
+      query = query.or(orFilter);
+      kpiQuery = kpiQuery.or(orFilter);
+    }
+  }
+  if (pacienteIds !== null) {
+    if (pacienteIds.length === 0) {
+      query = query.eq("paciente_id", "00000000-0000-0000-0000-000000000000");
+      kpiQuery = kpiQuery.eq("paciente_id", "00000000-0000-0000-0000-000000000000");
+    } else {
+      query = query.in("paciente_id", pacienteIds);
+      kpiQuery = kpiQuery.in("paciente_id", pacienteIds);
     }
   }
 
-  if (pacienteIds !== null) {
-    if (pacienteIds.length === 0) query = query.eq("paciente_id", "00000000-0000-0000-0000-000000000000");
-    else query = query.in("paciente_id", pacienteIds);
-  }
-
-  const { data: ordenes, count } = await query;
+  const [{ data: ordenes, count }, { data: kpiData }] = await Promise.all([query, kpiQuery]);
   const totalPages = Math.ceil((count ?? 0) / PER_PAGE);
-
   const filtered = ordenes ?? [];
-
   const currentFilter = params.filtro ?? "todas";
+
+  // KPI totales
+  const kpiOrdenes = kpiData ?? [];
+  const totalVendido = kpiOrdenes.reduce((s, o) => s + Number(o.total ?? 0), 0);
+  const totalProformas = kpiOrdenes.filter((o) => o.tipo === "proforma").length;
+  const totalOrdenesTrabajo = kpiOrdenes.filter((o) => o.tipo === "orden_trabajo").length;
+  const porEstado: Record<string, number> = {};
+  kpiOrdenes.forEach((o) => {
+    porEstado[o.estado] = (porEstado[o.estado] ?? 0) + Number(o.total ?? 0);
+  });
+  const fmtMoney = (n: number) => new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(n);
 
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
@@ -131,6 +154,43 @@ export default async function VentasPage({
         >
           + Nueva Proforma
         </Link>
+      </div>
+
+      {/* KPI card */}
+      <div className="p-5 bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Total Vendido</p>
+          <p className="text-3xl font-bold text-t-primary">{fmtMoney(totalVendido)}</p>
+          <p className="text-xs text-t-muted mt-1">{kpiOrdenes.length} registro{kpiOrdenes.length !== 1 ? "s" : ""}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {totalProformas > 0 && (
+            <span className="px-3 py-1 text-xs bg-a-amber-bg text-t-amber rounded-full font-medium">
+              Proformas: {totalProformas}
+            </span>
+          )}
+          {totalOrdenesTrabajo > 0 && (
+            <span className="px-3 py-1 text-xs bg-a-blue-bg text-t-blue rounded-full font-medium">
+              Órdenes: {totalOrdenesTrabajo}
+            </span>
+          )}
+          {Object.entries(porEstado).map(([estado, monto]) => {
+            const colorMap: Record<string, string> = {
+              borrador: "bg-badge-bg text-t-muted",
+              confirmada: "bg-a-blue-bg text-t-blue",
+              facturada: "bg-a-green-bg text-t-green",
+              cancelada: "bg-a-red-bg text-t-red",
+            };
+            const labelMap: Record<string, string> = {
+              borrador: "Borrador", confirmada: "Confirmada", facturada: "Facturada", cancelada: "Cancelada",
+            };
+            return (
+              <span key={estado} className={`px-3 py-1 text-xs rounded-full font-medium ${colorMap[estado] ?? "bg-badge-bg text-t-muted"}`}>
+                {labelMap[estado] ?? estado}: {fmtMoney(monto)}
+              </span>
+            );
+          })}
+        </div>
       </div>
 
       {/* Search */}
