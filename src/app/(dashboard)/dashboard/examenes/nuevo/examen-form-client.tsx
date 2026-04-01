@@ -302,16 +302,27 @@ export default function ExamenFormClient({ pacientes, optometristas, defaultPaci
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <button formAction={crearExamen}
           className="px-6 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25">
           Guardar examen
+        </button>
+        <button
+          type="submit"
+          onClick={() => {
+            const input = document.getElementById("crear_venta_flag") as HTMLInputElement;
+            if (input) input.value = "1";
+          }}
+          formAction={crearExamen}
+          className="px-6 py-2.5 min-h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-emerald-600/25">
+          Guardar y crear venta →
         </button>
         <a href="/dashboard/examenes"
           className="px-6 py-2.5 min-h-11 bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition-colors inline-flex items-center">
           Cancelar
         </a>
       </div>
+      <input type="hidden" id="crear_venta_flag" name="crear_venta" value="" />
     </form>
   );
 }

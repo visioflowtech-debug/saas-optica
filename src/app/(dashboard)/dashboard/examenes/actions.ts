@@ -26,6 +26,7 @@ export async function crearExamen(formData: FormData) {
 
   const paciente_id = formData.get("paciente_id") as string;
   const campana_id = (formData.get("campana_id") as string) || null;
+  const crearVenta = (formData.get("crear_venta") as string) === "1";
   if (!paciente_id) {
     return redirect("/dashboard/examenes/nuevo?error=Selecciona+un+paciente");
   }
@@ -85,6 +86,12 @@ export async function crearExamen(formData: FormData) {
   revalidatePath("/dashboard/examenes");
   revalidatePath(`/dashboard/pacientes/${paciente_id}`);
   if (campana_id) revalidatePath(`/dashboard/campanas/${campana_id}`);
+
+  if (crearVenta) {
+    const params = new URLSearchParams({ paciente_id });
+    if (campana_id) params.set("campana_id", campana_id);
+    redirect(`/dashboard/ventas/nueva?${params.toString()}`);
+  }
   redirect(campana_id ? `/dashboard/campanas/${campana_id}` : "/dashboard/examenes");
 }
 
