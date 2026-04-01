@@ -45,6 +45,7 @@ export async function crearExamen(formData: FormData) {
     paciente_id,
     campana_id,
     optometrista_id: userId,
+    optometrista_nombre: parseStr("optometrista_nombre"),
     fecha_examen: new Date().toISOString(),
     // Extra fields
     motivo_consulta: parseStr("motivo_consulta"),

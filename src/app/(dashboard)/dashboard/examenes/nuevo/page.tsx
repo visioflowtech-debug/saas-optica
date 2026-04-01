@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import ExamenFormClient from "./examen-form-client";
+import { obtenerOptometristas } from "../../configuracion/optometristas-actions";
 
 export default async function NuevoExamenPage({
   searchParams,
@@ -16,11 +17,11 @@ export default async function NuevoExamenPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch all patients for the selector
-  const { data: pacientes } = await supabase
-    .from("pacientes")
-    .select("id, nombre")
-    .order("nombre", { ascending: true });
+  // Fetch all patients for the selector + configured optometrists
+  const [{ data: pacientes }, optometristas] = await Promise.all([
+    supabase.from("pacientes").select("id, nombre").order("nombre", { ascending: true }),
+    obtenerOptometristas(),
+  ]);
 
   const backHref = params.campana_id
     ? `/dashboard/campanas/${params.campana_id}`
@@ -51,6 +52,7 @@ export default async function NuevoExamenPage({
 
       <ExamenFormClient
         pacientes={pacientes ?? []}
+        optometristas={optometristas}
         defaultPacienteId={params.paciente_id}
         campanaId={params.campana_id}
       />

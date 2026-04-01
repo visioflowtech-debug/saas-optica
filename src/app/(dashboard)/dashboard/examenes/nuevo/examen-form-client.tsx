@@ -5,6 +5,7 @@ import { crearExamen, obtenerUltimaRefraccion } from "../actions";
 
 interface Props {
   pacientes: { id: string; nombre: string }[];
+  optometristas: { id: string; nombre: string; activo: boolean }[];
   defaultPacienteId?: string;
   campanaId?: string;
 }
@@ -25,9 +26,12 @@ const EMPTY: RefraccionFields = {
 
 const LENTE_USO_OPTIONS = ["Lejos", "Cerca", "Bifocal", "Progresivo", "Ocupacional", "Otro"];
 
-export default function ExamenFormClient({ pacientes, defaultPacienteId, campanaId }: Props) {
+export default function ExamenFormClient({ pacientes, optometristas, defaultPacienteId, campanaId }: Props) {
   const [pacienteId, setPacienteId] = useState(defaultPacienteId || "");
   const [fields, setFields] = useState<RefraccionFields>(EMPTY);
+  // PL (Plano) state por cada ojo/prefijo: ra_od, ra_oi, rf_od, rf_oi
+  const [plano, setPlano] = useState({ ra_od: false, ra_oi: false, rf_od: false, rf_oi: false });
+  const [optometristaNombre, setOptometristaNombre] = useState(optometristas[0]?.nombre ?? "");
   const [lente_uso, setLenteUso] = useState("");
   const [av_od, setAvOd] = useState("");
   const [av_oi, setAvOi] = useState("");
@@ -53,6 +57,14 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
 
   const updateField = (key: keyof RefraccionFields, value: string) =>
     setFields((prev) => ({ ...prev, [key]: value }));
+
+  const togglePlano = (ojoKey: "ra_od" | "ra_oi" | "rf_od" | "rf_oi") => {
+    const next = !plano[ojoKey];
+    setPlano((prev) => ({ ...prev, [ojoKey]: next }));
+    // Si se activa PL → esfera = "0"; si se desactiva → limpiar
+    const esfKey = `${ojoKey}_esfera` as keyof RefraccionFields;
+    setFields((prev) => ({ ...prev, [esfKey]: next ? "0" : "" }));
+  };
 
   const doImport = (id: string) => {
     if (!id) return;
@@ -98,6 +110,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
   return (
     <form className="space-y-6">
       <input type="hidden" name="paciente_id" value={pacienteId} />
+      <input type="hidden" name="optometrista_nombre" value={optometristaNombre} />
       {campanaId && <input type="hidden" name="campana_id" value={campanaId} />}
 
       {/* Patient selector (Searchable) */}
@@ -161,6 +174,32 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
           )}
         </div>
       </div>
+
+      {/* Optometrista */}
+      {optometristas.length > 0 && (
+        <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
+          <label className="block text-sm font-medium text-t-secondary mb-1.5">Optometrista</label>
+          <div className="flex flex-wrap gap-2">
+            {optometristas.filter((o) => o.activo).map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => setOptometristaNombre(o.nombre)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg border transition ${
+                  optometristaNombre === o.nombre
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-card border-b-default text-t-secondary hover:text-t-primary"
+                }`}
+              >
+                {o.nombre}
+              </button>
+            ))}
+          </div>
+          {optometristaNombre && (
+            <p className="text-xs text-t-muted mt-2">Firmando como: <span className="font-medium text-t-primary">{optometristaNombre}</span></p>
+          )}
+        </div>
+      )}
 
       {/* Extra fields: Motivo Consulta, Lente-Uso, AV, DP, Altura */}
       <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
@@ -242,7 +281,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
           </button>
         </div>
         {importMsg && <p className={`text-xs mb-3 ${importMsg.startsWith("✓") ? "text-t-green" : "text-t-amber"}`}>{importMsg}</p>}
-        <RefraccionGrid prefix="ra" fields={fields} onChange={updateField} />
+        <RefraccionGrid prefix="ra" fields={fields} onChange={updateField} plano={plano} onTogglePlano={togglePlano} />
       </div>
 
       {/* RF */}
@@ -251,7 +290,7 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
           <h2 className="text-lg font-semibold text-t-primary">Refracción Final (RF)</h2>
           <p className="text-xs text-t-muted mt-0.5">Nueva graduación prescrita en este examen</p>
         </div>
-        <RefraccionGrid prefix="rf" fields={fields} onChange={updateField} />
+        <RefraccionGrid prefix="rf" fields={fields} onChange={updateField} plano={plano} onTogglePlano={togglePlano} />
       </div>
 
       {/* Observaciones */}
@@ -277,8 +316,14 @@ export default function ExamenFormClient({ pacientes, defaultPacienteId, campana
   );
 }
 
-function RefraccionGrid({ prefix, fields, onChange }: {
-  prefix: "ra" | "rf"; fields: RefraccionFields; onChange: (key: keyof RefraccionFields, value: string) => void;
+type PlanoState = { ra_od: boolean; ra_oi: boolean; rf_od: boolean; rf_oi: boolean };
+
+function RefraccionGrid({ prefix, fields, onChange, plano, onTogglePlano }: {
+  prefix: "ra" | "rf";
+  fields: RefraccionFields;
+  onChange: (key: keyof RefraccionFields, value: string) => void;
+  plano: PlanoState;
+  onTogglePlano: (ojoKey: "ra_od" | "ra_oi" | "rf_od" | "rf_oi") => void;
 }) {
   const cols = [
     { key: "esfera", label: "Esfera", step: "0.25", placeholder: "±0.00" },
@@ -297,23 +342,59 @@ function RefraccionGrid({ prefix, fields, onChange }: {
           </tr>
         </thead>
         <tbody>
-          {(["od", "oi"] as const).map((ojo) => (
-            <tr key={ojo}>
-              <td className="py-1 pr-3">
-                <span className={`text-sm font-bold ${ojo === "od" ? "text-t-blue" : "text-t-purple"}`}>{ojo.toUpperCase()}</span>
-              </td>
-              {cols.map((c) => {
-                const fieldKey = `${prefix}_${ojo}_${c.key}` as keyof RefraccionFields;
-                return (
-                  <td key={c.key} className="py-1 px-1">
-                    <input type="number" name={fieldKey} value={fields[fieldKey]} onChange={(e) => onChange(fieldKey, e.target.value)}
-                      step={c.step} placeholder={c.placeholder}
-                      className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-center text-base sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+          {(["od", "oi"] as const).map((ojo) => {
+            const ojoKey = `${prefix}_${ojo}` as "ra_od" | "ra_oi" | "rf_od" | "rf_oi";
+            const isPL = plano[ojoKey];
+            return (
+              <tr key={ojo}>
+                <td className="py-1 pr-3">
+                  <span className={`text-sm font-bold ${ojo === "od" ? "text-t-blue" : "text-t-purple"}`}>{ojo.toUpperCase()}</span>
+                </td>
+                {cols.map((c) => {
+                  const fieldKey = `${prefix}_${ojo}_${c.key}` as keyof RefraccionFields;
+                  const isEsfera = c.key === "esfera";
+                  return (
+                    <td key={c.key} className="py-1 px-1">
+                      {isEsfera ? (
+                        <div className="flex flex-col gap-0.5">
+                          <div className="relative">
+                            <input
+                              type="number" name={fieldKey}
+                              value={isPL ? "0" : fields[fieldKey]}
+                              onChange={(e) => onChange(fieldKey, e.target.value)}
+                              step={c.step} placeholder={isPL ? "PL" : c.placeholder}
+                              disabled={isPL}
+                              className={`w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-center text-base sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isPL ? "opacity-0 absolute" : ""}`}
+                            />
+                            {isPL && (
+                              <div className="w-full px-3 py-2 bg-a-blue-bg border border-[var(--accent-blue)] rounded-lg text-t-blue text-center text-sm font-bold font-mono">
+                                PL
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onTogglePlano(ojoKey)}
+                            className={`text-[10px] font-medium rounded px-1 py-0.5 transition ${
+                              isPL
+                                ? "bg-a-blue-bg text-t-blue border border-[var(--accent-blue)]"
+                                : "bg-badge text-t-muted border border-b-default hover:text-t-primary"
+                            }`}
+                          >
+                            {isPL ? "✓ PL" : "PL"}
+                          </button>
+                        </div>
+                      ) : (
+                        <input type="number" name={fieldKey} value={fields[fieldKey]} onChange={(e) => onChange(fieldKey, e.target.value)}
+                          step={c.step} placeholder={c.placeholder}
+                          className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-center text-base sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

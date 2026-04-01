@@ -5,6 +5,7 @@ import ConfiguracionTabs from "./configuracion-tabs";
 import { obtenerConfiguracion, obtenerUsuariosTenant } from "./actions";
 import { obtenerLaboratorios } from "./laboratorio-actions";
 import { obtenerCategoriasGasto } from "./categorias-actions";
+import { obtenerOptometristas } from "./optometristas-actions";
 
 export default async function ConfiguracionPage() {
   const supabase = await createClient();
@@ -14,11 +15,12 @@ export default async function ConfiguracionPage() {
   const { data: perfil } = await supabase.from("usuarios").select("rol").eq("id", user.id).single();
   if (!puedeAcceder(perfil?.rol ?? "", "configuracion")) redirect("/dashboard");
 
-  const [{ empresa, sucursales, error }, laboratorios, categoriasGasto, { usuarios }] = await Promise.all([
+  const [{ empresa, sucursales, error }, laboratorios, categoriasGasto, { usuarios }, optometristas] = await Promise.all([
     obtenerConfiguracion(),
     obtenerLaboratorios(),
     obtenerCategoriasGasto(),
     obtenerUsuariosTenant(),
+    obtenerOptometristas(),
   ]);
 
   if (error || !empresa) {
@@ -42,6 +44,7 @@ export default async function ConfiguracionPage() {
         laboratorios={laboratorios}
         categoriasGasto={categoriasGasto}
         usuarios={usuarios}
+        optometristas={optometristas}
       />
     </div>
   );
