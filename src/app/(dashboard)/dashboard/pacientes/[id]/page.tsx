@@ -7,10 +7,13 @@ import { eliminarPaciente } from "../../eliminar-actions";
 
 export default async function Paciente360Page({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ campana_id?: string }>;
 }) {
   const { id } = await params;
+  const { campana_id } = await searchParams;
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -50,13 +53,17 @@ export default async function Paciente360Page({
     .reduce((s, o) => s + Number(o.total), 0) ?? 0;
   const saldoPendiente = Math.max(0, totalCompras - totalPagado);
 
-  const edad = paciente.fecha_nacimiento ? calculateAge(paciente.fecha_nacimiento) : null;
+  const edadCalculada = paciente.fecha_nacimiento ? calculateAge(paciente.fecha_nacimiento) : null;
+  const edad = edadCalculada ?? (paciente.edad as number | null) ?? null;
   const tags = Array.isArray(paciente.etiquetas_medicas) ? (paciente.etiquetas_medicas as string[]) : [];
 
   return (
     <div className="space-y-6">
-      <Link href="/dashboard/pacientes" className="inline-flex items-center gap-1 text-sm text-t-muted hover:text-t-primary transition">
-        ← Volver a pacientes
+      <Link
+        href={campana_id ? `/dashboard/campanas/${campana_id}` : "/dashboard/pacientes"}
+        className="inline-flex items-center gap-1 text-sm text-t-muted hover:text-t-primary transition"
+      >
+        {campana_id ? "← Volver a campaña" : "← Volver a pacientes"}
       </Link>
 
       {/* Patient Header */}
@@ -77,10 +84,16 @@ export default async function Paciente360Page({
             </div>
             <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
               <Link
-                href={`/dashboard/examenes/nuevo?paciente_id=${id}`}
+                href={`/dashboard/examenes/nuevo?paciente_id=${id}${campana_id ? `&campana_id=${campana_id}` : ""}`}
                 className="hidden sm:inline-flex px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm whitespace-nowrap"
               >
                 + Nuevo Examen
+              </Link>
+              <Link
+                href={`/dashboard/ventas/nueva?paciente_id=${id}${campana_id ? `&campana_id=${campana_id}` : ""}`}
+                className="hidden sm:inline-flex px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm whitespace-nowrap"
+              >
+                + Nueva Venta
               </Link>
               <Link
                 href={`/dashboard/pacientes/${id}/editar`}

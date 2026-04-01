@@ -33,6 +33,8 @@ export async function crearPaciente(formData: FormData) {
   const telefono = formData.get("telefono") as string;
   const email = formData.get("email") as string;
   const fecha_nacimiento = formData.get("fecha_nacimiento") as string;
+  const edadRaw = formData.get("edad") as string;
+  const edad = edadRaw ? parseInt(edadRaw, 10) || null : null;
   const profesion = formData.get("profesion") as string;
   const acepta_marketing = formData.get("acepta_marketing") === "on";
   const campana_id = (formData.get("campana_id") as string) || null;
@@ -65,6 +67,7 @@ export async function crearPaciente(formData: FormData) {
       telefono: telefono || null,
       email: email || null,
       fecha_nacimiento: fecha_nacimiento || null,
+      edad: edad,
       profesion: profesion || null,
       etiquetas_medicas,
       acepta_marketing,
@@ -82,8 +85,8 @@ export async function crearPaciente(formData: FormData) {
 
   revalidatePath("/dashboard/pacientes");
   if (campana_id) revalidatePath(`/dashboard/campanas/${campana_id}`);
-  // Regresar al contexto de origen
-  redirect(campana_id ? `/dashboard/campanas/${campana_id}` : `/dashboard/pacientes/${data.id}`);
+  // Siempre navegar al perfil del nuevo paciente; si viene de campaña se muestra link de regreso
+  redirect(`/dashboard/pacientes/${data.id}${campana_id ? `?campana_id=${campana_id}` : ""}`);
 }
 
 export async function obtenerProfesiones(): Promise<string[]> {
@@ -122,6 +125,8 @@ export async function actualizarPaciente(formData: FormData) {
   const telefono = formData.get("telefono") as string;
   const email = formData.get("email") as string;
   const fecha_nacimiento = formData.get("fecha_nacimiento") as string;
+  const edadRaw = formData.get("edad") as string;
+  const edad = edadRaw ? parseInt(edadRaw, 10) || null : null;
   const profesion = formData.get("profesion") as string;
   const acepta_marketing = formData.get("acepta_marketing") === "on";
 
@@ -137,6 +142,7 @@ export async function actualizarPaciente(formData: FormData) {
       telefono: telefono || null,
       email: email || null,
       fecha_nacimiento: fecha_nacimiento || null,
+      edad: edad,
       profesion: profesion || null,
       etiquetas_medicas,
       acepta_marketing,
