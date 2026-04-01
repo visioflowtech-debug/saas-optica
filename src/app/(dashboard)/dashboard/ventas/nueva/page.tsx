@@ -33,8 +33,8 @@ export default async function NuevaProformaPage({
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold text-t-primary">Nueva Proforma</h1>
-        <p className="text-t-muted text-sm mt-1">Crear cotización para un paciente</p>
+        <h1 className="text-2xl font-bold text-t-primary">Nueva Venta</h1>
+        <p className="text-t-muted text-sm mt-1">Crear nueva venta para un paciente</p>
       </div>
 
       {params.error && (

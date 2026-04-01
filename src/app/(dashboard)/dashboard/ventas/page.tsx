@@ -137,7 +137,7 @@ export default async function VentasPage({
 
   const filterTabs = [
     { key: "todas", label: "Todas" },
-    { key: "proforma", label: "Proformas" },
+    { key: "proforma", label: "Ventas" },
     { key: "orden_trabajo", label: "Órdenes de Trabajo" },
   ];
 
@@ -152,7 +152,7 @@ export default async function VentasPage({
           href="/dashboard/ventas/nueva"
           className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25 whitespace-nowrap"
         >
-          + Nueva Proforma
+          + Nueva Venta
         </Link>
       </div>
 
@@ -166,7 +166,7 @@ export default async function VentasPage({
         <div className="flex flex-wrap gap-2">
           {totalProformas > 0 && (
             <span className="px-3 py-1 text-xs bg-a-amber-bg text-t-amber rounded-full font-medium">
-              Proformas: {totalProformas}
+              Ventas: {totalProformas}
             </span>
           )}
           {totalOrdenesTrabajo > 0 && (
@@ -361,7 +361,7 @@ function TipoBadge({ tipo }: { tipo: string }) {
     <span className={`px-2 py-0.5 text-[10px] font-medium uppercase rounded-full ${
       isProforma ? "bg-a-amber-bg text-t-amber" : "bg-a-blue-bg text-t-blue"
     }`}>
-      {isProforma ? "Proforma" : "Orden"}
+      {isProforma ? "Venta" : "Orden"}
     </span>
   );
 }

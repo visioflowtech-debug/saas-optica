@@ -176,8 +176,8 @@ export default async function CampanaDetallePage({
             {
               href: `/dashboard/ventas/nueva?campana_id=${id}`,
               icon: "🧾",
-              label: "Nueva Proforma",
-              desc: "Cotización / venta",
+              label: "Nueva Venta",
+              desc: "Registrar venta",
               color: "hover:border-green-500/60 hover:bg-green-500/5",
             },
             {
@@ -334,7 +334,7 @@ export default async function CampanaDetallePage({
                 href={`/dashboard/ventas/nueva?campana_id=${id}`}
                 className="text-xs text-blue-400 hover:text-blue-300 transition"
               >
-                + Nueva proforma
+                + Nueva venta
               </Link>
             )}
           </div>

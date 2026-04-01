@@ -70,7 +70,7 @@ export default function OrdenAcciones({ ordenId, tipo, estado }: Props) {
     return (
       <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
         <p className="text-center text-sm text-t-muted mb-4">
-          Esta {isProforma ? "proforma" : "orden"} está cancelada. No se pueden realizar más acciones.
+          Esta {isProforma ? "venta" : "orden"} está cancelada. No se pueden realizar más acciones.
         </p>
         <div className="flex justify-center">
           <button
@@ -145,7 +145,7 @@ export default function OrdenAcciones({ ordenId, tipo, estado }: Props) {
         {!isCancelada && (
           <button
             onClick={() => {
-              if (confirm("¿Estás seguro de anular/cancelar esta " + (isProforma ? "proforma" : "orden") + "?")) {
+              if (confirm("¿Estás seguro de cancelar esta " + (isProforma ? "venta" : "orden") + "?")) {
                 startTransition(async () => {
                    await anularOrden(ordenId);
                 });
@@ -161,7 +161,7 @@ export default function OrdenAcciones({ ordenId, tipo, estado }: Props) {
         {/* Eliminar permanentemente */}
         <ConfirmDeleteButton
           label="🗑 Eliminar"
-          confirmText={`¿Eliminar permanentemente esta ${isProforma ? "proforma" : "orden de trabajo"}? Se borrarán todos sus pagos, líneas de detalle y datos de laboratorio. Esta acción no se puede deshacer.`}
+          confirmText={`¿Eliminar permanentemente esta ${isProforma ? "venta" : "orden de trabajo"}? Se borrarán todos sus pagos, líneas de detalle y datos de laboratorio. Esta acción no se puede deshacer.`}
           onConfirm={() => eliminarOrdenCompleta(ordenId)}
         />
       </div>

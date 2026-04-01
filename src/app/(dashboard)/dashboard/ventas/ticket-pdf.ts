@@ -80,7 +80,7 @@ export async function generarTicketPDF(data: TicketData) {
   const sucursalTel = data.sucursal?.telefono ?? "";
 
   const fmtCurrency = (val: number) => `$${val.toFixed(2)}`;
-  const tipoLabel = data.orden.tipo === "proforma" ? "PROFORMA" : "ORDEN DE TRABAJO";
+  const tipoLabel = data.orden.tipo === "proforma" ? "VENTA" : "ORDEN DE TRABAJO";
 
   // ── Header ──────────────────────────────────────────────
   if (data.empresa?.logo_url) {

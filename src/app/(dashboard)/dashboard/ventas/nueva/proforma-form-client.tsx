@@ -287,7 +287,7 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
           title={items.some(it => !it.catalogId) ? "Selecciona todos los productos del catálogo" : undefined}
           className="px-6 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Guardar Proforma
+          Guardar Venta
         </button>
         <Link
           href="/dashboard/ventas"

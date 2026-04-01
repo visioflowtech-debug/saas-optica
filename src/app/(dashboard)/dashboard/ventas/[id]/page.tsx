@@ -77,7 +77,7 @@ export default async function OrdenDetallePage({
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-xl font-bold text-t-primary">
-                {orden.tipo === "proforma" ? "Proforma" : "Orden de Trabajo"}
+                {orden.tipo === "proforma" ? "Venta" : "Orden de Trabajo"}
               </h1>
               <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full ${estadoColors[orden.estado] ?? ""}`}>
                 {estadoLabels[orden.estado] ?? orden.estado}
