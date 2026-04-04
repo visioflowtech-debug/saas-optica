@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { obtenerOCrearContactoZoho, crearFacturaZoho, registrarPagoZoho } from "@/lib/zoho-books";
+import { obtenerOCrearContactoZoho, crearFacturaZoho, registrarPagoZoho, crearItemZoho, buildZohoItemName, buildZohoProductType } from "@/lib/zoho-books";
 import type { ZohoPaymentMode } from "@/lib/zoho-books";
 
 function mapMetodoPago(metodo: string): ZohoPaymentMode {
@@ -203,6 +203,34 @@ export async function crearProforma(formData: FormData) {
         await supabase.from("pacientes").update({ zoho_contact_id: contactId }).eq("id", paciente_id);
       }
 
+      // Obtener zoho_item_id de cada producto para vincular líneas de factura
+      const productoIds = detalles.map((d) => d.producto_id).filter(Boolean) as string[];
+      const { data: productosZoho } = productoIds.length > 0
+        ? await supabase
+            .from("productos")
+            .select("id, zoho_item_id, categoria, nombre, marca, modelo, color, precio")
+            .in("id", productoIds)
+        : { data: [] };
+
+      const zohoItemMap: Record<string, string> = {};
+      for (const p of productosZoho ?? []) {
+        if (p.zoho_item_id) {
+          zohoItemMap[p.id] = p.zoho_item_id as string;
+        } else {
+          // Crear ítem en Zoho on-the-fly si no tiene ID aún
+          try {
+            const itemName = buildZohoItemName(p);
+            const newItemId = await crearItemZoho({
+              name: itemName,
+              rate: p.precio,
+              product_type: buildZohoProductType(p.categoria),
+            });
+            await supabase.from("productos").update({ zoho_item_id: newItemId }).eq("id", p.id);
+            zohoItemMap[p.id] = newItemId;
+          } catch { /* continúa sin item_id */ }
+        }
+      }
+
       const fechaStr = new Date().toISOString().split("T")[0];
       const { invoice_id } = await crearFacturaZoho({
         contact_id: contactId,
@@ -212,6 +240,7 @@ export async function crearProforma(formData: FormData) {
           name: d.descripcion,
           rate: d.precio_unitario,
           quantity: d.cantidad,
+          item_id: d.producto_id ? (zohoItemMap[d.producto_id] ?? null) : null,
         })),
         notes: notas ?? undefined,
       });

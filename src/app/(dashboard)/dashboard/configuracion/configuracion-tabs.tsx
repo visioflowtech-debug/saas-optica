@@ -13,6 +13,7 @@ import {
   crearOptometrista, toggleOptometrista, eliminarOptometrista,
 } from "./optometristas-actions";
 import type { OptometristaItem } from "./optometristas-actions";
+import { sincronizarProductosZoho } from "../inventario/zoho-sync-action";
 import { createClient } from "@/lib/supabase/client";
 
 interface Empresa  { id: string; nombre: string; nit: string | null; logo_url: string | null; email: string | null; }
@@ -29,7 +30,7 @@ interface Props {
   optometristas: OptometristaItem[];
 }
 
-type TabMode = "empresa" | "sucursales" | "laboratorios" | "categorias" | "usuarios" | "optometristas";
+type TabMode = "empresa" | "sucursales" | "laboratorios" | "categorias" | "usuarios" | "optometristas" | "integraciones";
 
 export default function ConfiguracionTabs({ empresa, sucursales, laboratorios, categoriasGasto, usuarios, optometristas }: Props) {
   const [activeTab, setActiveTab] = useState<TabMode>("empresa");
@@ -41,6 +42,7 @@ export default function ConfiguracionTabs({ empresa, sucursales, laboratorios, c
     { key: "categorias",     label: "Categorías" },
     { key: "optometristas",  label: `Optometristas (${optometristas.length})` },
     { key: "usuarios",       label: `Usuarios (${usuarios.length})` },
+    { key: "integraciones",  label: "Integraciones" },
   ];
 
   return (
@@ -68,6 +70,7 @@ export default function ConfiguracionTabs({ empresa, sucursales, laboratorios, c
         {activeTab === "categorias"    && <CategoriasTab categoriasGasto={categoriasGasto} />}
         {activeTab === "optometristas" && <OptometristasTab optometristas={optometristas} />}
         {activeTab === "usuarios"      && <UsuariosTab usuarios={usuarios} sucursales={sucursales} />}
+        {activeTab === "integraciones" && <IntegracionesTab />}
       </div>
     </>
   );
@@ -683,6 +686,86 @@ function rolBadgeClass(rol: string) {
   if (rol === "laboratorio")   return "bg-orange-500/15 text-orange-400";
   if (rol === "contador")      return "bg-yellow-500/15 text-yellow-400";
   return "bg-gray-500/15 text-t-muted";
+}
+
+/* ─── IntegracionesTab ─────────────────────────────────── */
+function IntegracionesTab() {
+  const [isPending, startTransition] = useTransition();
+  const [resultado, setResultado] = useState<{ ok: number; errores: number } | null>(null);
+  const [error, setError] = useState("");
+
+  const handleSyncProductos = () => {
+    setResultado(null);
+    setError("");
+    startTransition(async () => {
+      try {
+        const r = await sincronizarProductosZoho();
+        setResultado(r);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Error desconocido");
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-card border border-b-default rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-b-subtle">
+          <h2 className="text-sm font-semibold text-t-primary">Zoho Books</h2>
+          <p className="text-xs text-t-muted mt-0.5">
+            Sincronización con Zoho Books. Los nuevos registros se sincronizan automáticamente.
+          </p>
+        </div>
+
+        <div className="px-5 py-5 space-y-4">
+          {/* Estado de conexión */}
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+            <span className="text-xs text-t-secondary">Conectado · región Americas (.com)</span>
+          </div>
+
+          {/* Sync masivo productos */}
+          <div className="border border-b-default rounded-lg p-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-t-primary">Sincronizar productos al catálogo</p>
+              <p className="text-xs text-t-muted mt-0.5">
+                Crea en Zoho Books los productos que aún no tienen ID de Zoho. Los productos futuros se sincronizan automáticamente.
+              </p>
+            </div>
+
+            {error && <p className="text-xs text-red-400">{error}</p>}
+
+            {resultado && (
+              <p className="text-xs text-emerald-400">
+                ✓ {resultado.ok} sincronizados
+                {resultado.errores > 0 && ` · ${resultado.errores} con error (ver consola)`}
+              </p>
+            )}
+
+            <button
+              onClick={handleSyncProductos}
+              disabled={isPending}
+              className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50"
+            >
+              {isPending ? "Sincronizando..." : "Sincronizar productos pendientes"}
+            </button>
+          </div>
+
+          {/* Info scopes */}
+          <div className="border border-b-default rounded-lg p-4">
+            <p className="text-sm font-medium text-t-primary mb-2">Datos sincronizados</p>
+            <ul className="text-xs text-t-muted space-y-1">
+              <li>→ <span className="text-t-secondary">Pacientes</span> → Contactos (clientes)</li>
+              <li>→ <span className="text-t-secondary">Ventas</span> → Facturas</li>
+              <li>→ <span className="text-t-secondary">Abonos</span> → Pagos de cliente</li>
+              <li>→ <span className="text-t-secondary">Gastos</span> → Gastos</li>
+              <li>→ <span className="text-t-secondary">Productos</span> → Catálogo de ítems</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function UsuariosTab({ usuarios: initial, sucursales }: { usuarios: UsuarioItem[]; sucursales: Sucursal[] }) {

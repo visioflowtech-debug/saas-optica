@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { crearItemZoho, actualizarItemZoho, buildZohoItemName, buildZohoProductType } from "@/lib/zoho-books";
 
 async function getUserContext() {
   const supabase = await createClient();
@@ -113,15 +114,18 @@ export async function upsertProducto(payload: Partial<Producto>) {
     updated_at: new Date().toISOString(),
   };
 
+  let productoId: string | null = payload.id ?? null;
   let errorInfo = null;
+
   if (isNew) {
     // Al crear: asignar sucursal_id según tipo de producto
-    const { error } = await supabase.from("productos").insert({
+    const { data: nuevo, error } = await supabase.from("productos").insert({
       ...camposBase,
       tenant_id,
       sucursal_id: esProductoFisico ? sucursal_id : null,
-    });
+    }).select("id").single();
     errorInfo = error;
+    productoId = nuevo?.id ?? null;
   } else {
     // Al editar: NO tocar sucursal_id para no reasignar el producto entre sucursales
     const { error } = await supabase.from("productos")
@@ -134,6 +138,53 @@ export async function upsertProducto(payload: Partial<Producto>) {
   if (errorInfo) {
     console.error("Error upserting product:", errorInfo);
     return { success: false, error: errorInfo.message };
+  }
+
+  // Zoho Books — sincronizar ítem (best-effort)
+  if (productoId && payload.categoria) {
+    try {
+      const itemName = buildZohoItemName({
+        categoria: payload.categoria,
+        nombre: payload.nombre ?? null,
+        marca: payload.marca ?? null,
+        modelo: payload.modelo ?? null,
+        color: payload.color ?? null,
+      });
+      const productType = buildZohoProductType(payload.categoria);
+
+      if (isNew) {
+        const zohoItemId = await crearItemZoho({
+          name: itemName,
+          rate: payload.precio ?? 0,
+          product_type: productType,
+        });
+        await supabase.from("productos").update({ zoho_item_id: zohoItemId }).eq("id", productoId);
+      } else {
+        // Editar: solo actualizar si tiene zoho_item_id
+        const { data: prod } = await supabase
+          .from("productos")
+          .select("zoho_item_id")
+          .eq("id", productoId)
+          .single();
+
+        if (prod?.zoho_item_id) {
+          await actualizarItemZoho(prod.zoho_item_id as string, {
+            name: itemName,
+            rate: payload.precio ?? 0,
+          });
+        } else {
+          // Producto existente sin Zoho ID — crearlo ahora
+          const zohoItemId = await crearItemZoho({
+            name: itemName,
+            rate: payload.precio ?? 0,
+            product_type: productType,
+          });
+          await supabase.from("productos").update({ zoho_item_id: zohoItemId }).eq("id", productoId);
+        }
+      }
+    } catch (e) {
+      console.error("Zoho sync error (upsertProducto):", e);
+    }
   }
 
   revalidatePath("/dashboard/inventario");

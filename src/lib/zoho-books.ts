@@ -85,6 +85,10 @@ export interface ZohoItemInput {
   product_type?: "goods" | "service";
 }
 
+/**
+ * crearItemZoho / actualizarItemZoho — requieren módulo Items (plan Standard+).
+ * Si el plan no lo soporta, lanza error que se captura en best-effort try/catch.
+ */
 export async function crearItemZoho(input: ZohoItemInput): Promise<string> {
   const body: Record<string, unknown> = {
     name: input.name,
@@ -99,6 +103,36 @@ export async function crearItemZoho(input: ZohoItemInput): Promise<string> {
     body: JSON.stringify(body),
   });
   return data.item.item_id;
+}
+
+export async function actualizarItemZoho(
+  itemId: string,
+  input: Partial<Pick<ZohoItemInput, "name" | "rate" | "description">>
+): Promise<void> {
+  await zohoFetch(`/items/${itemId}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+/** Construye el nombre del ítem igual que el catálogo del SaaS */
+export function buildZohoItemName(p: {
+  categoria: string;
+  nombre: string | null;
+  marca: string | null;
+  modelo: string | null;
+  color: string | null;
+}): string {
+  const esAroOAccesorio = p.categoria.startsWith("aro") || p.categoria === "accesorio";
+  if (esAroOAccesorio) {
+    return [p.nombre, p.marca, p.modelo, p.color].filter(Boolean).join(" — ") || p.categoria;
+  }
+  return p.nombre || p.categoria;
+}
+
+/** Mapea categoría del SaaS al product_type de Zoho */
+export function buildZohoProductType(categoria: string): "goods" | "service" {
+  return ["servicio", "tratamiento"].includes(categoria) ? "service" : "goods";
 }
 
 // ── Facturas (Ventas/Invoices) ────────────────────────────
