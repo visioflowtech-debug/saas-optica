@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { registrarGastoZoho } from "@/lib/zoho-books";
 
 import type { Gasto } from "./types";
 
@@ -86,7 +87,9 @@ export async function registrarGasto(formData: FormData) {
     return redirect("/dashboard/gastos/nuevo?error=Datos+incompletos+o+monto+invalido");
   }
 
-  const { error } = await supabase.from("gastos").insert({
+  const fechaFinal = fecha || new Date().toISOString().split("T")[0];
+
+  const { data: gasto, error } = await supabase.from("gastos").insert({
     tenant_id,
     sucursal_id,
     campana_id,
@@ -94,11 +97,27 @@ export async function registrarGasto(formData: FormData) {
     concepto,
     categoria,
     monto,
-    fecha: fecha || new Date().toISOString().split("T")[0],
+    fecha: fechaFinal,
     notas,
-  });
+  }).select("id").single();
 
   if (error) return redirect("/dashboard/gastos/nuevo?error=" + encodeURIComponent(error.message));
+
+  // Zoho Books — registrar gasto (best-effort)
+  try {
+    const zohoExpenseId = await registrarGastoZoho({
+      account_name: categoria,
+      date: fechaFinal,
+      amount: monto,
+      description: concepto,
+      reference_number: notas ?? null,
+    });
+    if (gasto?.id) {
+      await supabase.from("gastos").update({ zoho_expense_id: zohoExpenseId }).eq("id", gasto.id);
+    }
+  } catch (e) {
+    console.error("Zoho sync error (registrarGasto):", e);
+  }
 
   revalidatePath("/dashboard/gastos");
   if (campana_id) revalidatePath(`/dashboard/campanas/${campana_id}`);

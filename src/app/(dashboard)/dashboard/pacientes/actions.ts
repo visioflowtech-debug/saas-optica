@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { obtenerOCrearContactoZoho } from "@/lib/zoho-books";
 
 async function getUserContext() {
   const supabase = await createClient();
@@ -81,6 +82,19 @@ export async function crearPaciente(formData: FormData) {
       ? `/dashboard/pacientes/nuevo?campana_id=${campana_id}`
       : "/dashboard/pacientes/nuevo";
     return redirect(base + "&error=" + encodeURIComponent(error.message));
+  }
+
+  // Zoho Books — crear contacto (best-effort, no bloquea flujo)
+  try {
+    const zohoContactId = await obtenerOCrearContactoZoho({
+      contact_name: nombre,
+      contact_type: "customer",
+      email: email || null,
+      phone: telefono || null,
+    });
+    await supabase.from("pacientes").update({ zoho_contact_id: zohoContactId }).eq("id", data.id);
+  } catch (e) {
+    console.error("Zoho sync error (crearPaciente):", e);
   }
 
   revalidatePath("/dashboard/pacientes");

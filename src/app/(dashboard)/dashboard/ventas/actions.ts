@@ -3,6 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { obtenerOCrearContactoZoho, crearFacturaZoho, registrarPagoZoho } from "@/lib/zoho-books";
+import type { ZohoPaymentMode } from "@/lib/zoho-books";
+
+function mapMetodoPago(metodo: string): ZohoPaymentMode {
+  const m = metodo.toLowerCase();
+  if (m === "efectivo") return "cash";
+  if (m === "tarjeta" || m === "tarjeta_credito" || m === "tarjeta_debito") return "creditcard";
+  if (m === "transferencia" || m === "deposito") return "banktransfer";
+  if (m === "cheque") return "check";
+  return "others";
+}
 
 async function getUserContext() {
   const supabase = await createClient();
@@ -171,6 +182,44 @@ export async function crearProforma(formData: FormData) {
   }));
 
   await supabase.from("orden_detalle").insert(detalles);
+
+  // Zoho Books — crear contacto + factura (best-effort)
+  try {
+    const { data: paciente } = await supabase
+      .from("pacientes")
+      .select("nombre, telefono, email, zoho_contact_id")
+      .eq("id", paciente_id)
+      .single();
+
+    if (paciente) {
+      let contactId = paciente.zoho_contact_id as string | null;
+      if (!contactId) {
+        contactId = await obtenerOCrearContactoZoho({
+          contact_name: paciente.nombre,
+          contact_type: "customer",
+          email: paciente.email,
+          phone: paciente.telefono,
+        });
+        await supabase.from("pacientes").update({ zoho_contact_id: contactId }).eq("id", paciente_id);
+      }
+
+      const fechaStr = new Date().toISOString().split("T")[0];
+      const { invoice_id } = await crearFacturaZoho({
+        contact_id: contactId,
+        date: fechaStr,
+        reference_number: orden.id,
+        line_items: detalles.map((d) => ({
+          name: d.descripcion,
+          rate: d.precio_unitario,
+          quantity: d.cantidad,
+        })),
+        notes: notas ?? undefined,
+      });
+      await supabase.from("ordenes").update({ zoho_invoice_id: invoice_id }).eq("id", orden.id);
+    }
+  } catch (e) {
+    console.error("Zoho sync error (crearProforma):", e);
+  }
 
   revalidatePath("/dashboard/ventas");
   if (campana_id) revalidatePath(`/dashboard/campanas/${campana_id}`);
@@ -463,16 +512,52 @@ export async function registrarPago(ordenId: string, monto: number, metodoPago: 
     throw new Error(`El monto ($${monto.toFixed(2)}) excede el saldo pendiente ($${saldo.toFixed(2)})`);
   }
 
-  const { error } = await supabase.from("pagos").insert({
+  const { data: pago, error } = await supabase.from("pagos").insert({
     orden_id: ordenId,
     tenant_id,
     monto,
     metodo_pago: metodoPago,
     referencia: referencia?.trim() || null,
     notas: notas?.trim() || null,
-  });
+  }).select("id").single();
 
   if (error) throw new Error(error.message);
+
+  // Zoho Books — registrar abono (best-effort)
+  try {
+    const { data: ordenZoho } = await supabase
+      .from("ordenes")
+      .select("zoho_invoice_id, paciente_id")
+      .eq("id", ordenId)
+      .eq("tenant_id", tenant_id)
+      .single();
+
+    if (ordenZoho?.zoho_invoice_id) {
+      const { data: paciente } = await supabase
+        .from("pacientes")
+        .select("zoho_contact_id")
+        .eq("id", ordenZoho.paciente_id)
+        .single();
+
+      if (paciente?.zoho_contact_id) {
+        const fechaStr = new Date().toISOString().split("T")[0];
+        const zohoPaymentId = await registrarPagoZoho({
+          contact_id: paciente.zoho_contact_id as string,
+          invoice_id: ordenZoho.zoho_invoice_id as string,
+          amount: monto,
+          date: fechaStr,
+          payment_mode: mapMetodoPago(metodoPago),
+          reference_number: referencia?.trim() || null,
+          description: notas?.trim() || null,
+        });
+        if (pago?.id) {
+          await supabase.from("pagos").update({ zoho_payment_id: zohoPaymentId }).eq("id", pago.id);
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Zoho sync error (registrarPago):", e);
+  }
 
   revalidatePath(`/dashboard/ventas/${ordenId}`);
   revalidatePath("/dashboard/ventas");
