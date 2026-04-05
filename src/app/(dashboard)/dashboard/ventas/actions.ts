@@ -287,13 +287,15 @@ export async function convertirAOrden(ordenId: string) {
   // 4. Fetch campana_id + datos para Zoho
   const { data: ordenData } = await supabase
     .from("ordenes")
-    .select("campana_id, paciente_id, notas, descuento")
+    .select("campana_id, paciente_id, notas, descuento, zoho_invoice_id")
     .eq("id", ordenId)
     .eq("tenant_id", tenant_id)
     .single();
 
-  // 5. Zoho Books — crear factura con las líneas definitivas (best-effort)
-  await sincronizarFacturaZoho(supabase, ordenId, ordenData);
+  // 5. Zoho Books — solo si aún no tiene factura (puede ya tenerla si se confirmó primero)
+  if (ordenData && !ordenData.zoho_invoice_id) {
+    await sincronizarFacturaZoho(supabase, ordenId, ordenData);
+  }
 
   revalidatePath("/dashboard/ventas");
   revalidatePath(`/dashboard/ventas/${ordenId}`);
