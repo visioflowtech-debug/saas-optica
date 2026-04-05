@@ -181,7 +181,12 @@ export async function crearProforma(formData: FormData) {
     subtotal: it.cantidad * it.precio_unitario,
   }));
 
-  await supabase.from("orden_detalle").insert(detalles);
+  const { error: detallesError } = await supabase.from("orden_detalle").insert(detalles);
+  if (detallesError) {
+    // Revertir la orden si no se pudieron insertar los detalles
+    await supabase.from("ordenes").delete().eq("id", orden.id);
+    return redirect("/dashboard/ventas/nueva?error=" + encodeURIComponent("Error al guardar productos: " + detallesError.message));
+  }
 
   // Zoho Books — crear contacto + factura (best-effort)
   try {
