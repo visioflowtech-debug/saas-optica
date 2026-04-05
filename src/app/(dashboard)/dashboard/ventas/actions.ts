@@ -188,73 +188,6 @@ export async function crearProforma(formData: FormData) {
     return redirect("/dashboard/ventas/nueva?error=" + encodeURIComponent("Error al guardar productos: " + detallesError.message));
   }
 
-  // Zoho Books — crear contacto + factura (best-effort)
-  try {
-    const { data: paciente } = await supabase
-      .from("pacientes")
-      .select("nombre, telefono, email, zoho_contact_id")
-      .eq("id", paciente_id)
-      .single();
-
-    if (paciente) {
-      let contactId = paciente.zoho_contact_id as string | null;
-      if (!contactId) {
-        contactId = await obtenerOCrearContactoZoho({
-          contact_name: paciente.nombre,
-          contact_type: "customer",
-          email: paciente.email,
-          phone: paciente.telefono,
-        });
-        await supabase.from("pacientes").update({ zoho_contact_id: contactId }).eq("id", paciente_id);
-      }
-
-      // Obtener zoho_item_id de cada producto para vincular líneas de factura
-      const productoIds = detalles.map((d) => d.producto_id).filter(Boolean) as string[];
-      const { data: productosZoho } = productoIds.length > 0
-        ? await supabase
-            .from("productos")
-            .select("id, zoho_item_id, categoria, nombre, marca, modelo, color, precio")
-            .in("id", productoIds)
-        : { data: [] };
-
-      const zohoItemMap: Record<string, string> = {};
-      for (const p of productosZoho ?? []) {
-        if (p.zoho_item_id) {
-          zohoItemMap[p.id] = p.zoho_item_id as string;
-        } else {
-          // Crear ítem en Zoho on-the-fly si no tiene ID aún
-          try {
-            const itemName = buildZohoItemName(p);
-            const newItemId = await crearItemZoho({
-              name: itemName,
-              rate: p.precio,
-              product_type: buildZohoProductType(p.categoria),
-            });
-            await supabase.from("productos").update({ zoho_item_id: newItemId }).eq("id", p.id);
-            zohoItemMap[p.id] = newItemId;
-          } catch { /* continúa sin item_id */ }
-        }
-      }
-
-      const fechaStr = new Date().toISOString().split("T")[0];
-      const { invoice_id } = await crearFacturaZoho({
-        contact_id: contactId,
-        date: fechaStr,
-        reference_number: orden.id,
-        line_items: detalles.map((d) => ({
-          name: d.descripcion,
-          rate: d.precio_unitario,
-          quantity: d.cantidad,
-          item_id: d.producto_id ? (zohoItemMap[d.producto_id] ?? null) : null,
-        })),
-        notes: notas ?? undefined,
-      });
-      await supabase.from("ordenes").update({ zoho_invoice_id: invoice_id }).eq("id", orden.id);
-    }
-  } catch (e) {
-    console.error("Zoho sync error (crearProforma):", e);
-  }
-
   revalidatePath("/dashboard/ventas");
   if (campana_id) revalidatePath(`/dashboard/campanas/${campana_id}`);
   redirect(`/dashboard/ventas/${orden.id}`);
@@ -279,6 +212,19 @@ export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
     .eq("tenant_id", tenant_id);
 
   if (error) throw new Error(error.message);
+
+  // Zoho Books — crear factura al confirmar (best-effort, solo si aún no tiene invoice)
+  if (nuevoEstado === "confirmada") {
+    const { data: ordenConfirmada } = await supabase
+      .from("ordenes")
+      .select("paciente_id, notas, descuento, zoho_invoice_id, campana_id")
+      .eq("id", ordenId)
+      .eq("tenant_id", tenant_id)
+      .single();
+    if (ordenConfirmada && !ordenConfirmada.zoho_invoice_id) {
+      await sincronizarFacturaZoho(supabase, ordenId, ordenConfirmada);
+    }
+  }
 
   revalidatePath("/dashboard/ventas");
   revalidatePath(`/dashboard/ventas/${ordenId}`);
@@ -338,9 +284,16 @@ export async function convertirAOrden(ordenId: string) {
     estado: "pendiente",
   });
 
-  // 4. Fetch campana_id to revalidate campaign dashboard
+  // 4. Fetch campana_id + datos para Zoho
   const { data: ordenData } = await supabase
-    .from("ordenes").select("campana_id").eq("id", ordenId).eq("tenant_id", tenant_id).single();
+    .from("ordenes")
+    .select("campana_id, paciente_id, notas, descuento")
+    .eq("id", ordenId)
+    .eq("tenant_id", tenant_id)
+    .single();
+
+  // 5. Zoho Books — crear factura con las líneas definitivas (best-effort)
+  await sincronizarFacturaZoho(supabase, ordenId, ordenData);
 
   revalidatePath("/dashboard/ventas");
   revalidatePath(`/dashboard/ventas/${ordenId}`);
@@ -595,6 +548,82 @@ export async function registrarPago(ordenId: string, monto: number, metodoPago: 
 
   revalidatePath(`/dashboard/ventas/${ordenId}`);
   revalidatePath("/dashboard/ventas");
+}
+
+/* ── Zoho: crear factura al confirmar ───────────────────── */
+async function sincronizarFacturaZoho(
+  supabase: Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>>,
+  ordenId: string,
+  ordenData: { paciente_id?: string | null; notas?: string | null; descuento?: number | null; zoho_invoice_id?: string | null } | null
+) {
+  if (!ordenData?.paciente_id) return;
+  try {
+    const { data: paciente } = await supabase
+      .from("pacientes")
+      .select("nombre, telefono, email, zoho_contact_id")
+      .eq("id", ordenData.paciente_id)
+      .single();
+    if (!paciente) return;
+
+    let contactId = paciente.zoho_contact_id as string | null;
+    if (!contactId) {
+      contactId = await obtenerOCrearContactoZoho({
+        contact_name: paciente.nombre,
+        contact_type: "customer",
+        email: paciente.email,
+        phone: paciente.telefono,
+      });
+      await supabase.from("pacientes").update({ zoho_contact_id: contactId }).eq("id", ordenData.paciente_id);
+    }
+
+    const { data: detalles } = await supabase
+      .from("orden_detalle")
+      .select("producto_id, descripcion, cantidad, precio_unitario")
+      .eq("orden_id", ordenId)
+      .order("created_at", { ascending: true });
+
+    const productoIds = (detalles ?? []).map((d) => d.producto_id).filter(Boolean) as string[];
+    const { data: productosZoho } = productoIds.length > 0
+      ? await supabase
+          .from("productos")
+          .select("id, zoho_item_id, categoria, nombre, marca, modelo, color, precio")
+          .in("id", productoIds)
+      : { data: [] };
+
+    const zohoItemMap: Record<string, string> = {};
+    for (const p of productosZoho ?? []) {
+      if (p.zoho_item_id) {
+        zohoItemMap[p.id] = p.zoho_item_id as string;
+      } else {
+        try {
+          const newItemId = await crearItemZoho({
+            name: buildZohoItemName(p),
+            rate: p.precio,
+            product_type: buildZohoProductType(p.categoria),
+          });
+          await supabase.from("productos").update({ zoho_item_id: newItemId }).eq("id", p.id);
+          zohoItemMap[p.id] = newItemId;
+        } catch { /* continúa sin item_id */ }
+      }
+    }
+
+    const fechaStr = new Date().toISOString().split("T")[0];
+    const { invoice_id } = await crearFacturaZoho({
+      contact_id: contactId,
+      date: fechaStr,
+      reference_number: ordenId,
+      line_items: (detalles ?? []).map((d) => ({
+        name: d.descripcion,
+        rate: d.precio_unitario,
+        quantity: d.cantidad,
+        item_id: d.producto_id ? (zohoItemMap[d.producto_id] ?? null) : null,
+      })),
+      notes: ordenData.notas ?? undefined,
+    });
+    await supabase.from("ordenes").update({ zoho_invoice_id: invoice_id }).eq("id", ordenId);
+  } catch (e) {
+    console.error("Zoho sync error (confirmar):", e);
+  }
 }
 
 /* ── Helpers internos ───────────────────────────────────── */
