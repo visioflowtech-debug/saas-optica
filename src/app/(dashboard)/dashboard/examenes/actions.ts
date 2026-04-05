@@ -55,6 +55,7 @@ export async function crearExamen(formData: FormData) {
     av_oi_sin_lentes: parseStr("av_oi_sin_lentes"),
     dp: parseNum("dp"),
     dp_oi: parseNum("dp_oi"),
+    dp_unico: parseStr("dp_unico"),
     altura: parseNum("altura"),
     observaciones: parseStr("observaciones"),
     // Refracción Actual (RA)

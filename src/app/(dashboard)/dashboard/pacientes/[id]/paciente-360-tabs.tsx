@@ -26,6 +26,8 @@ interface Examen {
   av_od_sin_lentes: string | null;
   av_oi_sin_lentes: string | null;
   dp: number | null;
+  dp_oi: number | null;
+  dp_unico: string | null;
   altura: number | null;
   observaciones: string | null;
   anulado: boolean;
@@ -455,7 +457,9 @@ function VerDetalleExamenModal({ examen, onClose }: { examen: Examen, onClose: (
             <ExamDetail label="Agudeza Visual OD s/l" value={examen.av_od_sin_lentes || "—"} />
             <ExamDetail label="Agudeza Visual OI s/l" value={examen.av_oi_sin_lentes || "—"} />
             <ExamDetail label="Lente/Uso" value={examen.lente_uso || "—"} />
-            <ExamDetail label="Distancia Pupilar" value={examen.dp != null ? `${examen.dp} mm` : "—"} />
+            <ExamDetail label="DP OD" value={examen.dp != null ? `${examen.dp} mm` : "—"} />
+            <ExamDetail label="DP OI" value={examen.dp_oi != null ? `${examen.dp_oi} mm` : "—"} />
+            <ExamDetail label="DP único" value={examen.dp_unico || "—"} />
             <ExamDetail label="Altura" value={examen.altura != null ? `${examen.altura} mm` : "—"} />
           </div>
 

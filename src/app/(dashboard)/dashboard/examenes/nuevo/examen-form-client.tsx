@@ -37,8 +37,7 @@ export default function ExamenFormClient({ pacientes, optometristas, defaultPaci
   const [av_oi, setAvOi] = useState("");
   const [dp, setDp] = useState("");
   const [dp_oi, setDpOi] = useState("");
-  const [dpModo, setDpModo] = useState<"monocular" | "binocular">("monocular");
-  const [dpBinocular, setDpBinocular] = useState("");
+  const [dp_unico, setDpUnico] = useState("");
   const [altura, setAltura] = useState("");
   const [motivo_consulta, setMotivoConsulta] = useState("");
   const [observaciones, setObservaciones] = useState("");
@@ -242,63 +241,32 @@ export default function ExamenFormClient({ pacientes, optometristas, defaultPaci
               placeholder="Ej: 20/30" type="text"
               className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm" />
           </div>
-          {/* DP — toggle binocular / monocular */}
-          <div className="col-span-2 sm:col-span-1">
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-t-muted uppercase tracking-wider">
-                Distancia Pupilar (mm)
-              </label>
-              <div className="flex rounded-md overflow-hidden border border-b-default text-xs">
-                <button type="button"
-                  onClick={() => setDpModo("monocular")}
-                  className={`px-2 py-1 transition ${dpModo === "monocular" ? "bg-blue-600 text-white" : "text-t-muted hover:bg-white/5"}`}>
-                  OD / OI
-                </button>
-                <button type="button"
-                  onClick={() => setDpModo("binocular")}
-                  className={`px-2 py-1 transition ${dpModo === "binocular" ? "bg-blue-600 text-white" : "text-t-muted hover:bg-white/5"}`}>
-                  DP único
-                </button>
-              </div>
-            </div>
-
-            {dpModo === "monocular" ? (
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="block text-xs text-t-muted mb-1">OD</span>
-                  <input name="dp" value={dp} onChange={(e) => setDp(e.target.value)}
-                    placeholder="32" type="number" step="0.5"
-                    className="w-full px-3 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                </div>
-                <div>
-                  <span className="block text-xs text-t-muted mb-1">OI</span>
-                  <input name="dp_oi" value={dp_oi} onChange={(e) => setDpOi(e.target.value)}
-                    placeholder="31" type="number" step="0.5"
-                    className="w-full px-3 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                </div>
-              </div>
-            ) : (
-              <div>
-                <span className="block text-xs text-t-muted mb-1">DP binocular</span>
-                <input
-                  placeholder="Ej: 60 ó 60/65"
-                  type="text"
-                  value={dpBinocular}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setDpBinocular(val);
-                    // Parsear "60/65" → dp=60, dp_oi=65 · "60" → dp=60, dp_oi=""
-                    const partes = val.split("/");
-                    setDp(partes[0]?.trim() ?? "");
-                    setDpOi(partes[1]?.trim() ?? "");
-                  }}
-                  className="w-full px-3 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm"
-                />
-                {/* Campos ocultos para enviar dp y dp_oi al servidor */}
-                <input type="hidden" name="dp" value={dp} />
-                <input type="hidden" name="dp_oi" value={dp_oi} />
-              </div>
-            )}
+          {/* DP OD */}
+          <div>
+            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+              DP <span className="normal-case text-t-blue font-semibold">OD</span> (mm)
+            </label>
+            <input name="dp" value={dp} onChange={(e) => setDp(e.target.value)}
+              placeholder="Ej: 32" type="number" step="0.5"
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+          </div>
+          {/* DP OI */}
+          <div>
+            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+              DP <span className="normal-case text-t-purple font-semibold">OI</span> (mm)
+            </label>
+            <input name="dp_oi" value={dp_oi} onChange={(e) => setDpOi(e.target.value)}
+              placeholder="Ej: 31" type="number" step="0.5"
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+          </div>
+          {/* DP único */}
+          <div>
+            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+              DP <span className="normal-case text-t-muted font-normal">único</span>
+            </label>
+            <input name="dp_unico" value={dp_unico} onChange={(e) => setDpUnico(e.target.value)}
+              placeholder="Ej: 60 ó 60/65" type="text"
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm" />
           </div>
           {/* Altura */}
           <div>
