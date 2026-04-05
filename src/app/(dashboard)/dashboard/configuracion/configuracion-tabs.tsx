@@ -692,7 +692,7 @@ function rolBadgeClass(rol: string) {
 /* ─── IntegracionesTab ─────────────────────────────────── */
 function IntegracionesTab() {
   const [isPending, startTransition] = useTransition();
-  const [resultado, setResultado] = useState<{ ok: number; errores: number } | null>(null);
+  const [resultado, setResultado] = useState<{ ok: number; errores: number; mensajesError: string[] } | null>(null);
   const [error, setError] = useState("");
   const [testPending, setTestPending] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; mensaje: string; detalle?: string } | null>(null);
@@ -769,10 +769,14 @@ function IntegracionesTab() {
             {error && <p className="text-xs text-red-400">{error}</p>}
 
             {resultado && (
-              <p className="text-xs text-emerald-400">
-                ✓ {resultado.ok} sincronizados
-                {resultado.errores > 0 && ` · ${resultado.errores} con error (ver consola)`}
-              </p>
+              <div className="space-y-1">
+                <p className="text-xs text-emerald-400">
+                  ✓ {resultado.ok} sincronizados{resultado.errores > 0 && ` · ${resultado.errores} con error`}
+                </p>
+                {resultado.mensajesError.map((msg, i) => (
+                  <p key={i} className="text-xs text-red-400 break-all">✗ {msg}</p>
+                ))}
+              </div>
             )}
 
             <button

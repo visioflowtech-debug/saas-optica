@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { crearItemZoho, buildZohoItemName, buildZohoProductType } from "@/lib/zoho-books";
 
-export async function sincronizarProductosZoho(): Promise<{ ok: number; errores: number }> {
+export async function sincronizarProductosZoho(): Promise<{ ok: number; errores: number; mensajesError: string[] }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
@@ -25,6 +25,7 @@ export async function sincronizarProductosZoho(): Promise<{ ok: number; errores:
 
   let ok = 0;
   let errores = 0;
+  const mensajesError: string[] = [];
 
   for (const p of productos ?? []) {
     try {
@@ -37,10 +38,11 @@ export async function sincronizarProductosZoho(): Promise<{ ok: number; errores:
       await supabase.from("productos").update({ zoho_item_id: zohoItemId }).eq("id", p.id);
       ok++;
     } catch (e) {
-      console.error(`Zoho sync error (producto ${p.id}):`, e);
+      const msg = e instanceof Error ? e.message : String(e);
+      mensajesError.push(`[${p.nombre ?? p.id}] ${msg}`);
       errores++;
     }
   }
 
-  return { ok, errores };
+  return { ok, errores, mensajesError };
 }
