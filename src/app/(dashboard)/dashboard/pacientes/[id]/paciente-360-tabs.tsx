@@ -47,7 +47,7 @@ interface Props {
 const TABS = [
   { key: "demograficos", label: "Datos del paciente", icon: "👤" },
   { key: "clinico", label: "Historial clínico", icon: "🔬" },
-  { key: "compras", label: "Historial de compras", icon: "🛒" },
+  { key: "compras", label: "Historial de Ventas", icon: "🛒" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
