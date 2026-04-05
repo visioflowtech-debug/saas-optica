@@ -52,8 +52,16 @@ export async function crearContactoZoho(input: ZohoContactInput): Promise<string
     contact_name: input.contact_name,
     contact_type: input.contact_type ?? "customer",
   };
-  if (input.email) body.email = input.email;
-  if (input.phone) body.phone = input.phone;
+
+  // Zoho requiere contact_persons para que aparezca la persona de contacto principal
+  const persona: Record<string, unknown> = {
+    first_name: input.contact_name,
+    is_primary_contact: true,
+  };
+  if (input.email) persona.email = input.email;
+  if (input.phone) persona.mobile = input.phone;
+  body.contact_persons = [persona];
+
   if (input.billing_address?.address) {
     body.billing_address = {
       address: input.billing_address.address,
@@ -64,7 +72,7 @@ export async function crearContactoZoho(input: ZohoContactInput): Promise<string
 
   const data = await zohoFetch("/contacts", {
     method: "POST",
-    body: JSON.stringify({ ...body }),
+    body: JSON.stringify(body),
   });
   return data.contact.contact_id;
 }
