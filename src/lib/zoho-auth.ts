@@ -1,6 +1,7 @@
 /**
  * Zoho Books OAuth2 — token refresh automático.
  * El access_token dura 1 hora; el refresh_token no expira.
+ * Requiere: ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN, ZOHO_ORG_ID, ZOHO_API_DOMAIN
  */
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
