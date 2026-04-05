@@ -167,6 +167,7 @@ export async function crearFacturaZoho(input: ZohoInvoiceInput): Promise<{ invoi
       name: li.name,
       rate: li.rate,
       quantity: li.quantity,
+      tax_id: "",      // precios ya incluyen IVA — no aplicar impuesto adicional
     };
     if (li.description) item.description = li.description;
     if (li.item_id) item.item_id = li.item_id;
