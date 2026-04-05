@@ -14,6 +14,7 @@ import {
 } from "./optometristas-actions";
 import type { OptometristaItem } from "./optometristas-actions";
 import { sincronizarProductosZoho } from "../inventario/zoho-sync-action";
+import { probarConexionZoho } from "./zoho-diagnostico-action";
 import { createClient } from "@/lib/supabase/client";
 
 interface Empresa  { id: string; nombre: string; nit: string | null; logo_url: string | null; email: string | null; }
@@ -693,6 +694,23 @@ function IntegracionesTab() {
   const [isPending, startTransition] = useTransition();
   const [resultado, setResultado] = useState<{ ok: number; errores: number } | null>(null);
   const [error, setError] = useState("");
+  const [testPending, setTestPending] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; mensaje: string; detalle?: string } | null>(null);
+
+  const handleTestConexion = () => {
+    setTestResult(null);
+    setTestPending(true);
+    startTransition(async () => {
+      try {
+        const r = await probarConexionZoho();
+        setTestResult(r);
+      } catch (e: unknown) {
+        setTestResult({ ok: false, mensaje: "Error al llamar la acción", detalle: e instanceof Error ? e.message : String(e) });
+      } finally {
+        setTestPending(false);
+      }
+    });
+  };
 
   const handleSyncProductos = () => {
     setResultado(null);
@@ -718,11 +736,26 @@ function IntegracionesTab() {
         </div>
 
         <div className="px-5 py-5 space-y-4">
-          {/* Estado de conexión */}
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-            <span className="text-xs text-t-secondary">Conectado · región Americas (.com)</span>
+          {/* Estado de conexión + botón diagnóstico */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full inline-block ${testResult ? (testResult.ok ? "bg-emerald-500" : "bg-red-500") : "bg-emerald-500"}`} />
+              <span className="text-xs text-t-secondary">Zoho Books · región Americas (.com)</span>
+            </div>
+            <button
+              onClick={handleTestConexion}
+              disabled={testPending || isPending}
+              className="px-3 py-1 text-xs font-medium border border-b-default rounded-lg hover:bg-white/5 transition disabled:opacity-50"
+            >
+              {testPending ? "Probando..." : "Probar conexión"}
+            </button>
           </div>
+          {testResult && (
+            <div className={`rounded-lg px-3 py-2 text-xs ${testResult.ok ? "bg-emerald-950/40 text-emerald-400" : "bg-red-950/40 text-red-400"}`}>
+              <p className="font-medium">{testResult.ok ? "✓" : "✗"} {testResult.mensaje}</p>
+              {testResult.detalle && <p className="mt-1 opacity-75 break-all">{testResult.detalle}</p>}
+            </div>
+          )}
 
           {/* Sync masivo productos */}
           <div className="border border-b-default rounded-lg p-4 space-y-3">
