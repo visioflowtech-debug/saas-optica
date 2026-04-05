@@ -219,7 +219,7 @@ function TabClinico({ examenes }: { examenes: Examen[] }) {
 
 function TabCompras({ ordenes, labEstados }: { ordenes: Orden[]; labEstados: Record<string, LabEstado> }) {
   if (ordenes.length === 0) {
-    return <div className="text-center py-12 text-t-muted text-sm">No hay compras registradas para este paciente</div>;
+    return <div className="text-center py-12 text-t-muted text-sm">No hay ventas registradas para este paciente</div>;
   }
   return (
     <div className="space-y-4">

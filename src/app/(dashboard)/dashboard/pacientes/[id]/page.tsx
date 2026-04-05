@@ -124,7 +124,7 @@ export default async function Paciente360Page({
           {/* Stats — always below name row, never beside buttons */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-b-subtle">
             <StatMini label="Exámenes" value={String(examenes?.length ?? 0)} />
-            <StatMini label="Compras" value={String(ordenes?.filter(o => o.estado !== "cancelada").length ?? 0)} />
+            <StatMini label="Ventas" value={String(ordenes?.filter(o => o.estado !== "cancelada").length ?? 0)} />
             <StatMini label="Total" value={formatCurrency(totalCompras)} />
             <StatMini label="Pendiente" value={formatCurrency(saldoPendiente)} highlight={saldoPendiente > 0} />
           </div>
