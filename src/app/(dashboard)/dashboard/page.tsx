@@ -62,7 +62,7 @@ export default async function DashboardPage() {
       .order("created_at", { ascending: false }).limit(5),
     // Alerta: lentes listos para entregar (estado recibido en laboratorio)
     supabase.from("laboratorio_estados").select("*", { count: "exact", head: true })
-      .eq("tenant_id", perfil.tenant_id).eq("estado", "recibido"),
+      .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id).eq("estado", "recibido"),
     // Alerta: productos sin stock
     supabase.from("productos").select("*", { count: "exact", head: true })
       .eq("tenant_id", perfil.tenant_id).eq("activo", true).eq("maneja_stock", true).eq("stock", 0),

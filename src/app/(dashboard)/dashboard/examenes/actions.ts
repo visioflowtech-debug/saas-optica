@@ -83,9 +83,8 @@ export async function crearExamen(formData: FormData) {
   }).select("id").single();
 
   if (error) {
-    return redirect(
-      "/dashboard/examenes/nuevo?error=" + encodeURIComponent(error.message)
-    );
+    console.error("[crearExamen]", error);
+    return redirect("/dashboard/examenes/nuevo?error=Error+al+guardar+el+examen.+Intenta+de+nuevo.");
   }
 
   revalidatePath("/dashboard/examenes");

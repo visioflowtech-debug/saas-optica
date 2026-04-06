@@ -14,11 +14,17 @@ export default async function NuevaProformaPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Si viene con campana_id, filtrar pacientes de esa campaña primero
-  let pacientesQuery = supabase.from("pacientes").select("id, nombre").order("nombre", { ascending: true });
+  const { data: perfil } = await supabase
+    .from("usuarios").select("tenant_id, sucursal_id").eq("id", user.id).single();
+  if (!perfil) redirect("/login");
 
   const [{ data: pacientes }, catalogo] = await Promise.all([
-    pacientesQuery,
+    supabase.from("pacientes")
+      .select("id, nombre")
+      .eq("tenant_id", perfil.tenant_id)
+      .eq("sucursal_id", perfil.sucursal_id)
+      .order("nombre", { ascending: true })
+      .limit(500),
     obtenerCatalogo(),
   ]);
 

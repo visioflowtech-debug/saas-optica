@@ -40,10 +40,10 @@ export default async function OrdenDetallePage({
   if (!orden) notFound();
 
   const [{ data: detalles }, { data: labEstado }, { data: pagos }, { data: labSpecs }] = await Promise.all([
-    supabase.from("orden_detalle").select("*").eq("orden_id", id).order("created_at", { ascending: true }),
-    supabase.from("laboratorio_estados").select("*").eq("orden_id", id).order("updated_at", { ascending: false }).limit(1).maybeSingle().then(r => ({ data: r.data })),
+    supabase.from("orden_detalle").select("*").eq("orden_id", id).eq("tenant_id", perfil.tenant_id).order("created_at", { ascending: true }),
+    supabase.from("laboratorio_estados").select("*").eq("orden_id", id).eq("tenant_id", perfil.tenant_id).order("updated_at", { ascending: false }).limit(1).maybeSingle().then(r => ({ data: r.data })),
     supabase.from("pagos").select("*").eq("orden_id", id).eq("tenant_id", perfil.tenant_id).order("created_at", { ascending: true }),
-    supabase.from("orden_laboratorio_datos").select("*").eq("orden_id", id).single().then(r => ({ data: r.data })),
+    supabase.from("orden_laboratorio_datos").select("*").eq("orden_id", id).eq("tenant_id", perfil.tenant_id).single().then(r => ({ data: r.data })),
   ]);
 
   const esProformaBorrador = orden.tipo === "proforma" && orden.estado === "borrador";
@@ -125,7 +125,7 @@ export default async function OrdenDetallePage({
           <div className="px-6 py-4 border-b border-b-subtle">
             <h2 className="text-sm font-semibold text-t-primary uppercase tracking-wider">Detalle de Productos</h2>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overscroll-x-contain">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-b-subtle">

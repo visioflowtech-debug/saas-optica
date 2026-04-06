@@ -154,7 +154,8 @@ export async function registrarGasto(formData: FormData) {
 }
 
 export async function eliminarGasto(id: string) {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (!["administrador"].includes(rol)) throw new Error("Sin permisos para eliminar gastos");
 
   const { data: gasto } = await supabase
     .from("gastos")

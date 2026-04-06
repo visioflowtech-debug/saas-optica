@@ -64,7 +64,8 @@ export async function actualizarNumeroJunta(id: string, numero_junta: string) {
 }
 
 export async function toggleOptometrista(id: string, activo: boolean) {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { error: "Sin permisos" };
   const { error } = await supabase.from("categorias_config")
     .update({ activo }).eq("id", id).eq("tenant_id", tenant_id);
   if (error) return { error: error.message };
@@ -73,7 +74,8 @@ export async function toggleOptometrista(id: string, activo: boolean) {
 }
 
 export async function eliminarOptometrista(id: string) {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { error: "Sin permisos" };
   const { error } = await supabase.from("categorias_config")
     .delete().eq("id", id).eq("tenant_id", tenant_id).eq("modulo", "optometristas");
   if (error) return { error: error.message };

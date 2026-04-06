@@ -40,7 +40,7 @@ export default async function GastosPage({
         </div>
         <Link
           href="/dashboard/gastos/nuevo"
-          className="px-4 py-2 bg-[var(--accent-blue)] hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition whitespace-nowrap"
+          className="px-4 py-2.5 min-h-11 bg-[var(--accent-blue)] hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition whitespace-nowrap"
         >
           + Registrar Gasto
         </Link>

@@ -765,14 +765,15 @@ export async function actualizarPrecioLinea(ordenId: string, lineaId: string, nu
   if (nuevoPrecio < 0) return { success: false, error: "El precio no puede ser negativo" };
 
   const { data: linea } = await supabase
-    .from("orden_detalle").select("cantidad").eq("id", lineaId).eq("orden_id", ordenId).single();
+    .from("orden_detalle").select("cantidad").eq("id", lineaId).eq("orden_id", ordenId).eq("tenant_id", tenant_id).single();
   if (!linea) return { success: false, error: "Línea no encontrada" };
 
   const nuevoSubtotal = Number(linea.cantidad) * nuevoPrecio;
   await supabase.from("orden_detalle")
     .update({ precio_unitario: nuevoPrecio, subtotal: nuevoSubtotal })
     .eq("id", lineaId)
-    .eq("orden_id", ordenId);
+    .eq("orden_id", ordenId)
+    .eq("tenant_id", tenant_id);
 
   const totales = await recalcularTotalesOrden(supabase, ordenId, tenant_id, Number(orden.descuento));
   revalidatePath(`/dashboard/ventas/${ordenId}`);
