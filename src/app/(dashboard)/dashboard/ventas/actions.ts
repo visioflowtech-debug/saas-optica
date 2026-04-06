@@ -623,6 +623,29 @@ async function sincronizarFacturaZoho(
       notes: ordenData.notas ?? undefined,
     });
     await supabase.from("ordenes").update({ zoho_invoice_id: invoice_id }).eq("id", ordenId);
+
+    // Retrosinc: pagos que ya existían antes de confirmar
+    const { data: pagosExistentes } = await supabase
+      .from("pagos")
+      .select("id, monto, metodo_pago, referencia, notas, zoho_payment_id")
+      .eq("orden_id", ordenId)
+      .is("zoho_payment_id", null);
+
+    for (const pago of pagosExistentes ?? []) {
+      try {
+        const fechaPago = new Date().toISOString().split("T")[0];
+        const zohoPaymentId = await registrarPagoZoho({
+          contact_id: contactId,
+          invoice_id,
+          amount: Number(pago.monto),
+          date: fechaPago,
+          payment_mode: mapMetodoPago(pago.metodo_pago),
+          reference_number: pago.referencia ?? null,
+          description: pago.notas ?? null,
+        });
+        await supabase.from("pagos").update({ zoho_payment_id: zohoPaymentId }).eq("id", pago.id);
+      } catch { /* best-effort — continúa con el siguiente pago */ }
+    }
   } catch (e) {
     console.error("Zoho sync error (confirmar):", e);
   }

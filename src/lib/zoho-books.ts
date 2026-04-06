@@ -186,8 +186,15 @@ export async function crearFacturaZoho(input: ZohoInvoiceInput): Promise<{ invoi
     method: "POST",
     body: JSON.stringify(body),
   });
+  const invoice_id: string = data.invoice.invoice_id;
+
+  // Marcar como "enviada/confirmada" para que Zoho no la deje en borrador
+  try {
+    await zohoFetch(`/invoices/${invoice_id}/status/sent`, { method: "POST" });
+  } catch { /* si falla no bloqueamos — la factura ya existe */ }
+
   return {
-    invoice_id: data.invoice.invoice_id,
+    invoice_id,
     invoice_number: data.invoice.invoice_number,
   };
 }
