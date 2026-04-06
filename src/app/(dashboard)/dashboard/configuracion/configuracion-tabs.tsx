@@ -14,7 +14,7 @@ import {
 } from "./optometristas-actions";
 import type { OptometristaItem } from "./optometristas-actions";
 import { sincronizarProductosZoho } from "../inventario/zoho-sync-action";
-import { probarConexionZoho, sincronizarCuentasGastoZoho } from "./zoho-diagnostico-action";
+import { probarConexionZoho, sincronizarCuentasGastoZoho, obtenerCuentasGastoZoho } from "./zoho-diagnostico-action";
 import { createClient } from "@/lib/supabase/client";
 
 interface Empresa  { id: string; nombre: string; nit: string | null; logo_url: string | null; email: string | null; }
@@ -698,6 +698,8 @@ function IntegracionesTab() {
   const [testResult, setTestResult] = useState<{ ok: boolean; mensaje: string; detalle?: string } | null>(null);
   const [cuentasResult, setCuentasResult] = useState<{ creadas: string[]; existentes: string[]; errores: string[] } | null>(null);
   const [cuentasPending, setCuentasPending] = useState(false);
+  const [cuentasZoho, setCuentasZoho] = useState<{ ok: boolean; cuentas: string[]; error?: string } | null>(null);
+  const [cuentasZohoPending, setCuentasZohoPending] = useState(false);
 
   const handleTestConexion = () => {
     setTestResult(null);
@@ -710,6 +712,21 @@ function IntegracionesTab() {
         setTestResult({ ok: false, mensaje: "Error al llamar la acción", detalle: e instanceof Error ? e.message : String(e) });
       } finally {
         setTestPending(false);
+      }
+    });
+  };
+
+  const handleVerCuentasZoho = () => {
+    setCuentasZoho(null);
+    setCuentasZohoPending(true);
+    startTransition(async () => {
+      try {
+        const r = await obtenerCuentasGastoZoho();
+        setCuentasZoho(r);
+      } catch (e: unknown) {
+        setCuentasZoho({ ok: false, cuentas: [], error: e instanceof Error ? e.message : "Error" });
+      } finally {
+        setCuentasZohoPending(false);
       }
     });
   };
@@ -829,13 +846,34 @@ function IntegracionesTab() {
                 )}
               </div>
             )}
-            <button
-              onClick={handleSyncCuentas}
-              disabled={isPending || cuentasPending}
-              className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50"
-            >
-              {cuentasPending ? "Creando cuentas..." : "Crear cuentas de gasto en Zoho"}
-            </button>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={handleSyncCuentas}
+                disabled={isPending || cuentasPending}
+                className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50"
+              >
+                {cuentasPending ? "Creando cuentas..." : "Crear cuentas de gasto en Zoho"}
+              </button>
+              <button
+                onClick={handleVerCuentasZoho}
+                disabled={isPending || cuentasZohoPending}
+                className="px-4 py-2 text-xs font-medium border border-b-default rounded-lg hover:bg-white/5 transition disabled:opacity-50"
+              >
+                {cuentasZohoPending ? "Consultando..." : "Ver cuentas en Zoho"}
+              </button>
+            </div>
+            {cuentasZoho && (
+              <div className={`rounded-lg px-3 py-2 text-xs ${cuentasZoho.ok ? "bg-badge-bg" : "bg-red-950/40 text-red-400"}`}>
+                {cuentasZoho.ok ? (
+                  <>
+                    <p className="font-medium text-t-secondary mb-1">Cuentas de gasto en Zoho ({cuentasZoho.cuentas.length}):</p>
+                    <p className="text-t-muted break-all">{cuentasZoho.cuentas.join(" · ")}</p>
+                  </>
+                ) : (
+                  <p>✗ {cuentasZoho.error}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Info scopes */}

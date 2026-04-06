@@ -12,6 +12,31 @@ const CATEGORIAS_GASTO = [
   { valor: "otro",                label: "Otro" },
 ];
 
+export async function obtenerCuentasGastoZoho(): Promise<{
+  ok: boolean;
+  cuentas: string[];
+  error?: string;
+}> {
+  let token: string;
+  try {
+    token = await getZohoAccessToken();
+  } catch (e) {
+    return { ok: false, cuentas: [], error: e instanceof Error ? e.message : String(e) };
+  }
+  try {
+    const url = `${ZOHO_BASE}/chartofaccounts?account_type=expense&organization_id=${ZOHO_ORG}`;
+    const res = await fetch(url, { headers: zohoHeaders(token), cache: "no-store" });
+    const data = await res.json();
+    if (data.code !== 0 && data.code !== undefined) {
+      return { ok: false, cuentas: [], error: `[${data.code}] ${data.message}` };
+    }
+    const nombres: string[] = (data.chartofaccounts ?? []).map((c: { account_name: string }) => c.account_name);
+    return { ok: true, cuentas: nombres };
+  } catch (e) {
+    return { ok: false, cuentas: [], error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function sincronizarCuentasGastoZoho(): Promise<{
   creadas: string[];
   existentes: string[];
