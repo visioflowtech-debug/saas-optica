@@ -25,6 +25,10 @@ interface Examen {
   motivo_consulta: string | null;
   av_od_sin_lentes: string | null;
   av_oi_sin_lentes: string | null;
+  av_od_cc: string | null;
+  av_oi_cc: string | null;
+  pio_od: number | null;
+  pio_oi: number | null;
   dp: number | null;
   dp_oi: number | null;
   dp_unico: string | null;
@@ -49,6 +53,7 @@ interface Props {
 const TABS = [
   { key: "demograficos", label: "Datos del paciente", icon: "👤" },
   { key: "clinico", label: "Historial clínico", icon: "🔬" },
+  { key: "evolucion", label: "Progresión visual", icon: "📈" },
   { key: "compras", label: "Historial de Ventas", icon: "🛒" },
 ] as const;
 
@@ -76,6 +81,7 @@ export default function Paciente360Tabs({ paciente, examenes, ordenes, labEstado
       <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
         {activeTab === "demograficos" && <TabDemograficos paciente={paciente} edad={edad} />}
         {activeTab === "clinico" && <TabClinico examenes={examenes} />}
+        {activeTab === "evolucion" && <TabEvolucion examenes={examenes} />}
         {activeTab === "compras" && <TabCompras ordenes={ordenes} labEstados={labEstados} />}
       </div>
     </>
@@ -151,7 +157,7 @@ function TabClinico({ examenes }: { examenes: Examen[] }) {
                 />
               </div>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overscroll-x-contain">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-t-muted text-xs uppercase">
@@ -213,6 +219,152 @@ function TabClinico({ examenes }: { examenes: Examen[] }) {
           onClose={() => setSelectedExamen(null)}
         />
       )}
+    </div>
+  );
+}
+
+// ── Progresión visual ─────────────────────────────────────
+
+function deltaClases(delta: number | null): string {
+  if (delta === null) return "text-t-muted";
+  const abs = Math.abs(delta);
+  if (abs < 0.13) return "text-t-muted"; // dentro del ruido de medición
+  if (abs <= 0.50) return "text-t-amber font-medium";
+  return "text-t-red font-semibold";
+}
+
+function DeltaCell({ prev, curr }: { prev: number | null; curr: number | null }) {
+  if (curr === null) return <span className="text-t-muted font-mono text-sm">—</span>;
+  const delta = prev !== null ? curr - prev : null;
+  const arrow = delta === null ? "" : delta > 0.12 ? " ↑" : delta < -0.12 ? " ↓" : " ≈";
+  return (
+    <span className="font-mono text-sm">
+      <span className="text-t-primary">{curr >= 0 ? `+${curr.toFixed(2)}` : curr.toFixed(2)}</span>
+      {delta !== null && (
+        <span className={`ml-1 text-[10px] ${deltaClases(delta)}`}>
+          ({delta >= 0 ? "+" : ""}{delta.toFixed(2)}{arrow})
+        </span>
+      )}
+    </span>
+  );
+}
+
+function TabEvolucion({ examenes }: { examenes: Examen[] }) {
+  const activos = examenes.filter((e) => !e.anulado).slice().reverse(); // cronológico asc
+
+  if (activos.length < 2) {
+    return (
+      <div className="py-12 text-center text-t-muted text-sm">
+        {activos.length === 0
+          ? "No hay exámenes registrados para este paciente."
+          : "Se necesitan al menos 2 exámenes para mostrar la progresión visual."}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <p className="text-xs text-t-muted">
+        Comparación cronológica de Refracción Final (RF). Los deltas indican el cambio respecto al examen anterior.{" "}
+        <span className="text-t-amber">Naranja</span> = cambio moderado (±0.50D), <span className="text-t-red">rojo</span> = cambio significativo (&gt;0.50D).
+      </p>
+
+      {/* Timeline */}
+      <div className="relative">
+        {/* Línea vertical */}
+        <div className="absolute left-4 top-6 bottom-6 w-0.5 bg-b-subtle" />
+
+        <div className="space-y-6">
+          {activos.map((ex, i) => {
+            const prev = i > 0 ? activos[i - 1] : null;
+            const isLatest = i === activos.length - 1;
+            const optNombre = getNestedName(ex.optometrista);
+            return (
+              <div key={ex.id} className="flex gap-4">
+                {/* Dot */}
+                <div className={`relative z-10 mt-1 flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center text-[10px] font-bold shadow-sm ${
+                  isLatest
+                    ? "bg-blue-600 border-blue-600 text-white"
+                    : "bg-card border-b-default text-t-muted"
+                }`}>
+                  {i + 1}
+                </div>
+
+                {/* Card */}
+                <div className={`flex-1 p-4 rounded-xl border ${isLatest ? "border-[var(--accent-blue)] bg-a-blue-bg" : "border-b-default bg-card"}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <span className={`font-semibold text-sm ${isLatest ? "text-t-primary" : "text-t-secondary"}`}>
+                        {fmtFecha(ex.fecha_examen, { month: "long" })}
+                      </span>
+                      {isLatest && (
+                        <span className="ml-2 px-2 py-0.5 text-[10px] font-bold uppercase bg-blue-600 text-white rounded">Más reciente</span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-t-muted">{optNombre}</span>
+                  </div>
+
+                  {/* Tabla OD / OI con deltas */}
+                  <div className="overflow-x-auto overscroll-x-contain">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-b-subtle">
+                          <th className="text-left pb-1.5 text-[10px] text-t-muted uppercase tracking-wider w-10">Ojo</th>
+                          <th className="text-right pb-1.5 px-2 text-[10px] text-t-muted uppercase tracking-wider">Esfera</th>
+                          <th className="text-right pb-1.5 px-2 text-[10px] text-t-muted uppercase tracking-wider">Cilindro</th>
+                          <th className="text-right pb-1.5 px-2 text-[10px] text-t-muted uppercase tracking-wider">Eje</th>
+                          <th className="text-right pb-1.5 px-2 text-[10px] text-t-muted uppercase tracking-wider">Adición</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-b-subtle/50">
+                          <td className="py-1.5 pr-2 font-bold text-t-blue text-sm">OD</td>
+                          <td className="text-right py-1.5 px-2"><DeltaCell prev={prev?.rf_od_esfera ?? null} curr={ex.rf_od_esfera} /></td>
+                          <td className="text-right py-1.5 px-2"><DeltaCell prev={prev?.rf_od_cilindro ?? null} curr={ex.rf_od_cilindro} /></td>
+                          <td className="text-right py-1.5 px-2 font-mono text-sm text-t-primary">{ex.rf_od_eje != null ? `${ex.rf_od_eje}°` : "—"}</td>
+                          <td className="text-right py-1.5 px-2"><DeltaCell prev={prev?.rf_od_adicion ?? null} curr={ex.rf_od_adicion} /></td>
+                        </tr>
+                        <tr>
+                          <td className="py-1.5 pr-2 font-bold text-t-purple text-sm">OI</td>
+                          <td className="text-right py-1.5 px-2"><DeltaCell prev={prev?.rf_oi_esfera ?? null} curr={ex.rf_oi_esfera} /></td>
+                          <td className="text-right py-1.5 px-2"><DeltaCell prev={prev?.rf_oi_cilindro ?? null} curr={ex.rf_oi_cilindro} /></td>
+                          <td className="text-right py-1.5 px-2 font-mono text-sm text-t-primary">{ex.rf_oi_eje != null ? `${ex.rf_oi_eje}°` : "—"}</td>
+                          <td className="text-right py-1.5 px-2"><DeltaCell prev={prev?.rf_oi_adicion ?? null} curr={ex.rf_oi_adicion} /></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Resumen del cambio (si hay anterior) */}
+                  {prev && (() => {
+                    const cambios: string[] = [];
+                    const checkCambio = (curr: number | null, prev2: number | null, lbl: string) => {
+                      if (curr === null || prev2 === null) return;
+                      const d = curr - prev2;
+                      if (Math.abs(d) > 0.50) cambios.push(`${lbl} ${d > 0 ? "+" : ""}${d.toFixed(2)}D`);
+                    };
+                    checkCambio(ex.rf_od_esfera, prev.rf_od_esfera, "Esf OD");
+                    checkCambio(ex.rf_oi_esfera, prev.rf_oi_esfera, "Esf OI");
+                    checkCambio(ex.rf_od_cilindro, prev.rf_od_cilindro, "Cil OD");
+                    checkCambio(ex.rf_oi_cilindro, prev.rf_oi_cilindro, "Cil OI");
+                    if (cambios.length === 0) return null;
+                    return (
+                      <div className="mt-3 pt-3 border-t border-b-subtle">
+                        <p className="text-[10px] text-t-muted uppercase tracking-wider mb-1">Cambios significativos vs. examen anterior</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {cambios.map((c) => (
+                            <span key={c} className="text-[10px] px-2 py-0.5 bg-a-red-bg text-t-red border border-a-red-border rounded-full font-medium">{c}</span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -453,9 +605,13 @@ function VerDetalleExamenModal({ examen, onClose }: { examen: Examen, onClose: (
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 bg-card border border-b-default rounded-xl p-4 shadow-[var(--shadow-card)]">
-            <ExamDetail label="Agudeza Visual OD s/l" value={examen.av_od_sin_lentes || "—"} />
-            <ExamDetail label="Agudeza Visual OI s/l" value={examen.av_oi_sin_lentes || "—"} />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 bg-card border border-b-default rounded-xl p-4 shadow-[var(--shadow-card)]">
+            <ExamDetail label="AV OD s/l" value={examen.av_od_sin_lentes || "—"} />
+            <ExamDetail label="AV OI s/l" value={examen.av_oi_sin_lentes || "—"} />
+            <ExamDetail label="AV OD c/c" value={examen.av_od_cc || "—"} />
+            <ExamDetail label="AV OI c/c" value={examen.av_oi_cc || "—"} />
+            <ExamDetail label="PIO OD" value={examen.pio_od != null ? `${examen.pio_od} mmHg` : "—"} />
+            <ExamDetail label="PIO OI" value={examen.pio_oi != null ? `${examen.pio_oi} mmHg` : "—"} />
             <ExamDetail label="Lente/Uso" value={examen.lente_uso || "—"} />
             <ExamDetail label="DP OD" value={examen.dp != null ? `${examen.dp} mm` : "—"} />
             <ExamDetail label="DP OI" value={examen.dp_oi != null ? `${examen.dp_oi} mm` : "—"} />

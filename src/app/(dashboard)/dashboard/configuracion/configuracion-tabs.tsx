@@ -10,7 +10,7 @@ import {
 } from "./categorias-actions";
 import type { CategoriaItem } from "./categorias-actions";
 import {
-  crearOptometrista, toggleOptometrista, eliminarOptometrista,
+  crearOptometrista, toggleOptometrista, eliminarOptometrista, actualizarNumeroJunta,
 } from "./optometristas-actions";
 import type { OptometristaItem } from "./optometristas-actions";
 import { sincronizarProductosZoho } from "../inventario/zoho-sync-action";
@@ -627,6 +627,8 @@ function CategoriasTab({ categoriasGasto: initial }: { categoriasGasto: Categori
 function OptometristasTab({ optometristas: initial }: { optometristas: OptometristaItem[] }) {
   const [opts, setOpts] = useState(initial);
   const [newNombre, setNewNombre] = useState("");
+  const [newJunta, setNewJunta] = useState("");
+  const [editingJunta, setEditingJunta] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
@@ -636,10 +638,11 @@ function OptometristasTab({ optometristas: initial }: { optometristas: Optometri
     startTransition(async () => {
       const fd = new FormData();
       fd.set("nombre", newNombre.trim());
+      fd.set("numero_junta", newJunta.trim());
       const r = await crearOptometrista(fd);
       if (r.error) { setError(r.error); return; }
-      setOpts((prev) => [...prev, { id: crypto.randomUUID(), nombre: newNombre.trim(), activo: true }]);
-      setNewNombre("");
+      setOpts((prev) => [...prev, { id: crypto.randomUUID(), nombre: newNombre.trim(), activo: true, numero_junta: newJunta.trim() || null }]);
+      setNewNombre(""); setNewJunta("");
     });
   };
 
@@ -659,33 +662,76 @@ function OptometristasTab({ optometristas: initial }: { optometristas: Optometri
     });
   };
 
+  const handleSaveJunta = (id: string) => {
+    const val = (editingJunta[id] ?? "").trim();
+    startTransition(async () => {
+      const r = await actualizarNumeroJunta(id, val);
+      if (r.error) { alert(r.error); return; }
+      setOpts((prev) => prev.map((o) => o.id === id ? { ...o, numero_junta: val || null } : o));
+      setEditingJunta((prev) => { const n = { ...prev }; delete n[id]; return n; });
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-card border border-b-default rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-b-subtle">
           <h2 className="text-sm font-semibold text-t-primary">Optometristas</h2>
-          <p className="text-xs text-t-muted mt-0.5">Lista de profesionales disponibles para asignar en el formulario de examen.</p>
+          <p className="text-xs text-t-muted mt-0.5">Lista de profesionales disponibles en el formulario de examen. El número de junta aparece en la receta PDF.</p>
         </div>
 
         {opts.length > 0 && (
-          <div className="px-5 py-3">
-            <div className="space-y-2">
-              {opts.map((o) => (
-                <div key={o.id} className="flex items-center justify-between">
-                  <span className={`text-sm ${o.activo ? "text-t-primary" : "text-t-muted line-through"}`}>{o.nombre}</span>
-                  <div className="flex gap-1">
-                    <button onClick={() => handleToggle(o.id, o.activo)} disabled={isPending}
-                      className="px-2 py-0.5 text-[10px] border border-b-default rounded text-t-muted hover:text-t-primary transition">
-                      {o.activo ? "Desactivar" : "Activar"}
-                    </button>
-                    <button onClick={() => handleDelete(o.id)} disabled={isPending}
-                      className="px-2 py-0.5 text-[10px] border border-red-500/30 rounded text-t-red hover:bg-red-500/10 transition">
-                      🗑
-                    </button>
+          <div className="divide-y divide-b-subtle">
+            {opts.map((o) => {
+              const juntaVal = o.id in editingJunta ? editingJunta[o.id] : (o.numero_junta ?? "");
+              return (
+                <div key={o.id} className="px-5 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium ${o.activo ? "text-t-primary" : "text-t-muted line-through"}`}>{o.nombre}</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className="text-[10px] text-t-muted">No. Junta:</span>
+                        {o.id in editingJunta ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text" value={juntaVal}
+                              onChange={(e) => setEditingJunta((prev) => ({ ...prev, [o.id]: e.target.value }))}
+                              onKeyDown={(e) => { if (e.key === "Enter") handleSaveJunta(o.id); if (e.key === "Escape") setEditingJunta((prev) => { const n = { ...prev }; delete n[o.id]; return n; }); }}
+                              placeholder="Ej: OPT-1234"
+                              className="px-2 py-0.5 text-[10px] bg-input border border-b-default rounded text-t-primary focus:outline-none focus:border-blue-500 w-28"
+                              autoFocus
+                            />
+                            <button onClick={() => handleSaveJunta(o.id)} disabled={isPending}
+                              className="px-2 py-0.5 text-[10px] font-medium bg-blue-600 text-white rounded transition hover:bg-blue-500 disabled:opacity-50">
+                              Guardar
+                            </button>
+                            <button onClick={() => setEditingJunta((prev) => { const n = { ...prev }; delete n[o.id]; return n; })}
+                              className="px-1 py-0.5 text-[10px] text-t-muted hover:text-t-primary transition">
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setEditingJunta((prev) => ({ ...prev, [o.id]: o.numero_junta ?? "" }))}
+                            className="text-[10px] text-t-blue hover:underline transition">
+                            {o.numero_junta || "— Agregar"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={() => handleToggle(o.id, o.activo)} disabled={isPending}
+                        className="px-2 py-0.5 text-[10px] border border-b-default rounded text-t-muted hover:text-t-primary transition">
+                        {o.activo ? "Desactivar" : "Activar"}
+                      </button>
+                      <button onClick={() => handleDelete(o.id)} disabled={isPending}
+                        className="px-2 py-0.5 text-[10px] border border-red-500/30 rounded text-t-red hover:bg-red-500/10 transition">
+                        🗑
+                      </button>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         )}
 
@@ -698,11 +744,15 @@ function OptometristasTab({ optometristas: initial }: { optometristas: Optometri
         <div className="px-5 py-4 border-t border-b-subtle bg-empty/40">
           <p className="text-[10px] text-t-muted uppercase tracking-wider mb-2 font-semibold">Agregar optometrista</p>
           {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <input type="text" value={newNombre} onChange={(e) => setNewNombre(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleCreate()}
               placeholder="Ej: Dra. María López"
-              className="flex-1 px-3 py-1.5 text-sm bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500" />
+              className="flex-1 min-w-40 px-3 py-1.5 text-sm bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500" />
+            <input type="text" value={newJunta} onChange={(e) => setNewJunta(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+              placeholder="No. Junta (Ej: OPT-1234)"
+              className="w-48 px-3 py-1.5 text-sm bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500" />
             <button onClick={handleCreate} disabled={isPending}
               className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50">
               {isPending ? "..." : "+ Agregar"}

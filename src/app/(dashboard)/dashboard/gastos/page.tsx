@@ -136,9 +136,9 @@ export default async function GastosPage({
                         await eliminarGasto(g.id);
                       }}
                       className="text-xs text-t-muted hover:text-red-400 transition px-2 py-1 rounded hover:bg-red-500/10"
-                      title="Eliminar gasto"
                     >
-                      ✕
+                      <span aria-hidden="true">✕</span>
+                      <span className="sr-only">Eliminar gasto: {g.concepto}</span>
                     </button>
                   </form>
                 </div>

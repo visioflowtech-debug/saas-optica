@@ -66,7 +66,8 @@ export default function KanbanBoard({ items: initialItems }: { items: LabItem[] 
   }, [initialItems]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    // delay+tolerance previene que iOS confunda scroll vertical con drag
+    useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 

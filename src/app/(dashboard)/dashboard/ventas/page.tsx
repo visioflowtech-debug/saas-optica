@@ -75,50 +75,50 @@ export default async function VentasPage({
     .order("created_at", { ascending: orden === "antiguo" })
     .range(from, to);
 
-  // Query KPI: mismos filtros sin paginación
-  let kpiQuery = supabase
-    .from("ordenes")
-    .select("total, tipo, estado")
-    .eq("tenant_id", perfil.tenant_id)
-    .eq("sucursal_id", perfil.sucursal_id);
-
-  // Aplicar filtros comunes a ambas queries
-  if (params.filtro === "proforma") { query = query.eq("tipo", "proforma"); kpiQuery = kpiQuery.eq("tipo", "proforma"); }
-  if (params.filtro === "orden_trabajo") { query = query.eq("tipo", "orden_trabajo"); kpiQuery = kpiQuery.eq("tipo", "orden_trabajo"); }
+  // Aplicar filtros a la query paginada
+  if (params.filtro === "proforma") query = query.eq("tipo", "proforma");
+  if (params.filtro === "orden_trabajo") query = query.eq("tipo", "orden_trabajo");
   if (campanaFiltro) {
     if (!campanaPatientIds || campanaPatientIds.length === 0) {
       query = query.eq("campana_id", campanaFiltro);
-      kpiQuery = kpiQuery.eq("campana_id", campanaFiltro);
     } else {
-      const orFilter = `campana_id.eq.${campanaFiltro},paciente_id.in.(${campanaPatientIds.join(",")})`;
-      query = query.or(orFilter);
-      kpiQuery = kpiQuery.or(orFilter);
+      query = query.or(`campana_id.eq.${campanaFiltro},paciente_id.in.(${campanaPatientIds.join(",")})`);
     }
   }
   if (pacienteIds !== null) {
-    if (pacienteIds.length === 0) {
-      query = query.eq("paciente_id", "00000000-0000-0000-0000-000000000000");
-      kpiQuery = kpiQuery.eq("paciente_id", "00000000-0000-0000-0000-000000000000");
-    } else {
-      query = query.in("paciente_id", pacienteIds);
-      kpiQuery = kpiQuery.in("paciente_id", pacienteIds);
-    }
+    if (pacienteIds.length === 0) query = query.eq("paciente_id", "00000000-0000-0000-0000-000000000000");
+    else query = query.in("paciente_id", pacienteIds);
   }
 
-  const [{ data: ordenes, count }, { data: kpiData }] = await Promise.all([query, kpiQuery]);
+  // KPI via RPC — agregación en Postgres, sin cargar filas
+  const kpiRpcParams: Record<string, unknown> = {
+    p_tenant_id: perfil.tenant_id,
+    p_sucursal_id: perfil.sucursal_id,
+    p_tipo: params.filtro === "proforma" || params.filtro === "orden_trabajo" ? params.filtro : null,
+    p_campana_id: campanaFiltro || null,
+    p_paciente_ids: pacienteIds && pacienteIds.length > 0 ? pacienteIds : pacienteIds !== null && pacienteIds.length === 0 ? ["00000000-0000-0000-0000-000000000000"] : null,
+  };
+
+  const [{ data: ordenes, count }, { data: kpiRaw }] = await Promise.all([
+    query,
+    supabase.rpc("kpi_ventas", kpiRpcParams).single(),
+  ]);
+
   const totalPages = Math.ceil((count ?? 0) / PER_PAGE);
   const filtered = ordenes ?? [];
   const currentFilter = params.filtro ?? "todas";
 
-  // KPI totales
-  const kpiOrdenes = kpiData ?? [];
-  const totalVendido = kpiOrdenes.reduce((s, o) => s + Number(o.total ?? 0), 0);
-  const totalProformas = kpiOrdenes.filter((o) => o.tipo === "proforma").length;
-  const totalOrdenesTrabajo = kpiOrdenes.filter((o) => o.tipo === "orden_trabajo").length;
-  const porEstado: Record<string, number> = {};
-  kpiOrdenes.forEach((o) => {
-    porEstado[o.estado] = (porEstado[o.estado] ?? 0) + Number(o.total ?? 0);
-  });
+  // KPI totales desde RPC
+  const kpi = kpiRaw as { total_vendido: number; total_count: number; proformas: number; ordenes_trabajo: number; confirmadas: number; facturadas: number; borradores: number; canceladas: number } | null;
+  const totalVendido = Number(kpi?.total_vendido ?? 0);
+  const totalProformas = Number(kpi?.proformas ?? 0);
+  const totalOrdenesTrabajo = Number(kpi?.ordenes_trabajo ?? 0);
+  const porEstado: Record<string, number> = {
+    confirmada: Number(kpi?.confirmadas ?? 0),
+    facturada: Number(kpi?.facturadas ?? 0),
+    borrador: Number(kpi?.borradores ?? 0),
+    cancelada: Number(kpi?.canceladas ?? 0),
+  };
   const fmtMoney = (n: number) => new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(n);
 
   const buildUrl = (overrides: Record<string, string | undefined>) => {
@@ -161,7 +161,7 @@ export default async function VentasPage({
         <div>
           <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Total Vendido</p>
           <p className="text-3xl font-bold text-t-primary">{fmtMoney(totalVendido)}</p>
-          <p className="text-xs text-t-muted mt-1">{kpiOrdenes.length} registro{kpiOrdenes.length !== 1 ? "s" : ""}</p>
+          <p className="text-xs text-t-muted mt-1">{Number(kpi?.total_count ?? 0)} registro{Number(kpi?.total_count ?? 0) !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {totalProformas > 0 && (
@@ -276,7 +276,7 @@ export default async function VentasPage({
         </div>
       ) : (
         <div className="bg-card border border-b-default rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overscroll-x-contain">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-b-subtle">

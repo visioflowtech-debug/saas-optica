@@ -5,6 +5,7 @@ import { jsPDF } from "jspdf";
 interface RecetaData {
   empresa: { nombre: string; nit: string | null; logo_url: string | null; email: string | null } | null;
   sucursal: { nombre: string; direccion: string | null; telefono: string | null } | null;
+  numero_junta?: string | null;
   examen: {
     fecha_examen: string;
     motivo_consulta: string | null;
@@ -235,7 +236,7 @@ export async function generarRecetaPDF(data: RecetaData) {
   }
 
   // ── Optometrista signature ──────────────────────────────
-  const sigY = Math.max(y + 8, pageHeight - 24);
+  const sigY = Math.max(y + 8, pageHeight - 26);
 
   doc.setDrawColor(100, 100, 100);
   doc.setLineWidth(0.3);
@@ -249,6 +250,11 @@ export async function generarRecetaPDF(data: RecetaData) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.text("Optometrista", sigCenterX, sigY + 8, { align: "center" });
+  if (data.numero_junta) {
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(6.5);
+    doc.text(`No. Junta: ${data.numero_junta}`, sigCenterX, sigY + 12, { align: "center" });
+  }
 
   // ── Bottom bar ──────────────────────────────────────────
   doc.setFillColor(235, 240, 255);

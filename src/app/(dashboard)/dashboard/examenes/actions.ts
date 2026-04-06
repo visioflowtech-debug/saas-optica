@@ -40,7 +40,7 @@ export async function crearExamen(formData: FormData) {
     return val?.trim() || null;
   };
 
-  const { error } = await supabase.from("examenes_clinicos").insert({
+  const { data: nuevoExamen, error } = await supabase.from("examenes_clinicos").insert({
     tenant_id,
     sucursal_id,
     paciente_id,
@@ -53,6 +53,10 @@ export async function crearExamen(formData: FormData) {
     lente_uso: parseStr("lente_uso"),
     av_od_sin_lentes: parseStr("av_od_sin_lentes"),
     av_oi_sin_lentes: parseStr("av_oi_sin_lentes"),
+    av_od_cc: parseStr("av_od_cc"),
+    av_oi_cc: parseStr("av_oi_cc"),
+    pio_od: parseNum("pio_od"),
+    pio_oi: parseNum("pio_oi"),
     dp: parseNum("dp"),
     dp_oi: parseNum("dp_oi"),
     dp_unico: parseStr("dp_unico"),
@@ -76,7 +80,7 @@ export async function crearExamen(formData: FormData) {
     rf_oi_cilindro: parseNum("rf_oi_cilindro"),
     rf_oi_eje: parseNum("rf_oi_eje"),
     rf_oi_adicion: parseNum("rf_oi_adicion"),
-  });
+  }).select("id").single();
 
   if (error) {
     return redirect(
@@ -91,6 +95,7 @@ export async function crearExamen(formData: FormData) {
   if (crearVenta) {
     const params = new URLSearchParams({ paciente_id });
     if (campana_id) params.set("campana_id", campana_id);
+    if (nuevoExamen?.id) params.set("examen_id", nuevoExamen.id);
     redirect(`/dashboard/ventas/nueva?${params.toString()}`);
   }
   redirect(campana_id ? `/dashboard/campanas/${campana_id}` : "/dashboard/examenes");
@@ -109,20 +114,23 @@ export async function obtenerDatosReceta(examenId: string) {
 
   if (!examen) return null;
 
-  // Fetch business info
-  const { data: empresa } = await supabase
-    .from("empresas")
-    .select("nombre, nit, logo_url, email")
-    .eq("id", tenant_id)
-    .single();
+  // Fetch business info + numero_junta del optometrista (by nombre)
+  const [empresaRes, sucursalRes, juntaRes] = await Promise.all([
+    supabase.from("empresas").select("nombre, nit, logo_url, email").eq("id", tenant_id).single(),
+    supabase.from("sucursales").select("nombre, direccion, telefono").eq("id", sucursal_id).single(),
+    examen.optometrista_nombre
+      ? supabase.from("categorias_config")
+          .select("descripcion")
+          .eq("tenant_id", tenant_id)
+          .eq("modulo", "optometristas")
+          .eq("label", examen.optometrista_nombre)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
-  const { data: sucursal } = await supabase
-    .from("sucursales")
-    .select("nombre, direccion, telefono")
-    .eq("id", sucursal_id)
-    .single();
+  const numero_junta = (juntaRes.data as { descripcion: string | null } | null)?.descripcion ?? null;
 
-  return { examen, empresa, sucursal };
+  return { examen, empresa: empresaRes.data, sucursal: sucursalRes.data, numero_junta };
 }
 
 export async function obtenerUltimaRefraccion(pacienteId: string) {

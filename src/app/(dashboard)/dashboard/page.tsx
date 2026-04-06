@@ -19,6 +19,11 @@ export default async function DashboardPage() {
 
   const esAdmin = perfil.rol === "administrador";
 
+  // Fechas de referencia para alertas
+  const haceUnAnio = new Date();
+  haceUnAnio.setFullYear(haceUnAnio.getFullYear() - 1);
+  const haceUnAnioISO = haceUnAnio.toISOString();
+
   // Fetch en paralelo — KPIs básicos siempre, financieros solo para admin
   const [
     { count: totalPacientes },
@@ -28,6 +33,9 @@ export default async function DashboardPage() {
     cxcData,
     gastosData,
     recientes,
+    { count: alertLentes },
+    { count: alertStock },
+    { count: alertRecetas },
   ] = await Promise.all([
     supabase.from("pacientes").select("*", { count: "exact", head: true })
       .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id),
@@ -52,6 +60,16 @@ export default async function DashboardPage() {
     supabase.from("pacientes").select("id, nombre, created_at")
       .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id)
       .order("created_at", { ascending: false }).limit(5),
+    // Alerta: lentes listos para entregar (estado recibido en laboratorio)
+    supabase.from("laboratorio_estados").select("*", { count: "exact", head: true })
+      .eq("tenant_id", perfil.tenant_id).eq("estado", "recibido"),
+    // Alerta: productos sin stock
+    supabase.from("productos").select("*", { count: "exact", head: true })
+      .eq("tenant_id", perfil.tenant_id).eq("activo", true).eq("maneja_stock", true).eq("stock", 0),
+    // Alerta: examenes con receta >1 año (sin anular)
+    supabase.from("examenes_clinicos").select("*", { count: "exact", head: true })
+      .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id)
+      .eq("anulado", false).lt("fecha_examen", haceUnAnioISO),
   ]);
 
   const efectivo = Number((cuentasData.data ?? []).find((c: { tipo: string }) => c.tipo === "efectivo")?.saldo_actual ?? -1);
@@ -123,6 +141,44 @@ export default async function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Centro de alertas */}
+      {(() => {
+        const alertas = [
+          alertLentes && alertLentes > 0
+            ? { icon: "🔵", label: `${alertLentes} lente${alertLentes !== 1 ? "s" : ""} listo${alertLentes !== 1 ? "s" : ""} para entregar`, href: "/dashboard/laboratorio", color: "border-blue-500/40 bg-a-blue-bg", badge: "bg-blue-600" }
+            : null,
+          cxc > 0
+            ? { icon: "🟡", label: `${formatUSD(cxc)} en saldo pendiente de cobro`, href: "/dashboard/ventas", color: "border-yellow-500/40 bg-a-amber-bg", badge: "bg-yellow-600" }
+            : null,
+          alertStock && alertStock > 0
+            ? { icon: "🔴", label: `${alertStock} producto${alertStock !== 1 ? "s" : ""} sin stock`, href: "/dashboard/productos", color: "border-red-500/40 bg-a-red-bg", badge: "bg-red-600" }
+            : null,
+          alertRecetas && alertRecetas > 0
+            ? { icon: "📅", label: `${alertRecetas} examen${alertRecetas !== 1 ? "es" : ""} con receta >1 año`, href: "/dashboard/pacientes", color: "border-amber-500/40 bg-a-amber-bg", badge: "bg-amber-600" }
+            : null,
+        ].filter(Boolean);
+
+        if (alertas.length === 0) return null;
+        return (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Alertas</h2>
+              <span className="px-2 py-0.5 text-xs font-bold text-white rounded-full bg-red-500">{alertas.length}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {alertas.map((a) => a && (
+                <Link key={a.href + a.label} href={a.href}
+                  className={`flex items-center gap-3 p-4 rounded-xl border transition-all hover:opacity-90 ${a.color}`}>
+                  <span className="text-xl shrink-0">{a.icon}</span>
+                  <span className="text-sm font-medium flex-1" style={{ color: "var(--text-primary)" }}>{a.label}</span>
+                  <span className="text-[10px] text-t-muted shrink-0">Ver →</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {esAdmin && !cuentasConfiguradas && (
         <Link href="/dashboard/cuentas"

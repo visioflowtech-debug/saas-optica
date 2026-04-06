@@ -35,6 +35,10 @@ export default function ExamenFormClient({ pacientes, optometristas, defaultPaci
   const [lente_uso, setLenteUso] = useState("");
   const [av_od, setAvOd] = useState("");
   const [av_oi, setAvOi] = useState("");
+  const [av_od_cc, setAvOdCc] = useState("");
+  const [av_oi_cc, setAvOiCc] = useState("");
+  const [pio_od, setPioOd] = useState("");
+  const [pio_oi, setPioOi] = useState("");
   const [dp, setDp] = useState("");
   const [dp_oi, setDpOi] = useState("");
   const [dp_unico, setDpUnico] = useState("");
@@ -241,6 +245,42 @@ export default function ExamenFormClient({ pacientes, optometristas, defaultPaci
               placeholder="Ej: 20/30" type="text"
               className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm" />
           </div>
+          {/* AV OD con corrección */}
+          <div>
+            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+              AV OD <span className="normal-case text-t-blue">(con corrección)</span>
+            </label>
+            <input name="av_od_cc" value={av_od_cc} onChange={(e) => setAvOdCc(e.target.value)}
+              placeholder="Ej: 20/20" type="text"
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm" />
+          </div>
+          {/* AV OI con corrección */}
+          <div>
+            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+              AV OI <span className="normal-case text-t-purple">(con corrección)</span>
+            </label>
+            <input name="av_oi_cc" value={av_oi_cc} onChange={(e) => setAvOiCc(e.target.value)}
+              placeholder="Ej: 20/25" type="text"
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm" />
+          </div>
+          {/* PIO OD */}
+          <div>
+            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+              PIO <span className="normal-case text-t-blue font-semibold">OD</span> (mmHg)
+            </label>
+            <input name="pio_od" value={pio_od} onChange={(e) => setPioOd(e.target.value)}
+              placeholder="Ej: 14" type="text" inputMode="decimal"
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm" />
+          </div>
+          {/* PIO OI */}
+          <div>
+            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+              PIO <span className="normal-case text-t-purple font-semibold">OI</span> (mmHg)
+            </label>
+            <input name="pio_oi" value={pio_oi} onChange={(e) => setPioOi(e.target.value)}
+              placeholder="Ej: 15" type="text" inputMode="decimal"
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm" />
+          </div>
           {/* DP OD */}
           <div>
             <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
@@ -354,7 +394,7 @@ function RefraccionGrid({ prefix, fields, onChange, plano, onTogglePlano }: {
   ];
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto overscroll-x-contain">
       <table className="w-full">
         <thead>
           <tr>
@@ -380,12 +420,13 @@ function RefraccionGrid({ prefix, fields, onChange, plano, onTogglePlano }: {
                         <div className="flex flex-col gap-0.5">
                           <div className="relative">
                             <input
-                              type="number" name={fieldKey}
+                              type="text" inputMode="decimal" name={fieldKey}
                               value={isPL ? "0" : fields[fieldKey]}
                               onChange={(e) => onChange(fieldKey, e.target.value)}
-                              step={c.step} placeholder={isPL ? "PL" : c.placeholder}
+                              placeholder={isPL ? "PL" : c.placeholder}
                               disabled={isPL}
-                              className={`w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-center text-base sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isPL ? "opacity-0 absolute" : ""}`}
+                              aria-label={`${ojo.toUpperCase()} ${c.label}`}
+                              className={`w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-center text-base sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${isPL ? "opacity-0 absolute" : ""}`}
                             />
                             {isPL && (
                               <div className="w-full px-3 py-2 bg-a-blue-bg border border-[var(--accent-blue)] rounded-lg text-t-blue text-center text-sm font-bold font-mono">
@@ -406,9 +447,10 @@ function RefraccionGrid({ prefix, fields, onChange, plano, onTogglePlano }: {
                           </button>
                         </div>
                       ) : (
-                        <input type="number" name={fieldKey} value={fields[fieldKey]} onChange={(e) => onChange(fieldKey, e.target.value)}
-                          step={c.step} placeholder={c.placeholder}
-                          className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-center text-base sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                        <input type="text" inputMode="decimal" name={fieldKey} value={fields[fieldKey]} onChange={(e) => onChange(fieldKey, e.target.value)}
+                          placeholder={c.placeholder}
+                          aria-label={`${ojo.toUpperCase()} ${c.label}`}
+                          className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-center text-base sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
                       )}
                     </td>
                   );

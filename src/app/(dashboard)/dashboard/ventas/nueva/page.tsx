@@ -7,7 +7,7 @@ import ProformaFormClient from "./proforma-form-client";
 export default async function NuevaProformaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; paciente_id?: string; campana_id?: string }>;
+  searchParams: Promise<{ error?: string; paciente_id?: string; campana_id?: string; examen_id?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -48,6 +48,7 @@ export default async function NuevaProformaPage({
         catalogo={catalogo}
         defaultPacienteId={params.paciente_id}
         campanaId={params.campana_id}
+        examenId={params.examen_id}
       />
     </div>
   );
