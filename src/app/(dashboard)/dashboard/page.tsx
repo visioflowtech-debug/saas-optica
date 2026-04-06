@@ -19,8 +19,10 @@ export default async function DashboardPage() {
 
   const esAdmin = perfil.rol === "administrador";
 
-  // Fechas de referencia para alertas
-  const haceUnAnio = new Date();
+  // Fechas de referencia para alertas y gastos del mes
+  const svNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/El_Salvador" }));
+  const fechaInicioMes = `${svNow.getFullYear()}-${String(svNow.getMonth() + 1).padStart(2, "0")}-01`;
+  const haceUnAnio = new Date(svNow);
   haceUnAnio.setFullYear(haceUnAnio.getFullYear() - 1);
   const haceUnAnioISO = haceUnAnio.toISOString();
 
@@ -33,7 +35,7 @@ export default async function DashboardPage() {
     cxcData,
     gastosData,
     recientes,
-    { count: alertLentes },
+    alertLentesRes,
     { count: alertStock },
     { count: alertRecetas },
   ] = await Promise.all([
@@ -52,17 +54,23 @@ export default async function DashboardPage() {
           .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    // RPC: suma gastos del mes sin traer todas las filas
     esAdmin
-      ? supabase.from("gastos").select("monto")
-          .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id)
-          .gte("fecha", (() => { const sv = new Date(new Date().toLocaleString("en-US", { timeZone: "America/El_Salvador" })); return `${sv.getFullYear()}-${String(sv.getMonth() + 1).padStart(2, "0")}-01`; })())
+      ? supabase.rpc("sum_gastos_mes", {
+          p_tenant_id: perfil.tenant_id,
+          p_sucursal_id: perfil.sucursal_id,
+          p_fecha_inicio: fechaInicioMes,
+        })
       : Promise.resolve({ data: null }),
     supabase.from("pacientes").select("id, nombre, created_at")
       .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id)
       .order("created_at", { ascending: false }).limit(5),
-    // Alerta: lentes listos para entregar (estado recibido en laboratorio)
-    supabase.from("laboratorio_estados").select("*", { count: "exact", head: true })
-      .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id).eq("estado", "recibido"),
+    // RPC: cuenta órdenes cuyo estado ACTUAL de lab es "recibido" (DISTINCT ON)
+    supabase.rpc("contar_ordenes_lab_estado", {
+      p_tenant_id: perfil.tenant_id,
+      p_sucursal_id: perfil.sucursal_id,
+      p_estado: "recibido",
+    }),
     // Alerta: productos sin stock
     supabase.from("productos").select("*", { count: "exact", head: true })
       .eq("tenant_id", perfil.tenant_id).eq("activo", true).eq("maneja_stock", true).eq("stock", 0),
@@ -75,7 +83,8 @@ export default async function DashboardPage() {
   const efectivo = Number((cuentasData.data ?? []).find((c: { tipo: string }) => c.tipo === "efectivo")?.saldo_actual ?? -1);
   const banco = Number((cuentasData.data ?? []).find((c: { tipo: string }) => c.tipo === "banco")?.saldo_actual ?? -1);
   const cxc = Number((cxcData as { data: { saldo_pendiente?: number } | null }).data?.saldo_pendiente ?? 0);
-  const gastosMes = ((gastosData.data ?? []) as { monto: number }[]).reduce((s, g) => s + Number(g.monto), 0);
+  const gastosMes = Number(gastosData.data ?? 0);
+  const alertLentes = Number(alertLentesRes.data ?? 0);
 
   const stats = [
     { label: "Pacientes", value: totalPacientes ?? 0, icon: "👥", color: "from-blue-500 to-blue-600" },
@@ -145,7 +154,7 @@ export default async function DashboardPage() {
       {/* Centro de alertas */}
       {(() => {
         const alertas = [
-          alertLentes && alertLentes > 0
+          alertLentes > 0
             ? { icon: "🔵", label: `${alertLentes} lente${alertLentes !== 1 ? "s" : ""} listo${alertLentes !== 1 ? "s" : ""} para entregar`, href: "/dashboard/laboratorio", color: "border-blue-500/40 bg-a-blue-bg", badge: "bg-blue-600" }
             : null,
           cxc > 0
@@ -155,7 +164,7 @@ export default async function DashboardPage() {
             ? { icon: "🔴", label: `${alertStock} producto${alertStock !== 1 ? "s" : ""} sin stock`, href: "/dashboard/productos", color: "border-red-500/40 bg-a-red-bg", badge: "bg-red-600" }
             : null,
           alertRecetas && alertRecetas > 0
-            ? { icon: "📅", label: `${alertRecetas} examen${alertRecetas !== 1 ? "es" : ""} con receta >1 año`, href: "/dashboard/pacientes", color: "border-amber-500/40 bg-a-amber-bg", badge: "bg-amber-600" }
+            ? { icon: "📅", label: `${alertRecetas} examen${alertRecetas !== 1 ? "es" : ""} con receta >1 año`, href: "/dashboard/examenes?receta_vencida=1", color: "border-amber-500/40 bg-a-amber-bg", badge: "bg-amber-600" }
             : null,
         ].filter(Boolean);
 

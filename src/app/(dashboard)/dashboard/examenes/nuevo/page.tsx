@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import ExamenFormClient from "./examen-form-client";
 import { obtenerOptometristas } from "../../configuracion/optometristas-actions";
+import { buscarPacientes } from "../../pacientes/actions";
 
 export default async function NuevoExamenPage({
   searchParams,
@@ -12,14 +13,19 @@ export default async function NuevoExamenPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch all patients for the selector + configured optometrists
-  const [{ data: pacientes }, optometristas] = await Promise.all([
-    supabase.from("pacientes").select("id, nombre").order("nombre", { ascending: true }),
+  const { data: perfil } = await supabase
+    .from("usuarios").select("tenant_id, sucursal_id").eq("id", user.id).single();
+  if (!perfil) redirect("/login");
+
+  // Solo carga el paciente por defecto si viene pre-seleccionado (ej: desde campaña)
+  const [defaultPacienteRes, optometristas] = await Promise.all([
+    params.paciente_id
+      ? supabase.from("pacientes").select("id, nombre")
+          .eq("id", params.paciente_id).eq("tenant_id", perfil.tenant_id).single()
+      : Promise.resolve({ data: null }),
     obtenerOptometristas(),
   ]);
 
@@ -51,9 +57,9 @@ export default async function NuevoExamenPage({
       )}
 
       <ExamenFormClient
-        pacientes={pacientes ?? []}
+        buscarPacientes={buscarPacientes}
+        defaultPaciente={defaultPacienteRes.data}
         optometristas={optometristas}
-        defaultPacienteId={params.paciente_id}
         campanaId={params.campana_id}
       />
     </div>

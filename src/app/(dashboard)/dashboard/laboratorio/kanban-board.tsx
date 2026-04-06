@@ -122,6 +122,20 @@ export default function KanbanBoard({ items: initialItems }: { items: LabItem[] 
 
   const getActiveItem = () => items.find((item) => item.id === activeId);
 
+  // Mover ítem a estado adyacente (alternativa táctil al drag en mobile)
+  const moveItem = (ordenId: string, newEstado: LabEstado) => {
+    const item = items.find((i) => i.id === ordenId);
+    if (!item || item.estadoLab === newEstado) return;
+    setItems((prev) => prev.map((i) => i.id === ordenId ? { ...i, estadoLab: newEstado } : i));
+    startTransition(async () => {
+      try {
+        await actualizarEstadoLaboratorio(ordenId, newEstado);
+      } catch {
+        setItems(initialItems);
+      }
+    });
+  };
+
   if (!isMounted) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-start opacity-50">
@@ -161,6 +175,7 @@ export default function KanbanBoard({ items: initialItems }: { items: LabItem[] 
               totalCount={colItems.length}
               diasFiltro={col.id === "entregado" ? DIAS_ENTREGADO_VISIBLE : undefined}
               onCardClick={setSelectedOrdenId}
+              onMoveItem={moveItem}
             />
           );
         })}
@@ -182,7 +197,7 @@ export default function KanbanBoard({ items: initialItems }: { items: LabItem[] 
 // ── Column ──────────────────────────────────────────────
 import { useDroppable } from "@dnd-kit/core";
 
-function Column({ id, title, color, icon, items, totalCount, diasFiltro, onCardClick }: { id: string; title: string; color: string; icon: string; items: LabItem[]; totalCount: number; diasFiltro?: number; onCardClick: (id: string) => void }) {
+function Column({ id, title, color, icon, items, totalCount, diasFiltro, onCardClick, onMoveItem }: { id: string; title: string; color: string; icon: string; items: LabItem[]; totalCount: number; diasFiltro?: number; onCardClick: (id: string) => void; onMoveItem: (id: string, estado: LabEstado) => void }) {
   const { setNodeRef } = useDroppable({ id });
 
   return (
@@ -206,7 +221,7 @@ function Column({ id, title, color, icon, items, totalCount, diasFiltro, onCardC
       <div className="flex-1 flex flex-col gap-1.5">
         <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
           {items.map((item) => (
-            <SortableItem key={item.id} item={item} onCardClick={onCardClick} />
+            <SortableItem key={item.id} item={item} onCardClick={onCardClick} onMoveItem={onMoveItem} />
           ))}
         </SortableContext>
         
@@ -221,7 +236,7 @@ function Column({ id, title, color, icon, items, totalCount, diasFiltro, onCardC
 }
 
 // ── Sortable Item wrapper ───────────────────────────────
-function SortableItem({ item, onCardClick }: { item: LabItem, onCardClick: (id: string) => void }) {
+function SortableItem({ item, onCardClick, onMoveItem }: { item: LabItem; onCardClick: (id: string) => void; onMoveItem: (id: string, estado: LabEstado) => void }) {
   const {
     attributes,
     listeners,
@@ -239,7 +254,7 @@ function SortableItem({ item, onCardClick }: { item: LabItem, onCardClick: (id: 
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <ItemCard item={item} onClick={() => onCardClick(item.id)} />
+      <ItemCard item={item} onClick={() => onCardClick(item.id)} onMoveItem={onMoveItem} />
     </div>
   );
 }
@@ -274,9 +289,22 @@ function PrintEnvelopeButton({ ordenId, isOverlay }: { ordenId: string, isOverla
 }
 
 // ── Card Presentation ───────────────────────────────────
-function ItemCard({ item, isOverlay, onClick }: { item: LabItem; isOverlay?: boolean, onClick?: () => void }) {
+const NEXT_ESTADO: Partial<Record<LabEstado, LabEstado>> = {
+  pendiente: "en_laboratorio",
+  en_laboratorio: "recibido",
+  recibido: "entregado",
+};
+const NEXT_LABEL: Partial<Record<LabEstado, string>> = {
+  en_laboratorio: "En Lab →",
+  recibido: "Recibido →",
+  entregado: "Entregado ✓",
+};
+
+function ItemCard({ item, isOverlay, onClick, onMoveItem }: { item: LabItem; isOverlay?: boolean; onClick?: () => void; onMoveItem?: (id: string, estado: LabEstado) => void }) {
   const fmtCurrency = (val: number) =>
     new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(val);
+
+  const nextEstado = NEXT_ESTADO[item.estadoLab];
 
   return (
     <div
@@ -307,6 +335,18 @@ function ItemCard({ item, isOverlay, onClick }: { item: LabItem; isOverlay?: boo
         </p>
         <PrintEnvelopeButton ordenId={item.id} isOverlay={isOverlay} />
       </div>
+
+      {/* Mobile quick-move button (solo en pantallas pequeñas, solo cuando no es overlay) */}
+      {!isOverlay && onMoveItem && nextEstado && (
+        <button
+          className="sm:hidden mt-2 w-full py-1 text-[10px] font-semibold bg-a-blue-bg text-t-blue border border-a-blue-border rounded-md hover:opacity-80 transition"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onMoveItem(item.id, nextEstado); }}
+          aria-label={`Mover a ${NEXT_LABEL[nextEstado]}`}
+        >
+          {NEXT_LABEL[nextEstado]}
+        </button>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { obtenerCatalogo } from "../actions";
 import ProformaFormClient from "./proforma-form-client";
+import { buscarPacientes } from "../../pacientes/actions";
 
 export default async function NuevaProformaPage({
   searchParams,
@@ -18,13 +19,12 @@ export default async function NuevaProformaPage({
     .from("usuarios").select("tenant_id, sucursal_id").eq("id", user.id).single();
   if (!perfil) redirect("/login");
 
-  const [{ data: pacientes }, catalogo] = await Promise.all([
-    supabase.from("pacientes")
-      .select("id, nombre")
-      .eq("tenant_id", perfil.tenant_id)
-      .eq("sucursal_id", perfil.sucursal_id)
-      .order("nombre", { ascending: true })
-      .limit(500),
+  // Solo carga el paciente por defecto si viene pre-seleccionado (ej: desde examen o campaña)
+  const [defaultPacienteRes, catalogo] = await Promise.all([
+    params.paciente_id
+      ? supabase.from("pacientes").select("id, nombre")
+          .eq("id", params.paciente_id).eq("tenant_id", perfil.tenant_id).single()
+      : Promise.resolve({ data: null }),
     obtenerCatalogo(),
   ]);
 
@@ -50,9 +50,9 @@ export default async function NuevaProformaPage({
       )}
 
       <ProformaFormClient
-        pacientes={pacientes ?? []}
+        buscarPacientes={buscarPacientes}
+        defaultPaciente={defaultPacienteRes.data}
         catalogo={catalogo}
-        defaultPacienteId={params.paciente_id}
         campanaId={params.campana_id}
         examenId={params.examen_id}
       />

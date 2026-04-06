@@ -20,12 +20,13 @@ function paginasVisibles(actual: number, total: number): (number | "…")[] {
 export default async function ExamenesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pagina?: string; q?: string; orden?: string }>;
+  searchParams: Promise<{ pagina?: string; q?: string; orden?: string; receta_vencida?: string }>;
 }) {
   const params = await searchParams;
   const pagina = Math.max(1, parseInt(params.pagina ?? "1") || 1);
   const q = params.q?.trim() ?? "";
   const orden = params.orden === "antiguo" ? "antiguo" : "reciente";
+  const recetaVencida = params.receta_vencida === "1";
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -44,6 +45,9 @@ export default async function ExamenesPage({
   const from = (pagina - 1) * PER_PAGE;
   const to = from + PER_PAGE - 1;
 
+  const haceUnAnio = new Date();
+  haceUnAnio.setFullYear(haceUnAnio.getFullYear() - 1);
+
   let query = supabase
     .from("examenes_clinicos")
     .select(
@@ -53,11 +57,14 @@ export default async function ExamenesPage({
     .eq("tenant_id", perfil.tenant_id)
     .eq("sucursal_id", perfil.sucursal_id)
     .eq("anulado", false)
-    .order("fecha_examen", { ascending: orden === "antiguo" })
+    .order("fecha_examen", { ascending: recetaVencida ? true : orden === "antiguo" })
     .range(from, to);
 
   if (q) {
     query = query.ilike("paciente.nombre", `%${q}%`);
+  }
+  if (recetaVencida) {
+    query = query.lt("fecha_examen", haceUnAnio.toISOString());
   }
 
   const { data: examenes, count } = await query;
@@ -67,6 +74,7 @@ export default async function ExamenesPage({
     const p = new URLSearchParams();
     if (q) p.set("q", q);
     if (orden !== "reciente") p.set("orden", orden);
+    if (recetaVencida) p.set("receta_vencida", "1");
     Object.entries(overrides).forEach(([k, v]) => {
       if (v === undefined) p.delete(k);
       else p.set(k, v);
@@ -91,6 +99,18 @@ export default async function ExamenesPage({
         </Link>
       </div>
 
+      {/* Banner: filtro recetas vencidas */}
+      {recetaVencida && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-a-amber-bg border border-amber-500/30 rounded-xl text-sm">
+          <span className="text-t-amber font-medium">
+            📅 Mostrando exámenes con receta mayor a 1 año ({count ?? 0} encontrados)
+          </span>
+          <Link href="/dashboard/examenes" className="text-xs text-t-muted hover:text-t-primary transition underline whitespace-nowrap">
+            Ver todos
+          </Link>
+        </div>
+      )}
+
       {/* Búsqueda + Sort */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1"><ExamenesSearch defaultValue={q} total={count ?? 0} /></div>
@@ -110,7 +130,7 @@ export default async function ExamenesPage({
 
       {/* Tabla */}
       <div className="bg-card border border-b-default rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overscroll-x-contain">
           <table className="w-full">
             <thead>
               <tr className="border-b border-b-subtle bg-input/40">

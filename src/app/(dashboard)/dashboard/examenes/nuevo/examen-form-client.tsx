@@ -4,9 +4,9 @@ import { useState, useTransition, useEffect, useRef } from "react";
 import { crearExamen, obtenerUltimaRefraccion } from "../actions";
 
 interface Props {
-  pacientes: { id: string; nombre: string }[];
+  buscarPacientes: (q: string) => Promise<{ id: string; nombre: string }[]>;
+  defaultPaciente?: { id: string; nombre: string } | null;
   optometristas: { id: string; nombre: string; activo: boolean }[];
-  defaultPacienteId?: string;
   campanaId?: string;
 }
 
@@ -26,8 +26,9 @@ const EMPTY: RefraccionFields = {
 
 const LENTE_USO_OPTIONS = ["Lejos", "Cerca", "Bifocal", "Progresivo", "Ocupacional", "Otro"];
 
-export default function ExamenFormClient({ pacientes, optometristas, defaultPacienteId, campanaId }: Props) {
-  const [pacienteId, setPacienteId] = useState(defaultPacienteId || "");
+export default function ExamenFormClient({ buscarPacientes, defaultPaciente, optometristas, campanaId }: Props) {
+  const defaultPacienteId = defaultPaciente?.id;
+  const [pacienteId, setPacienteId] = useState(defaultPaciente?.id || "");
   const [fields, setFields] = useState<RefraccionFields>(EMPTY);
   // PL (Plano) state por cada ojo/prefijo: ra_od, ra_oi, rf_od, rf_oi
   const [plano, setPlano] = useState({ ra_od: false, ra_oi: false, rf_od: false, rf_oi: false });
@@ -49,16 +50,29 @@ export default function ExamenFormClient({ pacientes, optometristas, defaultPaci
   const [importMsg, setImportMsg] = useState("");
 
   // Searchable dropdown state
-  const [searchPatient, setSearchPatient] = useState("");
+  const [searchPatient, setSearchPatient] = useState(defaultPaciente?.nombre ?? "");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [pacientesResult, setPacientesResult] = useState<{ id: string; nombre: string }[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchPatient), 200);
+    const t = setTimeout(() => setDebouncedSearch(searchPatient), 300);
     return () => clearTimeout(t);
   }, [searchPatient]);
+
+  useEffect(() => {
+    if (!debouncedSearch.trim() || pacienteId) { setPacientesResult([]); return; }
+    setIsSearching(true);
+    startTransition(async () => {
+      const results = await buscarPacientes(debouncedSearch);
+      setPacientesResult(results);
+      setIsSearching(false);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const updateField = (key: keyof RefraccionFields, value: string) =>
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -103,14 +117,10 @@ export default function ExamenFormClient({ pacientes, optometristas, defaultPaci
 
   useEffect(() => {
     if (defaultPacienteId) {
-      const p = pacientes.find(p => p.id === defaultPacienteId);
-      if (p) setSearchPatient(p.nombre);
       doImport(defaultPacienteId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const filteredPacientes = pacientes.filter(p => p.nombre.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
   return (
     <form className="space-y-6">
@@ -124,11 +134,11 @@ export default function ExamenFormClient({ pacientes, optometristas, defaultPaci
         <div className="relative">
           <input
             type="search"
-            placeholder="Buscar por nombre..."
+            placeholder={isSearching ? "Buscando..." : "Escribe el nombre del paciente..."}
             value={searchPatient}
             aria-label="Buscar paciente"
             aria-autocomplete="list"
-            aria-expanded={showDropdown && filteredPacientes.length > 0}
+            aria-expanded={showDropdown && pacientesResult.length > 0}
             onChange={(e) => {
               setSearchPatient(e.target.value);
               setShowDropdown(true);
@@ -138,16 +148,16 @@ export default function ExamenFormClient({ pacientes, optometristas, defaultPaci
             onFocus={() => setShowDropdown(true)}
             onBlur={() => setTimeout(() => { setShowDropdown(false); setActiveIndex(-1); }, 200)}
             onKeyDown={(e) => {
-              if (!showDropdown || filteredPacientes.length === 0) return;
+              if (!showDropdown || pacientesResult.length === 0) return;
               if (e.key === "ArrowDown") {
                 e.preventDefault();
-                setActiveIndex(i => Math.min(i + 1, filteredPacientes.length - 1));
+                setActiveIndex(i => Math.min(i + 1, pacientesResult.length - 1));
               } else if (e.key === "ArrowUp") {
                 e.preventDefault();
                 setActiveIndex(i => Math.max(i - 1, 0));
               } else if (e.key === "Enter" && activeIndex >= 0) {
                 e.preventDefault();
-                const p = filteredPacientes[activeIndex];
+                const p = pacientesResult[activeIndex];
                 setPacienteId(p.id); setSearchPatient(p.nombre);
                 setShowDropdown(false); setActiveIndex(-1); setImportMsg("");
                 doImport(p.id);
@@ -157,9 +167,9 @@ export default function ExamenFormClient({ pacientes, optometristas, defaultPaci
             }}
             className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
-          {showDropdown && filteredPacientes.length > 0 && (
+          {showDropdown && pacientesResult.length > 0 && (
             <div ref={dropdownRef} role="listbox" className="absolute z-20 w-full mt-1 bg-sidebar border border-b-default rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.25)] max-h-60 overflow-y-auto">
-              {filteredPacientes.map((p, idx) => (
+              {pacientesResult.map((p, idx) => (
                 <div
                   key={p.id}
                   role="option"

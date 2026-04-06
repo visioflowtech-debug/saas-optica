@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useTransition } from "react";
 import Link from "next/link";
 import { crearProforma } from "../actions";
 import type { CatalogItem } from "../actions";
 import { ProductAutocomplete } from "@/components/product-autocomplete";
 
 interface Props {
-  pacientes: { id: string; nombre: string }[];
+  buscarPacientes: (q: string) => Promise<{ id: string; nombre: string }[]>;
+  defaultPaciente?: { id: string; nombre: string } | null;
   catalogo: CatalogItem[];
-  defaultPacienteId?: string;
   campanaId?: string;
   examenId?: string;
 }
@@ -29,32 +29,37 @@ function newItem(): LineItem {
   return { id: crypto.randomUUID(), catalogId: "", tipo_producto: "aro", descripcion: "", cantidad: 1, precio_unitario: 0 };
 }
 
-export default function ProformaFormClient({ pacientes, catalogo, defaultPacienteId, campanaId, examenId }: Props) {
-  const [pacienteId, setPacienteId] = useState(defaultPacienteId || "");
-  const [searchPatient, setSearchPatient] = useState("");
+export default function ProformaFormClient({ buscarPacientes, defaultPaciente, catalogo, campanaId, examenId }: Props) {
+  const [pacienteId, setPacienteId] = useState(defaultPaciente?.id || "");
+  const [searchPatient, setSearchPatient] = useState(defaultPaciente?.nombre ?? "");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [pacientesResult, setPacientesResult] = useState<{ id: string; nombre: string }[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchPatient), 200);
+    const t = setTimeout(() => setDebouncedSearch(searchPatient), 300);
     return () => clearTimeout(t);
   }, [searchPatient]);
+
+  useEffect(() => {
+    if (!debouncedSearch.trim() || pacienteId) { setPacientesResult([]); return; }
+    setIsSearching(true);
+    startTransition(async () => {
+      const results = await buscarPacientes(debouncedSearch);
+      setPacientesResult(results);
+      setIsSearching(false);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
   const [items, setItems] = useState<LineItem[]>([newItem()]);
   const [descuento, setDescuento] = useState("");
   const [notas, setNotas] = useState("");
   const [idempotencyKey] = useState(() => crypto.randomUUID());
-
-  useEffect(() => {
-    if (defaultPacienteId) {
-      const p = pacientes.find(p => p.id === defaultPacienteId);
-      if (p) setSearchPatient(p.nombre);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const filteredPacientes = pacientes.filter(p => p.nombre.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
   const selectCatalogItem = (lineId: string, itemInfo: CatalogItem | null) => {
     if (!itemInfo) {
@@ -104,25 +109,25 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
         <div className="relative">
           <input
             type="search"
-            placeholder="Buscar por nombre..."
+            placeholder={isSearching ? "Buscando..." : "Escribe el nombre del paciente..."}
             value={searchPatient}
             aria-label="Buscar paciente"
             aria-autocomplete="list"
-            aria-expanded={showDropdown && filteredPacientes.length > 0}
+            aria-expanded={showDropdown && pacientesResult.length > 0}
             onChange={(e) => { setSearchPatient(e.target.value); setShowDropdown(true); setActiveIndex(-1); setPacienteId(""); }}
             onFocus={() => setShowDropdown(true)}
             onBlur={() => setTimeout(() => { setShowDropdown(false); setActiveIndex(-1); }, 200)}
             onKeyDown={(e) => {
-              if (!showDropdown || filteredPacientes.length === 0) return;
+              if (!showDropdown || pacientesResult.length === 0) return;
               if (e.key === "ArrowDown") {
                 e.preventDefault();
-                setActiveIndex(i => Math.min(i + 1, filteredPacientes.length - 1));
+                setActiveIndex(i => Math.min(i + 1, pacientesResult.length - 1));
               } else if (e.key === "ArrowUp") {
                 e.preventDefault();
                 setActiveIndex(i => Math.max(i - 1, 0));
               } else if (e.key === "Enter" && activeIndex >= 0) {
                 e.preventDefault();
-                const p = filteredPacientes[activeIndex];
+                const p = pacientesResult[activeIndex];
                 setPacienteId(p.id); setSearchPatient(p.nombre);
                 setShowDropdown(false); setActiveIndex(-1);
               } else if (e.key === "Escape") {
@@ -131,9 +136,9 @@ export default function ProformaFormClient({ pacientes, catalogo, defaultPacient
             }}
             className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
-          {showDropdown && filteredPacientes.length > 0 && (
+          {showDropdown && pacientesResult.length > 0 && (
             <div ref={dropdownRef} role="listbox" className="absolute z-20 w-full mt-1 bg-sidebar border border-b-default rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.25)] max-h-60 overflow-y-auto">
-              {filteredPacientes.map((p, idx) => (
+              {pacientesResult.map((p, idx) => (
                 <div
                   key={p.id}
                   role="option"

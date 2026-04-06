@@ -188,3 +188,20 @@ export async function eliminarPaciente(formData: FormData) {
   revalidatePath("/dashboard/pacientes");
   redirect("/dashboard/pacientes");
 }
+
+/* ── Búsqueda de pacientes (server-side, máx 20 resultados) ── */
+export async function buscarPacientes(q: string): Promise<{ id: string; nombre: string }[]> {
+  const { supabase, tenant_id, sucursal_id } = await getUserContext();
+  if (!q?.trim()) return [];
+  const sanitized = q.trim().replace(/[%_\\]/g, "\\$&");
+  const { data } = await supabase
+    .from("pacientes")
+    .select("id, nombre")
+    .eq("tenant_id", tenant_id)
+    .eq("sucursal_id", sucursal_id)
+    .ilike("nombre", `%${sanitized}%`)
+    .order("nombre")
+    .limit(20);
+  return data ?? [];
+}
+
