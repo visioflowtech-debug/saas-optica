@@ -826,16 +826,8 @@ function IntegracionesTab() {
           <div className="border border-b-default rounded-lg p-4">
             <p className="text-sm font-medium text-t-primary mb-1">Cuentas de gasto</p>
             <p className="text-xs text-t-muted">
-              Los gastos se sincronizan automáticamente usando cuentas estándar de Zoho Books.
+              Cada categoría del SaaS se sincroniza con la cuenta de igual nombre en Zoho Books.
             </p>
-            <ul className="text-xs text-t-muted mt-2 space-y-0.5">
-              <li>· Alimentación → <span className="text-t-secondary">Meals and Entertainment</span></li>
-              <li>· Transporte → <span className="text-t-secondary">Transportation Expense</span></li>
-              <li>· Compra de Aros / Lab → <span className="text-t-secondary">Cost of Goods Sold</span></li>
-              <li>· Operativo → <span className="text-t-secondary">Office Supplies & Materials</span></li>
-              <li>· Salarios → <span className="text-t-secondary">Salaries and Employee Wages</span></li>
-              <li>· Otro → <span className="text-t-secondary">Other Expense</span></li>
-            </ul>
           </div>
 
           {/* Info scopes */}

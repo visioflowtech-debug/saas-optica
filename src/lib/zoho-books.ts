@@ -242,18 +242,30 @@ export interface ZohoExpenseInput {
   paid_through_account_name?: string; // cuenta desde donde se pagó
 }
 
-// Mapeo a cuentas de gasto que Zoho Books crea por defecto en TODOS los planes (incluyendo Free)
+// Mapeo valor (snake_case) → nombre exacto de la cuenta en Zoho Books (creadas manualmente)
 const CATEGORIA_A_CUENTA_ZOHO: Record<string, string> = {
-  alimentacion:          "Meals and Entertainment",
-  transporte:            "Transportation Expense",
-  compra_de_aros:        "Cost of Goods Sold",
-  laboratorio_proceso:   "Cost of Goods Sold",
-  operativo:             "Office Supplies & Materials",
-  salarios_y_remuneraciones_a_los_empleados: "Salaries and Employee Wages",
-  otro:                  "Other Expense",
+  agua:                                       "Agua",
+  alimentacion:                               "Alimentacion",
+  comisiones_bancarias:                       "Comisiones bancarias",
+  compra_de_aros:                             "Compra de aros",
+  compra_de_estuches:                         "Compra de estuches",
+  energia_electrica:                          "Energia electrica",
+  gastos_de_alquiler:                         "Gastos de alquiler",
+  gastos_de_ti_y_de_internet:                 "Gastos de TI y de Internet",
+  gastos_telefnicos:                          "Gastos telefónicos",
+  impuestos:                                  "Impuestos",
+  laboratorio_proceso:                        "Laboratorio proceso",
+  papeleria:                                  "Papeleria",
+  salarios_y_remuneraciones_a_los_empleados:  "Salarios y remuneraciones a los empleados",
+  // legado — por si existen gastos anteriores con estas categorías del sistema
+  transporte:   "Otros gastos",
+  hospedaje:    "Otros gastos",
+  publicidad:   "Otros gastos",
+  operativo:    "Otros gastos",
+  otro:         "Otros gastos",
 };
-// Fallback universal — siempre existe en Zoho Books
-const ZOHO_EXPENSE_ACCOUNT_FALLBACKS = ["Other Expense", "Miscellaneous Expense"];
+// Fallback si la cuenta no está en el mapeo
+const ZOHO_EXPENSE_ACCOUNT_FALLBACKS = ["Otros gastos", "Other Expense"];
 
 async function buildExpenseBody(
   account_name: string,

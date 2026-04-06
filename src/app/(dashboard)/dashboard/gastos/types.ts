@@ -1,11 +1,5 @@
-export const CATEGORIAS_GASTO = [
-  { value: "transporte",   label: "Transporte" },
-  { value: "hospedaje",    label: "Hospedaje" },
-  { value: "alimentacion", label: "Alimentación" },
-  { value: "publicidad",   label: "Publicidad" },
-  { value: "operativo",    label: "Operativo" },
-  { value: "otro",         label: "Otro" },
-] as const;
+// Sin categorías predeterminadas del sistema — solo se usan las personalizadas del tenant
+export const CATEGORIAS_GASTO: { value: string; label: string }[] = [];
 
 export type CategoriaGasto = string; // incluye predeterminadas + personalizadas del tenant
 
