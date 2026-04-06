@@ -139,6 +139,7 @@ export async function registrarGasto(formData: FormData) {
       amount: monto,
       description: concepto,
       reference_number: notas ?? null,
+      paid_through_account_name: pagado_con === "efectivo" ? "Cash" : "Undeposited Funds",
     });
     if (gasto?.id) {
       await supabase.from("gastos").update({ zoho_expense_id: zohoExpenseId }).eq("id", gasto.id);

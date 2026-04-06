@@ -111,6 +111,15 @@ export async function actualizarEstadoLaboratorio(ordenId: string, nuevoEstado: 
 
   if (!usuario) throw new Error("Usuario no encontrado");
 
+  // C-2: Verificar que la orden pertenece al tenant (prevenir IDOR)
+  const { data: ordenCheck } = await supabase
+    .from("ordenes")
+    .select("id")
+    .eq("id", ordenId)
+    .eq("tenant_id", usuario.tenant_id)
+    .single();
+  if (!ordenCheck) throw new Error("Orden no encontrada");
+
   const { error } = await supabase.from("laboratorio_estados").insert({
     orden_id: ordenId,
     tenant_id: usuario.tenant_id,
@@ -212,6 +221,15 @@ export async function guardarDatosLaboratorio(ordenId: string, datos: any) {
     .from("usuarios").select("tenant_id").eq("id", user.id).single();
   if (!usuario) throw new Error("Usuario no encontrado");
 
+  // C-3: Verificar que la orden pertenece al tenant (prevenir IDOR)
+  const { data: ordenCheck } = await supabase
+    .from("ordenes")
+    .select("id")
+    .eq("id", ordenId)
+    .eq("tenant_id", usuario.tenant_id)
+    .single();
+  if (!ordenCheck) throw new Error("Orden no encontrada");
+
   // Whitelist campos permitidos — nunca spread directo de datos externos
   const payload = {
     orden_id: ordenId,
@@ -308,6 +326,7 @@ export async function obtenerOrdenesParaListaPDF(filtros: {
     .from("laboratorio_estados")
     .select("orden_id, estado")
     .in("orden_id", ordenIds)
+    .eq("tenant_id", usuario.tenant_id)
     .order("updated_at", { ascending: false });
 
   const latestEstado = new Map<string, string>();

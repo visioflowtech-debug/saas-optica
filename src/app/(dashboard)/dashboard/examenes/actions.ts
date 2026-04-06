@@ -144,7 +144,8 @@ export async function obtenerUltimaRefraccion(pacienteId: string) {
 
 /* ── Anular Examen ──────────────────────────────────────── */
 export async function anularExamen(examenId: string) {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (!["administrador", "optometrista"].includes(rol)) throw new Error("Sin permisos para anular exámenes");
 
   const { data: examen } = await supabase
     .from("examenes_clinicos")

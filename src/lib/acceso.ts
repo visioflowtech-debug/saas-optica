@@ -5,7 +5,7 @@
  */
 
 const MODULOS_POR_ROL: Record<string, string[]> = {
-  administrador: ["inicio", "campanas", "pacientes", "examenes", "ventas", "laboratorio", "inventario", "gastos", "configuracion"],
+  administrador: ["inicio", "campanas", "pacientes", "examenes", "ventas", "laboratorio", "inventario", "gastos", "cuentas", "configuracion"],
   optometrista:  ["inicio", "campanas", "pacientes", "examenes", "laboratorio"],
   asesor_visual: ["inicio", "campanas", "pacientes", "ventas", "inventario", "gastos"],
   laboratorio:   ["inicio", "laboratorio"],

@@ -479,6 +479,10 @@ export async function registrarPago(ordenId: string, monto: number, metodoPago: 
 
   if (monto <= 0) throw new Error("El monto debe ser mayor a 0");
 
+  // M-3: Whitelist de métodos de pago válidos
+  const METODOS_VALIDOS = ["efectivo", "tarjeta", "tarjeta_credito", "tarjeta_debito", "transferencia", "deposito", "cheque", "otros"];
+  if (!METODOS_VALIDOS.includes(metodoPago)) throw new Error("Método de pago inválido");
+
   // Server-side: check balance before allowing payment
   const { data: orden } = await supabase
     .from("ordenes")
@@ -746,7 +750,7 @@ export async function eliminarLineaProforma(ordenId: string, lineaId: string) {
     .from("orden_detalle").select("id", { count: "exact", head: true }).eq("orden_id", ordenId);
   if ((count ?? 0) <= 1) return { success: false, error: "La proforma debe tener al menos un producto" };
 
-  await supabase.from("orden_detalle").delete().eq("id", lineaId).eq("orden_id", ordenId);
+  await supabase.from("orden_detalle").delete().eq("id", lineaId).eq("orden_id", ordenId).eq("tenant_id", tenant_id);
 
   const totales = await recalcularTotalesOrden(supabase, ordenId, tenant_id, Number(orden.descuento));
   revalidatePath(`/dashboard/ventas/${ordenId}`);

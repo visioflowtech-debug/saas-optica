@@ -225,7 +225,8 @@ export async function crearCampana(formData: FormData) {
 }
 
 export async function toggleCampanaActiva(campanaId: string, activa: boolean) {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { error: "Sin permisos" };
 
   const { error } = await supabase
     .from("campanas")
