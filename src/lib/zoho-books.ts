@@ -242,7 +242,16 @@ export interface ZohoExpenseInput {
   paid_through_account_name?: string; // cuenta desde donde se pagó
 }
 
-// Cuentas de gastos genéricas que Zoho Books crea por defecto
+// Mapeo de categorías internas → nombre de cuenta en Zoho (creadas con sincronizarCuentasGastoZoho)
+const CATEGORIA_A_CUENTA_ZOHO: Record<string, string> = {
+  alimentacion: "Alimentacion",
+  compra_de_aros: "Compra de Aros",
+  laboratorio_proceso: "Laboratorio Proceso",
+  operativo: "Operativo",
+  transporte: "Transporte",
+  otro: "Otro",
+};
+// Fallbacks si la cuenta no existe aún en Zoho
 const ZOHO_EXPENSE_ACCOUNT_FALLBACKS = ["Other Expense", "Otros gastos", "Gastos generales", "General & Administrative"];
 
 async function buildExpenseBody(
@@ -265,8 +274,9 @@ async function buildExpenseBody(
 }
 
 export async function registrarGastoZoho(input: ZohoExpenseInput): Promise<string> {
-  // Intentar primero con el nombre de categoría del SaaS
-  const cuentasAIntentar = [input.account_name, ...ZOHO_EXPENSE_ACCOUNT_FALLBACKS];
+  // Resolver nombre de cuenta: usar el label de Zoho si existe, si no el valor directo
+  const cuentaResuelta = CATEGORIA_A_CUENTA_ZOHO[input.account_name] ?? input.account_name;
+  const cuentasAIntentar = [cuentaResuelta, ...ZOHO_EXPENSE_ACCOUNT_FALLBACKS];
 
   for (const cuenta of cuentasAIntentar) {
     try {

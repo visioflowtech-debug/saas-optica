@@ -14,7 +14,7 @@ import {
 } from "./optometristas-actions";
 import type { OptometristaItem } from "./optometristas-actions";
 import { sincronizarProductosZoho } from "../inventario/zoho-sync-action";
-import { probarConexionZoho } from "./zoho-diagnostico-action";
+import { probarConexionZoho, sincronizarCuentasGastoZoho } from "./zoho-diagnostico-action";
 import { createClient } from "@/lib/supabase/client";
 
 interface Empresa  { id: string; nombre: string; nit: string | null; logo_url: string | null; email: string | null; }
@@ -696,6 +696,8 @@ function IntegracionesTab() {
   const [error, setError] = useState("");
   const [testPending, setTestPending] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; mensaje: string; detalle?: string } | null>(null);
+  const [cuentasResult, setCuentasResult] = useState<{ creadas: string[]; existentes: string[]; errores: string[] } | null>(null);
+  const [cuentasPending, setCuentasPending] = useState(false);
 
   const handleTestConexion = () => {
     setTestResult(null);
@@ -708,6 +710,21 @@ function IntegracionesTab() {
         setTestResult({ ok: false, mensaje: "Error al llamar la acción", detalle: e instanceof Error ? e.message : String(e) });
       } finally {
         setTestPending(false);
+      }
+    });
+  };
+
+  const handleSyncCuentas = () => {
+    setCuentasResult(null);
+    setCuentasPending(true);
+    startTransition(async () => {
+      try {
+        const r = await sincronizarCuentasGastoZoho();
+        setCuentasResult(r);
+      } catch (e: unknown) {
+        setCuentasResult({ creadas: [], existentes: [], errores: [e instanceof Error ? e.message : "Error desconocido"] });
+      } finally {
+        setCuentasPending(false);
       }
     });
   };
@@ -785,6 +802,39 @@ function IntegracionesTab() {
               className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50"
             >
               {isPending ? "Sincronizando..." : "Sincronizar productos pendientes"}
+            </button>
+          </div>
+
+          {/* Sync cuentas de gasto */}
+          <div className="border border-b-default rounded-lg p-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-t-primary">Crear cuentas de gasto en Zoho</p>
+              <p className="text-xs text-t-muted mt-0.5">
+                Crea en el plan de cuentas de Zoho Books las categorías de gasto del sistema (Alimentacion, Transporte, etc.). Solo necesitas hacerlo una vez.
+              </p>
+            </div>
+            {cuentasResult && (
+              <div className="space-y-1">
+                {cuentasResult.creadas.length > 0 && (
+                  <p className="text-xs text-emerald-400">✓ Creadas: {cuentasResult.creadas.join(", ")}</p>
+                )}
+                {cuentasResult.existentes.length > 0 && (
+                  <p className="text-xs text-t-muted">· Ya existían: {cuentasResult.existentes.join(", ")}</p>
+                )}
+                {cuentasResult.errores.map((msg, i) => (
+                  <p key={i} className="text-xs text-red-400 break-all">✗ {msg}</p>
+                ))}
+                {cuentasResult.errores.length === 0 && (
+                  <p className="text-xs text-emerald-400 font-medium">Los gastos futuros se sincronizarán correctamente.</p>
+                )}
+              </div>
+            )}
+            <button
+              onClick={handleSyncCuentas}
+              disabled={isPending || cuentasPending}
+              className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50"
+            >
+              {cuentasPending ? "Creando cuentas..." : "Crear cuentas de gasto en Zoho"}
             </button>
           </div>
 
