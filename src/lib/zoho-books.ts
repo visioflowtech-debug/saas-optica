@@ -242,17 +242,18 @@ export interface ZohoExpenseInput {
   paid_through_account_name?: string; // cuenta desde donde se pagó
 }
 
-// Mapeo de categorías internas → nombre de cuenta en Zoho (creadas con sincronizarCuentasGastoZoho)
+// Mapeo a cuentas de gasto que Zoho Books crea por defecto en TODOS los planes (incluyendo Free)
 const CATEGORIA_A_CUENTA_ZOHO: Record<string, string> = {
-  alimentacion: "Alimentacion",
-  compra_de_aros: "Compra de Aros",
-  laboratorio_proceso: "Laboratorio Proceso",
-  operativo: "Operativo",
-  transporte: "Transporte",
-  otro: "Otro",
+  alimentacion:          "Meals and Entertainment",
+  transporte:            "Transportation Expense",
+  compra_de_aros:        "Cost of Goods Sold",
+  laboratorio_proceso:   "Cost of Goods Sold",
+  operativo:             "Office Supplies & Materials",
+  salarios_y_remuneraciones_a_los_empleados: "Salaries and Employee Wages",
+  otro:                  "Other Expense",
 };
-// Fallbacks si la cuenta no existe aún en Zoho
-const ZOHO_EXPENSE_ACCOUNT_FALLBACKS = ["Other Expense", "Otros gastos", "Gastos generales", "General & Administrative"];
+// Fallback universal — siempre existe en Zoho Books
+const ZOHO_EXPENSE_ACCOUNT_FALLBACKS = ["Other Expense", "Miscellaneous Expense"];
 
 async function buildExpenseBody(
   account_name: string,

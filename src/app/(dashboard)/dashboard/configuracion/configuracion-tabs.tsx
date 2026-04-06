@@ -822,58 +822,20 @@ function IntegracionesTab() {
             </button>
           </div>
 
-          {/* Sync cuentas de gasto */}
-          <div className="border border-b-default rounded-lg p-4 space-y-3">
-            <div>
-              <p className="text-sm font-medium text-t-primary">Crear cuentas de gasto en Zoho</p>
-              <p className="text-xs text-t-muted mt-0.5">
-                Crea en el plan de cuentas de Zoho Books las categorías de gasto del sistema (Alimentacion, Transporte, etc.). Solo necesitas hacerlo una vez.
-              </p>
-            </div>
-            {cuentasResult && (
-              <div className="space-y-1">
-                {cuentasResult.creadas.length > 0 && (
-                  <p className="text-xs text-emerald-400">✓ Creadas: {cuentasResult.creadas.join(", ")}</p>
-                )}
-                {cuentasResult.existentes.length > 0 && (
-                  <p className="text-xs text-t-muted">· Ya existían: {cuentasResult.existentes.join(", ")}</p>
-                )}
-                {cuentasResult.errores.map((msg, i) => (
-                  <p key={i} className="text-xs text-red-400 break-all">✗ {msg}</p>
-                ))}
-                {cuentasResult.errores.length === 0 && (
-                  <p className="text-xs text-emerald-400 font-medium">Los gastos futuros se sincronizarán correctamente.</p>
-                )}
-              </div>
-            )}
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={handleSyncCuentas}
-                disabled={isPending || cuentasPending}
-                className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50"
-              >
-                {cuentasPending ? "Creando cuentas..." : "Crear cuentas de gasto en Zoho"}
-              </button>
-              <button
-                onClick={handleVerCuentasZoho}
-                disabled={isPending || cuentasZohoPending}
-                className="px-4 py-2 text-xs font-medium border border-b-default rounded-lg hover:bg-white/5 transition disabled:opacity-50"
-              >
-                {cuentasZohoPending ? "Consultando..." : "Ver cuentas en Zoho"}
-              </button>
-            </div>
-            {cuentasZoho && (
-              <div className={`rounded-lg px-3 py-2 text-xs ${cuentasZoho.ok ? "bg-badge-bg" : "bg-red-950/40 text-red-400"}`}>
-                {cuentasZoho.ok ? (
-                  <>
-                    <p className="font-medium text-t-secondary mb-1">Cuentas de gasto en Zoho ({cuentasZoho.cuentas.length}):</p>
-                    <p className="text-t-muted break-all">{cuentasZoho.cuentas.join(" · ")}</p>
-                  </>
-                ) : (
-                  <p>✗ {cuentasZoho.error}</p>
-                )}
-              </div>
-            )}
+          {/* Info cuentas de gasto */}
+          <div className="border border-b-default rounded-lg p-4">
+            <p className="text-sm font-medium text-t-primary mb-1">Cuentas de gasto</p>
+            <p className="text-xs text-t-muted">
+              Los gastos se sincronizan automáticamente usando cuentas estándar de Zoho Books.
+            </p>
+            <ul className="text-xs text-t-muted mt-2 space-y-0.5">
+              <li>· Alimentación → <span className="text-t-secondary">Meals and Entertainment</span></li>
+              <li>· Transporte → <span className="text-t-secondary">Transportation Expense</span></li>
+              <li>· Compra de Aros / Lab → <span className="text-t-secondary">Cost of Goods Sold</span></li>
+              <li>· Operativo → <span className="text-t-secondary">Office Supplies & Materials</span></li>
+              <li>· Salarios → <span className="text-t-secondary">Salaries and Employee Wages</span></li>
+              <li>· Otro → <span className="text-t-secondary">Other Expense</span></li>
+            </ul>
           </div>
 
           {/* Info scopes */}
