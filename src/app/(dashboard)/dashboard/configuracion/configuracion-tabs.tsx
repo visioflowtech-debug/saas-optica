@@ -6,7 +6,7 @@ import {
   crearLaboratorio, actualizarLaboratorio, toggleLaboratorioActivo, eliminarLaboratorio,
 } from "./laboratorio-actions";
 import {
-  crearCategoriaGasto, toggleCategoriaGasto, eliminarCategoriaGasto,
+  crearCategoriaGasto, toggleCategoriaGasto, eliminarCategoriaGasto, actualizarZohoAccountId,
 } from "./categorias-actions";
 import type { CategoriaItem } from "./categorias-actions";
 import {
@@ -477,6 +477,9 @@ function LaboratoriosTab({ laboratorios: initial }: { laboratorios: Laboratorio[
 function CategoriasTab({ categoriasGasto: initial }: { categoriasGasto: CategoriaItem[] }) {
   const [cats, setCats] = useState(initial);
   const [newLabel, setNewLabel] = useState("");
+  const [newZohoId, setNewZohoId] = useState("");
+  const [editingZohoId, setEditingZohoId] = useState<string | null>(null);
+  const [editingZohoValue, setEditingZohoValue] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
@@ -484,11 +487,12 @@ function CategoriasTab({ categoriasGasto: initial }: { categoriasGasto: Categori
     if (!newLabel.trim()) { setError("Escribe un nombre de categoría"); return; }
     setError("");
     startTransition(async () => {
-      const r = await crearCategoriaGasto(newLabel);
+      const r = await crearCategoriaGasto(newLabel, newZohoId || undefined);
       if (r.error) { setError(r.error); return; }
       const valor = newLabel.toLowerCase().trim().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
-      setCats((prev) => [...prev, { id: crypto.randomUUID(), valor, label: newLabel.trim(), activo: true, esPredeterminada: false }]);
+      setCats((prev) => [...prev, { id: crypto.randomUUID(), valor, label: newLabel.trim(), activo: true, esPredeterminada: false, zoho_account_id: newZohoId.trim() || null }]);
       setNewLabel("");
+      setNewZohoId("");
     });
   };
 
@@ -508,52 +512,86 @@ function CategoriasTab({ categoriasGasto: initial }: { categoriasGasto: Categori
     });
   };
 
-  const predeterminadas = cats.filter((c) => c.esPredeterminada);
-  const personalizadas  = cats.filter((c) => !c.esPredeterminada);
+  const handleSaveZohoId = (id: string) => {
+    startTransition(async () => {
+      const r = await actualizarZohoAccountId(id, editingZohoValue);
+      if (r.error) { alert(r.error); return; }
+      setCats((prev) => prev.map((c) => c.id === id ? { ...c, zoho_account_id: editingZohoValue.trim() || null } : c));
+      setEditingZohoId(null);
+    });
+  };
+
+  const personalizadas = cats.filter((c) => !c.esPredeterminada);
 
   return (
     <div className="space-y-6">
-      {/* Categorías de Gastos */}
       <div className="bg-card border border-b-default rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-b-subtle">
           <h2 className="text-sm font-semibold text-t-primary">Categorías de Gastos</h2>
-          <p className="text-xs text-t-muted mt-0.5">Las predeterminadas son del sistema; puedes agregar categorías personalizadas.</p>
-        </div>
-
-        {/* Predeterminadas (solo lectura) */}
-        <div className="px-5 py-3">
-          <p className="text-[10px] text-t-muted uppercase tracking-wider mb-2 font-semibold">Sistema (no editables)</p>
-          <div className="flex flex-wrap gap-2">
-            {predeterminadas.map((c) => (
-              <span key={c.valor} className="px-3 py-1 text-xs font-medium bg-gray-500/10 text-t-secondary border border-b-default rounded-full">
-                {c.label}
-              </span>
-            ))}
-          </div>
+          <p className="text-xs text-t-muted mt-0.5">El Account ID de Zoho se obtiene del catálogo de cuentas exportado desde Zoho Books.</p>
         </div>
 
         {/* Personalizadas */}
         {personalizadas.length > 0 && (
-          <div className="px-5 py-3 border-t border-b-subtle">
-            <p className="text-[10px] text-t-muted uppercase tracking-wider mb-2 font-semibold">Personalizadas</p>
-            <div className="space-y-2">
+          <div className="px-5 py-3">
+            <div className="space-y-3">
               {personalizadas.map((c) => (
-                <div key={c.id} className="flex items-center justify-between">
-                  <span className={`text-sm ${c.activo ? "text-t-primary" : "text-t-muted line-through"}`}>{c.label}</span>
-                  <div className="flex gap-1">
-                    {c.id && (
-                      <>
-                        <button onClick={() => handleToggle(c.id!, c.activo)} disabled={isPending}
-                          className="px-2 py-0.5 text-[10px] border border-b-default rounded text-t-muted hover:text-t-primary transition">
-                          {c.activo ? "Desactivar" : "Activar"}
-                        </button>
-                        <button onClick={() => handleDelete(c.id!)} disabled={isPending}
-                          className="px-2 py-0.5 text-[10px] border border-red-500/30 rounded text-t-red hover:bg-red-500/10 transition">
-                          🗑
-                        </button>
-                      </>
-                    )}
+                <div key={c.id} className="border border-b-default rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm font-medium ${c.activo ? "text-t-primary" : "text-t-muted line-through"}`}>{c.label}</span>
+                    <div className="flex gap-1">
+                      {c.id && (
+                        <>
+                          <button onClick={() => handleToggle(c.id!, c.activo)} disabled={isPending}
+                            className="px-2 py-0.5 text-[10px] border border-b-default rounded text-t-muted hover:text-t-primary transition">
+                            {c.activo ? "Desactivar" : "Activar"}
+                          </button>
+                          <button onClick={() => handleDelete(c.id!)} disabled={isPending}
+                            className="px-2 py-0.5 text-[10px] border border-red-500/30 rounded text-t-red hover:bg-red-500/10 transition">
+                            🗑
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
+                  {/* Zoho Account ID */}
+                  {c.id && (
+                    editingZohoId === c.id ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editingZohoValue}
+                          onChange={(e) => setEditingZohoValue(e.target.value)}
+                          placeholder="Ej: 4863446000001520059"
+                          className="flex-1 px-2 py-1 text-xs bg-input border border-blue-500 rounded text-t-primary focus:outline-none font-mono"
+                          autoFocus
+                        />
+                        <button onClick={() => handleSaveZohoId(c.id!)} disabled={isPending}
+                          className="px-2 py-1 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-500 transition">
+                          Guardar
+                        </button>
+                        <button onClick={() => setEditingZohoId(null)}
+                          className="px-2 py-1 text-[10px] border border-b-default rounded text-t-muted hover:text-t-primary transition">
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-t-muted">Zoho ID:</span>
+                        {c.zoho_account_id ? (
+                          <span className="text-[10px] font-mono text-t-secondary">{c.zoho_account_id}</span>
+                        ) : (
+                          <span className="text-[10px] text-amber-500">Sin configurar</span>
+                        )}
+                        <button
+                          onClick={() => { setEditingZohoId(c.id!); setEditingZohoValue(c.zoho_account_id ?? ""); }}
+                          className="text-[10px] text-t-muted hover:text-t-primary underline transition"
+                        >
+                          {c.zoho_account_id ? "Editar" : "Agregar"}
+                        </button>
+                      </div>
+                    )
+                  )}
                 </div>
               ))}
             </div>
@@ -561,18 +599,23 @@ function CategoriasTab({ categoriasGasto: initial }: { categoriasGasto: Categori
         )}
 
         {/* Agregar nueva */}
-        <div className="px-5 py-4 border-t border-b-subtle bg-empty/40">
-          <p className="text-[10px] text-t-muted uppercase tracking-wider mb-2 font-semibold">Agregar categoría</p>
+        <div className="px-5 py-4 border-t border-b-subtle bg-input/20">
+          <p className="text-[10px] text-t-muted uppercase tracking-wider mb-3 font-semibold">Agregar categoría</p>
           {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
-          <div className="flex gap-2">
+          <div className="space-y-2">
             <input type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-              placeholder="Ej: Viáticos, Material POP..."
-              className="flex-1 px-3 py-1.5 text-sm bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500" />
-            <button onClick={handleCreate} disabled={isPending}
-              className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50">
-              {isPending ? "..." : "+ Agregar"}
-            </button>
+              placeholder="Nombre de categoría (Ej: Viáticos)"
+              className="w-full px-3 py-1.5 text-sm bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500" />
+            <div className="flex gap-2">
+              <input type="text" value={newZohoId} onChange={(e) => setNewZohoId(e.target.value)}
+                placeholder="Zoho Account ID (opcional, Ej: 4863446000001520059)"
+                className="flex-1 px-3 py-1.5 text-xs bg-card border border-b-default rounded-lg text-t-primary focus:outline-none focus:border-blue-500 font-mono" />
+              <button onClick={handleCreate} disabled={isPending}
+                className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50 whitespace-nowrap">
+                {isPending ? "..." : "+ Agregar"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

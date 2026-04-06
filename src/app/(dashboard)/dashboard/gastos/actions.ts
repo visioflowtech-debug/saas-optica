@@ -105,8 +105,18 @@ export async function registrarGasto(formData: FormData) {
 
   // Zoho Books — registrar gasto (best-effort)
   try {
+    // Buscar zoho_account_id configurado para esta categoría
+    const { data: catConfig } = await supabase
+      .from("categorias_config")
+      .select("zoho_account_id")
+      .eq("tenant_id", tenant_id)
+      .eq("modulo", "gastos")
+      .eq("valor", categoria)
+      .maybeSingle();
+
     const zohoExpenseId = await registrarGastoZoho({
       account_name: categoria,
+      account_id: catConfig?.zoho_account_id ?? undefined,
       date: fechaFinal,
       amount: monto,
       description: concepto,

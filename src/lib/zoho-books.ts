@@ -234,12 +234,13 @@ export async function registrarPagoZoho(input: ZohoPaymentInput): Promise<string
 // ── Gastos (Expenses) ─────────────────────────────────────
 
 export interface ZohoExpenseInput {
-  account_name: string; // categoría de gasto
+  account_name: string; // categoría interna (valor snake_case)
+  account_id?: string;  // si se provee, tiene prioridad sobre el mapeo hardcodeado
   date: string; // YYYY-MM-DD
   amount: number;
   description?: string | null;
   reference_number?: string | null;
-  paid_through_account_name?: string; // cuenta desde donde se pagó
+  paid_through_account_name?: string;
 }
 
 // Mapeo valor → account_id real de Zoho Books (exportado del plan de cuentas)
@@ -268,7 +269,8 @@ const CATEGORIA_A_ACCOUNT_ID: Record<string, string> = {
 const ZOHO_FALLBACK_ACCOUNT_ID = "4863446000000000460";
 
 export async function registrarGastoZoho(input: ZohoExpenseInput): Promise<string> {
-  const accountId = CATEGORIA_A_ACCOUNT_ID[input.account_name] ?? ZOHO_FALLBACK_ACCOUNT_ID;
+  // Prioridad: account_id explícito (de BD) → mapeo hardcodeado → fallback
+  const accountId = input.account_id ?? CATEGORIA_A_ACCOUNT_ID[input.account_name] ?? ZOHO_FALLBACK_ACCOUNT_ID;
   const descripcion = input.description
     ? `[${input.account_name}] ${input.description}`
     : `[${input.account_name}]`;

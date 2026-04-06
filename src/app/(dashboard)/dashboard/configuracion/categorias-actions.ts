@@ -15,44 +15,36 @@ async function getUserContext() {
 }
 
 export interface CategoriaItem {
-  id: string | null;       // null = predeterminada (hardcoded)
+  id: string | null;
   valor: string;
   label: string;
   activo: boolean;
   esPredeterminada: boolean;
+  zoho_account_id: string | null;
 }
 
 export async function obtenerCategoriasGasto(): Promise<CategoriaItem[]> {
   const { supabase, tenant_id } = await getUserContext();
   const { data: custom } = await supabase
     .from("categorias_config")
-    .select("id, valor, label, activo")
+    .select("id, valor, label, activo, zoho_account_id")
     .eq("tenant_id", tenant_id)
     .eq("modulo", "gastos")
     .order("label");
 
-  // Predeterminadas del sistema (hardcoded)
   const predeterminadas: CategoriaItem[] = CATEGORIAS_GASTO.map((c) => ({
-    id: null,
-    valor: c.value,
-    label: c.label,
-    activo: true,
-    esPredeterminada: true,
+    id: null, valor: c.value, label: c.label, activo: true, esPredeterminada: true, zoho_account_id: null,
   }));
 
-  // Personalizadas del tenant
   const personalizadas: CategoriaItem[] = (custom || []).map((c) => ({
-    id: c.id,
-    valor: c.valor,
-    label: c.label,
-    activo: c.activo,
-    esPredeterminada: false,
+    id: c.id, valor: c.valor, label: c.label, activo: c.activo,
+    esPredeterminada: false, zoho_account_id: c.zoho_account_id ?? null,
   }));
 
   return [...predeterminadas, ...personalizadas];
 }
 
-export async function crearCategoriaGasto(label: string) {
+export async function crearCategoriaGasto(label: string, zohoAccountId?: string) {
   const { supabase, tenant_id } = await getUserContext();
   const valor = label.toLowerCase().trim().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
   if (!valor || !label.trim()) return { error: "Nombre inválido" };
@@ -61,10 +53,21 @@ export async function crearCategoriaGasto(label: string) {
     modulo: "gastos",
     valor,
     label: label.trim(),
+    zoho_account_id: zohoAccountId?.trim() || null,
   });
   if (error) return { error: error.message };
   revalidatePath("/dashboard/configuracion");
   revalidatePath("/dashboard/gastos");
+  return { success: true };
+}
+
+export async function actualizarZohoAccountId(id: string, zohoAccountId: string) {
+  const { supabase, tenant_id } = await getUserContext();
+  const { error } = await supabase.from("categorias_config")
+    .update({ zoho_account_id: zohoAccountId.trim() || null })
+    .eq("id", id).eq("tenant_id", tenant_id);
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard/configuracion");
   return { success: true };
 }
 
