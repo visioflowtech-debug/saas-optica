@@ -242,73 +242,50 @@ export interface ZohoExpenseInput {
   paid_through_account_name?: string; // cuenta desde donde se pagó
 }
 
-// Mapeo valor (snake_case) → nombre exacto de la cuenta en Zoho Books (creadas manualmente)
-const CATEGORIA_A_CUENTA_ZOHO: Record<string, string> = {
-  agua:                                       "Agua",
-  alimentacion:                               "Alimentacion",
-  comisiones_bancarias:                       "Comisiones bancarias",
-  compra_de_aros:                             "Compra de aros",
-  compra_de_estuches:                         "Compra de estuches",
-  energia_electrica:                          "Energia electrica",
-  gastos_de_alquiler:                         "Gastos de alquiler",
-  gastos_de_ti_y_de_internet:                 "Gastos de TI y de Internet",
-  gastos_telefnicos:                          "Gastos telefónicos",
-  impuestos:                                  "Impuestos",
-  laboratorio_proceso:                        "Laboratorio proceso",
-  papeleria:                                  "Papeleria",
-  salarios_y_remuneraciones_a_los_empleados:  "Salarios y remuneraciones a los empleados",
-  // legado — por si existen gastos anteriores con estas categorías del sistema
-  transporte:   "Otros gastos",
-  hospedaje:    "Otros gastos",
-  publicidad:   "Otros gastos",
-  operativo:    "Otros gastos",
-  otro:         "Otros gastos",
+// Mapeo valor → account_id real de Zoho Books (exportado del plan de cuentas)
+const CATEGORIA_A_ACCOUNT_ID: Record<string, string> = {
+  agua:                                      "4863446000001520059",
+  alimentacion:                              "4863446000001520003",
+  comisiones_bancarias:                      "4863446000000127001",
+  compra_de_aros:                            "4863446000000089047",
+  compra_de_estuches:                        "4863446000000089053", // Compra de accesorios
+  energia_electrica:                         "4863446000001520051",
+  gastos_de_alquiler:                        "4863446000000000430",
+  gastos_de_ti_y_de_internet:                "4863446000000000427",
+  gastos_telefnicos:                         "4863446000000000421",
+  impuestos:                                 "4863446000001520043",
+  laboratorio_proceso:                       "4863446000001520011",
+  papeleria:                                 "4863446000000101089",
+  salarios_y_remuneraciones_a_los_empleados: "4863446000000000445",
+  // legado
+  transporte: "4863446000001520027",
+  operativo:  "4863446000001520019",
+  otro:       "4863446000001520035",
+  hospedaje:  "4863446000000000460",
+  publicidad: "4863446000000000403",
 };
-// Fallback si la cuenta no está en el mapeo
-const ZOHO_EXPENSE_ACCOUNT_FALLBACKS = ["Otros gastos", "Other Expense"];
+// Fallback account_id: "Otros gastos" (Expense)
+const ZOHO_FALLBACK_ACCOUNT_ID = "4863446000000000460";
 
-async function buildExpenseBody(
-  account_name: string,
-  input: ZohoExpenseInput
-): Promise<Record<string, unknown>> {
+export async function registrarGastoZoho(input: ZohoExpenseInput): Promise<string> {
+  const accountId = CATEGORIA_A_ACCOUNT_ID[input.account_name] ?? ZOHO_FALLBACK_ACCOUNT_ID;
   const descripcion = input.description
     ? `[${input.account_name}] ${input.description}`
     : `[${input.account_name}]`;
+
   const body: Record<string, unknown> = {
-    account_name,
+    account_id: accountId,
     date: input.date,
     sub_total: input.amount,
     total: input.amount,
-    line_items: [{ account_name, amount: input.amount, description: descripcion }],
+    line_items: [{ account_id: accountId, amount: input.amount, description: descripcion }],
   };
   if (input.reference_number) body.reference_number = input.reference_number;
   if (input.paid_through_account_name) body.paid_through_account_name = input.paid_through_account_name;
-  return body;
-}
 
-export async function registrarGastoZoho(input: ZohoExpenseInput): Promise<string> {
-  // Resolver nombre de cuenta: usar el label de Zoho si existe, si no el valor directo
-  const cuentaResuelta = CATEGORIA_A_CUENTA_ZOHO[input.account_name] ?? input.account_name;
-  const cuentasAIntentar = [cuentaResuelta, ...ZOHO_EXPENSE_ACCOUNT_FALLBACKS];
-
-  for (const cuenta of cuentasAIntentar) {
-    try {
-      const body = await buildExpenseBody(cuenta, input);
-      const data = await zohoFetch("/expenses", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-      return data.expense.expense_id;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      // Si el error es de cuenta inválida, probar el siguiente fallback
-      if (msg.includes("account") || msg.includes("Account") || msg.includes("3000") || msg.includes("invalid")) {
-        continue;
-      }
-      // Error distinto (auth, red, etc.) — propagar
-      throw e;
-    }
-  }
-
-  throw new Error(`Zoho: no se encontró cuenta de gasto válida. Categorías intentadas: ${cuentasAIntentar.join(", ")}`);
+  const data = await zohoFetch("/expenses", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return data.expense.expense_id;
 }

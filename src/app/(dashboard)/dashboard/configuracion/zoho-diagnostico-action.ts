@@ -13,42 +13,17 @@ const CATEGORIAS_GASTO = [
 ];
 
 export async function probarGastoZoho(): Promise<{ ok: boolean; mensaje: string; detalle?: string }> {
-  let token: string;
   try {
-    token = await getZohoAccessToken();
-  } catch (e) {
-    return { ok: false, mensaje: "Error de token", detalle: e instanceof Error ? e.message : String(e) };
-  }
-
-  // Intentar obtener cuentas sin filtro de tipo (más permisivo que account_type=expense)
-  const url = `${ZOHO_BASE}/chartofaccounts?organization_id=${ZOHO_ORG}&filter_by=AccountType.Expense`;
-  try {
-    const res = await fetch(url, { headers: zohoHeaders(token), cache: "no-store" });
-    const data = await res.json();
-    if (data.code === 0 && data.chartofaccounts?.length > 0) {
-      const cuentas = data.chartofaccounts.map((c: { account_name: string; account_id: string }) =>
-        `${c.account_name}: ${c.account_id}`
-      ).join(" | ");
-      return { ok: true, mensaje: `Cuentas encontradas (${data.chartofaccounts.length})`, detalle: cuentas };
-    }
-    if (data.code !== 0) {
-      // Fallback: intentar leer gastos existentes para extraer account_id
-      const expUrl = `${ZOHO_BASE}/expenses?per_page=10&organization_id=${ZOHO_ORG}`;
-      const expRes = await fetch(expUrl, { headers: zohoHeaders(token), cache: "no-store" });
-      const expData = await expRes.json();
-      if (expData.code === 0 && expData.expenses?.length > 0) {
-        // Volcar las claves del primer gasto para identificar el campo correcto
-        const primerGasto = expData.expenses[0];
-        const claves = Object.keys(primerGasto).join(", ");
-        const idCandidatos = ["account_id","expense_account_id","account","account_code","expense_account"]
-          .map(k => `${k}=${JSON.stringify(primerGasto[k])}`).join(" | ");
-        return { ok: true, mensaje: `Claves del gasto en Zoho`, detalle: `CLAVES: ${claves} || CANDIDATOS: ${idCandidatos}` };
-      }
-      return { ok: false, mensaje: `Zoho [${data.code}]: ${data.message}`, detalle: "Sin gastos existentes para extraer IDs tampoco" };
-    }
-    return { ok: false, mensaje: "Sin cuentas retornadas", detalle: JSON.stringify(data) };
-  } catch (e) {
-    return { ok: false, mensaje: "Error inesperado", detalle: e instanceof Error ? e.message : String(e) };
+    const { registrarGastoZoho } = await import("@/lib/zoho-books");
+    const expenseId = await registrarGastoZoho({
+      account_name: "agua",
+      date: new Date().toISOString().split("T")[0],
+      amount: 0.01,
+      description: "TEST diagnóstico — puede eliminarse",
+    });
+    return { ok: true, mensaje: `Gasto creado en Zoho · expense_id: ${expenseId}` };
+  } catch (e: unknown) {
+    return { ok: false, mensaje: "Error al crear gasto", detalle: e instanceof Error ? e.message : String(e) };
   }
 }
 
