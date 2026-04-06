@@ -75,7 +75,7 @@ export default async function DashboardLayout({
 
   // Módulos visibles por rol — administrador ve todo
   const modulosRol: Record<string, string[]> = {
-    administrador: ["inicio", "campanas", "pacientes", "examenes", "ventas", "laboratorio", "inventario", "gastos", "configuracion"],
+    administrador: ["inicio", "campanas", "pacientes", "examenes", "ventas", "laboratorio", "inventario", "gastos", "cuentas", "configuracion"],
     optometrista:  ["inicio", "campanas", "pacientes", "examenes", "laboratorio"],
     asesor_visual: ["inicio", "campanas", "pacientes", "ventas", "inventario", "gastos"],
     laboratorio:   ["inicio", "laboratorio"],
@@ -92,6 +92,7 @@ export default async function DashboardLayout({
     { key: "laboratorio",    href: "/dashboard/laboratorio",    label: "Laboratorio",    icon: "🔧" },
     { key: "inventario",     href: "/dashboard/inventario",     label: "Inventario",     icon: "📦" },
     { key: "gastos",         href: "/dashboard/gastos",         label: "Gastos",         icon: "📋" },
+    { key: "cuentas",        href: "/dashboard/cuentas",        label: "Cuentas",        icon: "🏦" },
     { key: "configuracion",  href: "/dashboard/configuracion",  label: "Configuración",  icon: "⚙️" },
   ];
 

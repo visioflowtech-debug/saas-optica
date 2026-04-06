@@ -149,6 +149,21 @@ export default async function NuevoGastoPage({
         </div>
 
         <div>
+          <label htmlFor="pagado_con" className="block text-sm font-medium text-t-secondary mb-1.5">
+            Pagado con *
+          </label>
+          <select
+            id="pagado_con"
+            name="pagado_con"
+            required
+            className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+          >
+            <option value="efectivo">Efectivo</option>
+            <option value="banco">Banco</option>
+          </select>
+        </div>
+
+        <div>
           <label htmlFor="notas" className="block text-sm font-medium text-t-secondary mb-1.5">
             Notas (opcional)
           </label>

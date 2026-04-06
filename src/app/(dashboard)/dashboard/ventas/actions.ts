@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerOCrearContactoZoho, crearFacturaZoho, registrarPagoZoho, crearItemZoho, buildZohoItemName, buildZohoProductType } from "@/lib/zoho-books";
 import type { ZohoPaymentMode } from "@/lib/zoho-books";
+import { registrarMovimientoCuenta, tipoCuentaDesdeMetodoPago } from "@/lib/cuentas";
 
 function mapMetodoPago(metodo: string): ZohoPaymentMode {
   const m = metodo.toLowerCase();
@@ -474,7 +475,7 @@ export async function obtenerDatosTicket(ordenId: string) {
 
 /* ── Register Payment / Abono ───────────────────────────── */
 export async function registrarPago(ordenId: string, monto: number, metodoPago: string, referencia?: string, notas?: string) {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, sucursal_id } = await getUserContext();
 
   if (monto <= 0) throw new Error("El monto debe ser mayor a 0");
 
@@ -511,6 +512,21 @@ export async function registrarPago(ordenId: string, monto: number, metodoPago: 
   }).select("id").single();
 
   if (error) throw new Error(error.message);
+
+  // Cuentas — registrar ingreso (best-effort)
+  try {
+    await registrarMovimientoCuenta({
+      supabase,
+      tenant_id,
+      sucursal_id,
+      tipo_cuenta: tipoCuentaDesdeMetodoPago(metodoPago),
+      tipo_movimiento: "ingreso",
+      monto,
+      descripcion: `Abono venta — ${metodoPago}`,
+      referencia_tipo: "pago",
+      referencia_id: pago?.id ?? null,
+    });
+  } catch { /* fail-soft */ }
 
   // Zoho Books — registrar abono (best-effort)
   try {

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { registrarGastoZoho } from "@/lib/zoho-books";
+import { registrarMovimientoCuenta, tipoCuentaDesdeMetodoPago } from "@/lib/cuentas";
 
 import type { Gasto } from "./types";
 
@@ -76,12 +77,13 @@ export async function obtenerGastos(filters?: {
 export async function registrarGasto(formData: FormData) {
   const { supabase, tenant_id, sucursal_id, userId } = await getUserContext();
 
-  const concepto   = (formData.get("concepto") as string)?.trim();
-  const categoria  = formData.get("categoria") as string;
-  const monto      = parseFloat(formData.get("monto") as string);
-  const fecha      = formData.get("fecha") as string;
-  const notas      = (formData.get("notas") as string)?.trim() || null;
-  const campana_id = (formData.get("campana_id") as string) || null;
+  const concepto    = (formData.get("concepto") as string)?.trim();
+  const categoria   = formData.get("categoria") as string;
+  const monto       = parseFloat(formData.get("monto") as string);
+  const fecha       = formData.get("fecha") as string;
+  const notas       = (formData.get("notas") as string)?.trim() || null;
+  const campana_id  = (formData.get("campana_id") as string) || null;
+  const pagado_con  = (formData.get("pagado_con") as string) || "efectivo";
 
   if (!concepto || !categoria || isNaN(monto) || monto <= 0) {
     return redirect("/dashboard/gastos/nuevo?error=Datos+incompletos+o+monto+invalido");
@@ -99,9 +101,25 @@ export async function registrarGasto(formData: FormData) {
     monto,
     fecha: fechaFinal,
     notas,
+    pagado_con,
   }).select("id").single();
 
   if (error) return redirect("/dashboard/gastos/nuevo?error=" + encodeURIComponent(error.message));
+
+  // Cuentas — registrar egreso (best-effort)
+  try {
+    await registrarMovimientoCuenta({
+      supabase,
+      tenant_id,
+      sucursal_id,
+      tipo_cuenta: tipoCuentaDesdeMetodoPago(pagado_con),
+      tipo_movimiento: "egreso",
+      monto,
+      descripcion: `${categoria} — ${concepto}`,
+      referencia_tipo: "gasto",
+      referencia_id: gasto?.id ?? null,
+    });
+  } catch { /* fail-soft */ }
 
   // Zoho Books — registrar gasto (best-effort)
   try {
