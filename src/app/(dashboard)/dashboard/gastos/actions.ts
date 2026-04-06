@@ -116,7 +116,7 @@ export async function registrarGasto(formData: FormData) {
       await supabase.from("gastos").update({ zoho_expense_id: zohoExpenseId }).eq("id", gasto.id);
     }
   } catch (e) {
-    console.error("Zoho sync error (registrarGasto):", e);
+    console.error("Zoho sync error (registrarGasto):", e instanceof Error ? e.message : e);
   }
 
   revalidatePath("/dashboard/gastos");

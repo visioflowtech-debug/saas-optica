@@ -242,26 +242,50 @@ export interface ZohoExpenseInput {
   paid_through_account_name?: string; // cuenta desde donde se pagó
 }
 
-export async function registrarGastoZoho(input: ZohoExpenseInput): Promise<string> {
+// Cuentas de gastos genéricas que Zoho Books crea por defecto
+const ZOHO_EXPENSE_ACCOUNT_FALLBACKS = ["Other Expense", "Otros gastos", "Gastos generales", "General & Administrative"];
+
+async function buildExpenseBody(
+  account_name: string,
+  input: ZohoExpenseInput
+): Promise<Record<string, unknown>> {
+  const descripcion = input.description
+    ? `[${input.account_name}] ${input.description}`
+    : `[${input.account_name}]`;
   const body: Record<string, unknown> = {
-    account_name: input.account_name,
+    account_name,
     date: input.date,
     sub_total: input.amount,
     total: input.amount,
-    line_items: [
-      {
-        account_name: input.account_name,
-        amount: input.amount,
-        description: input.description ?? "",
-      },
-    ],
+    line_items: [{ account_name, amount: input.amount, description: descripcion }],
   };
   if (input.reference_number) body.reference_number = input.reference_number;
   if (input.paid_through_account_name) body.paid_through_account_name = input.paid_through_account_name;
+  return body;
+}
 
-  const data = await zohoFetch("/expenses", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-  return data.expense.expense_id;
+export async function registrarGastoZoho(input: ZohoExpenseInput): Promise<string> {
+  // Intentar primero con el nombre de categoría del SaaS
+  const cuentasAIntentar = [input.account_name, ...ZOHO_EXPENSE_ACCOUNT_FALLBACKS];
+
+  for (const cuenta of cuentasAIntentar) {
+    try {
+      const body = await buildExpenseBody(cuenta, input);
+      const data = await zohoFetch("/expenses", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      return data.expense.expense_id;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // Si el error es de cuenta inválida, probar el siguiente fallback
+      if (msg.includes("account") || msg.includes("Account") || msg.includes("3000") || msg.includes("invalid")) {
+        continue;
+      }
+      // Error distinto (auth, red, etc.) — propagar
+      throw e;
+    }
+  }
+
+  throw new Error(`Zoho: no se encontró cuenta de gasto válida. Categorías intentadas: ${cuentasAIntentar.join(", ")}`);
 }
