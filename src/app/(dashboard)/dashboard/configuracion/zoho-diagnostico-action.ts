@@ -37,10 +37,12 @@ export async function probarGastoZoho(): Promise<{ ok: boolean; mensaje: string;
       const expRes = await fetch(expUrl, { headers: zohoHeaders(token), cache: "no-store" });
       const expData = await expRes.json();
       if (expData.code === 0 && expData.expenses?.length > 0) {
-        const ids = expData.expenses.map((e: { account_name: string; account_id: string }) =>
-          `${e.account_name}: ${e.account_id}`
-        ).join(" | ");
-        return { ok: true, mensaje: `IDs extraídos de gastos existentes (${expData.expenses.length})`, detalle: ids };
+        // Volcar las claves del primer gasto para identificar el campo correcto
+        const primerGasto = expData.expenses[0];
+        const claves = Object.keys(primerGasto).join(", ");
+        const idCandidatos = ["account_id","expense_account_id","account","account_code","expense_account"]
+          .map(k => `${k}=${JSON.stringify(primerGasto[k])}`).join(" | ");
+        return { ok: true, mensaje: `Claves del gasto en Zoho`, detalle: `CLAVES: ${claves} || CANDIDATOS: ${idCandidatos}` };
       }
       return { ok: false, mensaje: `Zoho [${data.code}]: ${data.message}`, detalle: "Sin gastos existentes para extraer IDs tampoco" };
     }
