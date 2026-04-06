@@ -14,7 +14,7 @@ import {
 } from "./optometristas-actions";
 import type { OptometristaItem } from "./optometristas-actions";
 import { sincronizarProductosZoho } from "../inventario/zoho-sync-action";
-import { probarConexionZoho, sincronizarCuentasGastoZoho, obtenerCuentasGastoZoho } from "./zoho-diagnostico-action";
+import { probarConexionZoho, sincronizarCuentasGastoZoho, obtenerCuentasGastoZoho, probarGastoZoho } from "./zoho-diagnostico-action";
 import { createClient } from "@/lib/supabase/client";
 
 interface Empresa  { id: string; nombre: string; nit: string | null; logo_url: string | null; email: string | null; }
@@ -700,6 +700,8 @@ function IntegracionesTab() {
   const [cuentasPending, setCuentasPending] = useState(false);
   const [cuentasZoho, setCuentasZoho] = useState<{ ok: boolean; cuentas: string[]; error?: string } | null>(null);
   const [cuentasZohoPending, setCuentasZohoPending] = useState(false);
+  const [gastoTest, setGastoTest] = useState<{ ok: boolean; mensaje: string; detalle?: string } | null>(null);
+  const [gastoTestPending, setGastoTestPending] = useState(false);
 
   const handleTestConexion = () => {
     setTestResult(null);
@@ -712,6 +714,21 @@ function IntegracionesTab() {
         setTestResult({ ok: false, mensaje: "Error al llamar la acción", detalle: e instanceof Error ? e.message : String(e) });
       } finally {
         setTestPending(false);
+      }
+    });
+  };
+
+  const handleProbarGasto = () => {
+    setGastoTest(null);
+    setGastoTestPending(true);
+    startTransition(async () => {
+      try {
+        const r = await probarGastoZoho();
+        setGastoTest(r);
+      } catch (e: unknown) {
+        setGastoTest({ ok: false, mensaje: "Error inesperado", detalle: e instanceof Error ? e.message : String(e) });
+      } finally {
+        setGastoTestPending(false);
       }
     });
   };
@@ -822,12 +839,25 @@ function IntegracionesTab() {
             </button>
           </div>
 
-          {/* Info cuentas de gasto */}
-          <div className="border border-b-default rounded-lg p-4">
-            <p className="text-sm font-medium text-t-primary mb-1">Cuentas de gasto</p>
-            <p className="text-xs text-t-muted">
-              Cada categoría del SaaS se sincroniza con la cuenta de igual nombre en Zoho Books.
-            </p>
+          {/* Test gasto Zoho */}
+          <div className="border border-b-default rounded-lg p-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-t-primary">Diagnóstico de gastos</p>
+              <p className="text-xs text-t-muted mt-0.5">Crea un gasto de prueba ($0.01, cuenta Agua) en Zoho y muestra el error exacto si falla.</p>
+            </div>
+            {gastoTest && (
+              <div className={`rounded-lg px-3 py-2 text-xs ${gastoTest.ok ? "bg-emerald-950/40 text-emerald-400" : "bg-red-950/40 text-red-400"}`}>
+                <p className="font-medium">{gastoTest.ok ? "✓" : "✗"} {gastoTest.mensaje}</p>
+                {gastoTest.detalle && <p className="mt-1 opacity-75 break-all">{gastoTest.detalle}</p>}
+              </div>
+            )}
+            <button
+              onClick={handleProbarGasto}
+              disabled={isPending || gastoTestPending}
+              className="px-4 py-2 text-xs font-medium border border-b-default rounded-lg hover:bg-white/5 transition disabled:opacity-50"
+            >
+              {gastoTestPending ? "Probando..." : "Probar gasto en Zoho"}
+            </button>
           </div>
 
           {/* Info scopes */}

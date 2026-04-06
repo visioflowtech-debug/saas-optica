@@ -12,6 +12,21 @@ const CATEGORIAS_GASTO = [
   { valor: "otro",                label: "Otro" },
 ];
 
+export async function probarGastoZoho(): Promise<{ ok: boolean; mensaje: string; detalle?: string }> {
+  try {
+    const { registrarGastoZoho } = await import("@/lib/zoho-books");
+    const expenseId = await registrarGastoZoho({
+      account_name: "agua",
+      date: new Date().toISOString().split("T")[0],
+      amount: 0.01,
+      description: "TEST diagnóstico — puede eliminarse",
+    });
+    return { ok: true, mensaje: `Gasto creado en Zoho · expense_id: ${expenseId}` };
+  } catch (e: unknown) {
+    return { ok: false, mensaje: "Error al crear gasto", detalle: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function obtenerCuentasGastoZoho(): Promise<{
   ok: boolean;
   cuentas: string[];
