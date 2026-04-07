@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { obtenerDatosReceta, anularExamen } from "../../examenes/actions";
+import { obtenerDatosReceta, anularExamen, generarInformeIA } from "../../examenes/actions";
 import { fmtFecha } from "@/lib/date-sv";
 import { eliminarExamen } from "../../eliminar-actions";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
@@ -35,6 +35,8 @@ interface Examen {
   altura: number | null;
   observaciones: string | null;
   anulado: boolean;
+  informe_ia: string | null;
+  informe_ia_generado_at: string | null;
 }
 
 interface Orden {
@@ -209,6 +211,7 @@ function TabClinico({ examenes }: { examenes: Examen[] }) {
                 <p className="text-sm text-t-secondary italic">📝 {ex.observaciones}</p>
               </div>
             )}
+            {!ex.anulado && <InformeIASection examen={ex} />}
           </div>
         );
       })}
@@ -527,6 +530,74 @@ function AnularExamenButton({ examenId }: { examenId: string }) {
     >
       {isPending ? "..." : "✕ Anular"}
     </button>
+  );
+}
+
+// Sección IA unificada: botón + display con estado local compartido
+function InformeIASection({ examen }: { examen: Examen }) {
+  const [isPending, startTransition] = useTransition();
+  const [informe, setInforme] = useState<string | null>(examen.informe_ia ?? null);
+  const [generadoAt, setGeneradoAt] = useState<string | null>(examen.informe_ia_generado_at ?? null);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleGenerar = () => {
+    startTransition(async () => {
+      const result = await generarInformeIA(examen.id);
+      if ("error" in result) {
+        alert(result.error);
+      } else {
+        setInforme(result.informe);
+        setGeneradoAt(new Date().toISOString());
+        setIsExpanded(true);
+      }
+    });
+  };
+
+  const fmtDate = generadoAt
+    ? new Date(generadoAt).toLocaleString("es-SV", { dateStyle: "medium", timeStyle: "short" })
+    : "";
+
+  return (
+    <div className="mt-4 pt-3 border-t border-b-subtle">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-t-purple uppercase tracking-wider font-semibold">🤖 Informe Clínico IA</span>
+        <div className="flex items-center gap-2">
+          {informe && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded((v) => !v)}
+              className="text-[10px] text-t-purple hover:opacity-70 transition"
+            >
+              {isExpanded ? "▲ Ocultar" : "▼ Ver informe"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleGenerar}
+            disabled={isPending}
+            className="px-2 py-1 text-[10px] font-medium bg-a-purple-bg text-t-purple border border-a-purple-border rounded-md hover:opacity-80 transition disabled:opacity-50"
+            title={fmtDate ? `Generado el ${fmtDate}` : "Generar informe clínico con IA"}
+          >
+            {isPending ? "Generando..." : informe ? "↻ Regenerar" : "Generar informe IA"}
+          </button>
+        </div>
+      </div>
+
+      {fmtDate && !isPending && (
+        <p className="text-[9px] text-t-muted mt-0.5">Generado el {fmtDate}</p>
+      )}
+      {isPending && (
+        <p className="text-[10px] text-t-purple mt-1 animate-pulse">Analizando datos del examen con IA...</p>
+      )}
+
+      {informe && isExpanded && (
+        <div className="mt-3 p-4 bg-a-purple-bg border border-a-purple-border rounded-xl">
+          <div className="text-sm text-t-primary whitespace-pre-wrap leading-relaxed">
+            {informe}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

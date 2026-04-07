@@ -1,0 +1,53 @@
+# Claude Code — archivos excluidos del contexto
+# Reduce consumo de tokens evitando que Claude indexe basura
+
+# Dependencias (nunca necesitas que Claude lea esto)
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Build output (derivado, no fuente)
+.next/
+out/
+build/
+dist/
+
+# Cache interno de Next.js / TypeScript
+.next/cache/
+*.tsbuildinfo
+next-env.d.ts
+
+# Logs (solo ruido)
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Archivos de entorno (seguridad + no aportan contexto)
+.env
+.env.local
+.env.production
+
+# Supabase: tipos auto-generados ya los conoce por CLAUDE.md
+# (descomenta si los generas frecuentemente y son pesados)
+# src/lib/database.types.ts
+
+# PDFs, imágenes, fuentes (binarios ilegibles)
+public/*.pdf
+public/fonts/
+*.woff
+*.woff2
+*.ttf
+*.otf
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.ico
+
+# Datos de migración (pueden tener PII)
+scripts/migration-data/
+
+# Archivos temporales de sesión
+.qa-stamp
+deploy.log
+lint.txt

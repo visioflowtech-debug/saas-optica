@@ -6,6 +6,7 @@
 - **UI**: Tailwind CSS v4 + Lucide React
 - **PDF**: jsPDF + jspdf-autotable
 - **Drag & drop**: @dnd-kit (kanban laboratorio)
+- **IA clínica**: @google/generative-ai → `gemini-2.0-flash` (llamadas siempre server-side)
 - **Deploy**: Vercel (branch `main` → producción automática)
 - **Timezone**: El Salvador UTC-6, sin horario de verano
 
@@ -28,6 +29,7 @@ const { data: perfil } = await supabase.from("usuarios")
 ```
 - Solo exportar funciones async (no objetos, no constantes)
 - Llamar `revalidatePath("/dashboard/...")` al final de mutaciones
+- Cuando la action es llamada desde un Client Component (no form), retornar `{ data }` o `{ error: string }` en vez de `redirect()` — el cliente maneja el estado localmente con `useState` + `useTransition`
 
 ### Componentes cliente (`"use client"`)
 - Solo cuando necesitas: estado, eventos, hooks, dnd-kit, jsPDF
@@ -36,8 +38,9 @@ const { data: perfil } = await supabase.from("usuarios")
 
 ### Timezone (CRÍTICO)
 ```ts
-import { fmtFecha, svFechaInicioUTC, svFechaFinUTC } from "@/lib/date-sv"
-// Display: fmtFecha(row.created_at) → "21 mar 2026"
+import { fmtFecha, fmtFechaCorta, svFechaInicioUTC, svFechaFinUTC } from "@/lib/date-sv"
+// Display largo:  fmtFecha(row.created_at)      → "21 mar 2026"
+// Display corto:  fmtFechaCorta(row.created_at) → "21/03/26" (tarjetas, tablas)
 // Filtros DB: gte("created_at", svFechaInicioUTC("2026-03-21"))
 //             lte("created_at", svFechaFinUTC("2026-03-21"))
 // NO usar T00:00:00 sin Z — Postgres interpreta en UTC
@@ -50,14 +53,14 @@ import { fmtFecha, svFechaInicioUTC, svFechaFinUTC } from "@/lib/date-sv"
 | `sucursales` | Branches (`campanas_activas` flag) |
 | `usuarios` | Perfiles ligados a auth.users (rol, sucursal_id) |
 | `pacientes` | Patients con etiquetas_medicas[] |
-| `examenes_clinicos` | Refracciones RA/RF OD/OI |
+| `examenes_clinicos` | Refracciones RA/RF OD/OI, AV, PIO, informe_ia (Gemini) |
 | `ordenes` | Ventas/proformas (estado: borrador→confirmada→facturada) |
 | `orden_detalle` | Líneas de orden (producto_id, cantidad, precio) |
 | `orden_laboratorio_datos` | JSON de lentes + laboratorio_id FK |
 | `laboratorio_estados` | Historial de estados kanban (pendiente→entregado) |
 | `laboratorios` | Proveedores de lab (tenant-scoped) |
 | `productos` | Inventario (tipo: aro/lente/tratamiento) |
-| `categorias_config` | Categorías configurables por módulo |
+| `categorias_config` | Categorías configurables por módulo. Esquema: `modulo` (ej. "optometristas"), `label` (nombre visible), `descripcion` (valor extra, ej. número de junta) |
 | `pagos` | Abonos por orden (metodo_pago, referencia) |
 | `gastos` | Egresos de campaña/sucursal |
 | `campanas` | Campañas de ventas (flag `activa`) |
@@ -113,6 +116,7 @@ Usa el Agent tool con estos sub-agentes según el tipo de tarea:
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+GEMINI_API_KEY=          # Solo server-side — nunca NEXT_PUBLIC_
 ```
 
 ## No hacer (errores comunes)

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 async function getUserContext() {
   const supabase = await createClient();
@@ -147,6 +148,94 @@ export async function obtenerUltimaRefraccion(pacienteId: string) {
     .single();
 
   return data;
+}
+
+/* ── Generar Informe IA ─────────────────────────────────── */
+export async function generarInformeIA(examenId: string): Promise<{ informe: string } | { error: string }> {
+  const { supabase, tenant_id } = await getUserContext();
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return { error: "GEMINI_API_KEY no configurada en el servidor." };
+
+  // Fetch exam + patient
+  const { data: examen } = await supabase
+    .from("examenes_clinicos")
+    .select("*, paciente:pacientes!examenes_clinicos_paciente_id_fkey(nombre, fecha_nacimiento)")
+    .eq("id", examenId)
+    .eq("tenant_id", tenant_id)
+    .single();
+
+  if (!examen) return { error: "Examen no encontrado." };
+
+  const fmtNum = (v: number | null) => v != null ? (v >= 0 ? `+${v.toFixed(2)}` : v.toFixed(2)) : "—";
+  const paciente = examen.paciente as { nombre: string; fecha_nacimiento: string | null } | null;
+
+  // Calcular edad aproximada
+  let edadTexto = "desconocida";
+  if (paciente?.fecha_nacimiento) {
+    const hoy = new Date();
+    const nac = new Date(paciente.fecha_nacimiento);
+    const edad = hoy.getFullYear() - nac.getFullYear();
+    edadTexto = `${edad} años`;
+  }
+
+  const prompt = `Eres un optometrista clínico experto. Genera un informe clínico profesional y estructurado en español basado en los siguientes datos del examen visual.
+
+PACIENTE: ${paciente?.nombre ?? "Sin nombre"}
+EDAD: ${edadTexto}
+FECHA DE EXAMEN: ${new Date(examen.fecha_examen).toLocaleDateString("es-SV")}
+MOTIVO DE CONSULTA: ${examen.motivo_consulta ?? "No especificado"}
+LENTE EN USO PREVIO: ${examen.lente_uso ?? "No especificado"}
+
+AGUDEZA VISUAL SIN CORRECCIÓN:
+- OD: ${examen.av_od_sin_lentes ?? "—"}  OI: ${examen.av_oi_sin_lentes ?? "—"}
+
+AGUDEZA VISUAL CON CORRECCIÓN:
+- OD: ${examen.av_od_cc ?? "—"}  OI: ${examen.av_oi_cc ?? "—"}
+
+PRESIÓN INTRAOCULAR (PIO):
+- OD: ${examen.pio_od != null ? `${examen.pio_od} mmHg` : "—"}  OI: ${examen.pio_oi != null ? `${examen.pio_oi} mmHg` : "—"}
+
+REFRACCIÓN ACTUAL (RA):
+- OD: Esf ${fmtNum(examen.ra_od_esfera)} / Cil ${fmtNum(examen.ra_od_cilindro)} × ${examen.ra_od_eje ?? "—"}° / Add ${fmtNum(examen.ra_od_adicion)}
+- OI: Esf ${fmtNum(examen.ra_oi_esfera)} / Cil ${fmtNum(examen.ra_oi_cilindro)} × ${examen.ra_oi_eje ?? "—"}° / Add ${fmtNum(examen.ra_oi_adicion)}
+
+REFRACCIÓN FINAL (RF — PRESCRIPCIÓN):
+- OD: Esf ${fmtNum(examen.rf_od_esfera)} / Cil ${fmtNum(examen.rf_od_cilindro)} × ${examen.rf_od_eje ?? "—"}° / Add ${fmtNum(examen.rf_od_adicion)}
+- OI: Esf ${fmtNum(examen.rf_oi_esfera)} / Cil ${fmtNum(examen.rf_oi_cilindro)} × ${examen.rf_oi_eje ?? "—"}° / Add ${fmtNum(examen.rf_oi_adicion)}
+
+DP: ${examen.dp != null ? `${examen.dp} mm` : "—"}  Altura: ${examen.altura != null ? `${examen.altura} mm` : "—"}
+OBSERVACIONES DEL OPTOMETRISTA: ${examen.observaciones ?? "Ninguna"}
+
+Genera un informe clínico con las siguientes secciones:
+1. **Resumen del Caso** — descripción breve del paciente y motivo de consulta
+2. **Hallazgos Clínicos** — interpretación de la agudeza visual, refracción y PIO
+3. **Diagnóstico / Impresión Clínica** — tipo de ametropía, condición visual, PIO si aplica
+4. **Plan y Recomendaciones** — tipo de corrección óptica indicada, seguimiento recomendado, consejos para el paciente
+5. **Notas Adicionales** — cualquier observación relevante
+
+Sé claro, profesional y orientado al paciente. No repitas literalmente los números de la tabla — interprétalos. Usa terminología optométrica apropiada. El informe debe servir tanto como documento clínico como comunicación al paciente.`;
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const result = await model.generateContent(prompt);
+    const informe = result.response.text();
+
+    // Guardar en la base de datos
+    await supabase
+      .from("examenes_clinicos")
+      .update({ informe_ia: informe, informe_ia_generado_at: new Date().toISOString() })
+      .eq("id", examenId)
+      .eq("tenant_id", tenant_id);
+
+    revalidatePath(`/dashboard/pacientes`);
+
+    return { informe };
+  } catch (err) {
+    console.error("[generarInformeIA]", err);
+    return { error: "Error al conectar con Gemini. Verifica la API key y el límite de cuota." };
+  }
 }
 
 /* ── Anular Examen ──────────────────────────────────────── */

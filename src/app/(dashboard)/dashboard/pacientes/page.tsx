@@ -146,7 +146,7 @@ export default async function PacientesPage({
 
       {/* Tabla */}
       <div className="bg-card border border-b-default rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overscroll-x-contain">
           <table className="w-full">
             <thead>
               <tr className="border-b border-b-subtle bg-input/40">
