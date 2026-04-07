@@ -10,13 +10,14 @@ import { generarRecetaPDF } from "../../examenes/receta-pdf";
 
 interface Paciente {
   id: string; nombre: string; telefono: string | null; email: string | null;
-  fecha_nacimiento: string | null; profesion: string | null;
+  fecha_nacimiento: string | null; edad: number | null; profesion: string | null;
   etiquetas_medicas: unknown; acepta_marketing: boolean; created_at: string;
 }
 
 interface Examen {
   id: string; fecha_examen: string;
   optometrista: { nombre: string } | { nombre: string }[] | null;
+  optometrista_nombre: string | null;
   ra_od_esfera: number | null; ra_od_cilindro: number | null; ra_od_eje: number | null; ra_od_adicion: number | null;
   ra_oi_esfera: number | null; ra_oi_cilindro: number | null; ra_oi_eje: number | null; ra_oi_adicion: number | null;
   rf_od_esfera: number | null; rf_od_cilindro: number | null; rf_od_eje: number | null; rf_od_adicion: number | null;
@@ -98,7 +99,10 @@ function TabDemograficos({ paciente, edad }: { paciente: Paciente; edad: number 
         <InfoRow label="Nombre" value={paciente.nombre} />
         <InfoRow label="Teléfono" value={paciente.telefono || "—"} />
         <InfoRow label="Email" value={paciente.email || "—"} />
-        <InfoRow label="Fecha de nacimiento" value={paciente.fecha_nacimiento ? `${paciente.fecha_nacimiento} (${edad} años)` : "—"} />
+        <InfoRow label="Fecha de nacimiento" value={paciente.fecha_nacimiento ? `${paciente.fecha_nacimiento}${edad !== null ? ` (${edad} años)` : ""}` : "—"} />
+        {!paciente.fecha_nacimiento && edad !== null && (
+          <InfoRow label="Edad" value={`${edad} años`} />
+        )}
         <InfoRow label="Profesión" value={paciente.profesion || "—"} />
       </div>
       <div className="space-y-4">
@@ -130,7 +134,7 @@ function TabClinico({ examenes }: { examenes: Examen[] }) {
   return (
     <div className="space-y-4">
       {examenes.map((ex, i) => {
-        const optNombre = getNestedName(ex.optometrista);
+        const optNombre = ex.optometrista_nombre || getNestedName(ex.optometrista);
         return (
           <div key={ex.id} className={`p-5 rounded-xl border transition ${ex.anulado ? "bg-card/50 border-red-500/20 opacity-75" : i === 0 ? "bg-a-blue-bg border-[var(--accent-blue)]" : "bg-card border-b-default"}`}>
             <div className="flex items-center justify-between mb-4">
@@ -281,7 +285,7 @@ function TabEvolucion({ examenes }: { examenes: Examen[] }) {
           {activos.map((ex, i) => {
             const prev = i > 0 ? activos[i - 1] : null;
             const isLatest = i === activos.length - 1;
-            const optNombre = getNestedName(ex.optometrista);
+            const optNombre = ex.optometrista_nombre || getNestedName(ex.optometrista);
             return (
               <div key={ex.id} className="flex gap-4">
                 {/* Dot */}

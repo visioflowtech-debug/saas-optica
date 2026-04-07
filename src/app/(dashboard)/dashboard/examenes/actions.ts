@@ -185,7 +185,7 @@ export async function generarInformeIA(examenId: string): Promise<{ informe: str
   // Fetch exam + patient
   const { data: examen } = await supabase
     .from("examenes_clinicos")
-    .select("*, paciente:pacientes!examenes_clinicos_paciente_id_fkey(nombre, fecha_nacimiento), anamnesis_ext, exploracion_externa, binocularidad, proceso_refractivo, lente_material, lente_color, plan_educacional, control_proxima")
+    .select("*, paciente:pacientes!examenes_clinicos_paciente_id_fkey(nombre, fecha_nacimiento, edad), anamnesis_ext, exploracion_externa, binocularidad, proceso_refractivo, lente_material, lente_color, plan_educacional, control_proxima")
     .eq("id", examenId)
     .eq("tenant_id", tenant_id)
     .single();
@@ -193,15 +193,17 @@ export async function generarInformeIA(examenId: string): Promise<{ informe: str
   if (!examen) return { error: "Examen no encontrado." };
 
   const fmtNum = (v: number | null) => v != null ? (v >= 0 ? `+${v.toFixed(2)}` : v.toFixed(2)) : "—";
-  const paciente = examen.paciente as { nombre: string; fecha_nacimiento: string | null } | null;
+  const paciente = examen.paciente as { nombre: string; fecha_nacimiento: string | null; edad: number | null } | null;
 
   // Calcular edad aproximada
   let edadTexto = "desconocida";
   if (paciente?.fecha_nacimiento) {
     const hoy = new Date();
     const nac = new Date(paciente.fecha_nacimiento);
-    const edad = hoy.getFullYear() - nac.getFullYear();
-    edadTexto = `${edad} años`;
+    const edadCalc = hoy.getFullYear() - nac.getFullYear();
+    edadTexto = `${edadCalc} años`;
+  } else if (paciente?.edad != null) {
+    edadTexto = `${paciente.edad} años`;
   }
 
   // ── Construir secciones opcionales para el prompt ──

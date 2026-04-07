@@ -51,7 +51,7 @@ export default async function ExamenesPage({
   let query = supabase
     .from("examenes_clinicos")
     .select(
-      "id, fecha_examen, rf_od_esfera, rf_od_cilindro, rf_oi_esfera, rf_oi_cilindro, paciente_id, optometrista_id, paciente:pacientes!examenes_clinicos_paciente_id_fkey(nombre), optometrista:usuarios!examenes_clinicos_optometrista_id_fkey(nombre)",
+      "id, fecha_examen, rf_od_esfera, rf_od_cilindro, rf_oi_esfera, rf_oi_cilindro, paciente_id, optometrista_id, optometrista_nombre, paciente:pacientes!examenes_clinicos_paciente_id_fkey(nombre), optometrista:usuarios!examenes_clinicos_optometrista_id_fkey(nombre)",
       { count: "exact" }
     )
     .eq("tenant_id", perfil.tenant_id)
@@ -146,7 +146,7 @@ export default async function ExamenesPage({
               {examenes && examenes.length > 0 ? (
                 examenes.map((ex) => {
                   const pacNombre = getNested(ex.paciente);
-                  const optNombre = getNested(ex.optometrista);
+                  const optNombre = (ex as any).optometrista_nombre || getNested(ex.optometrista);
                   return (
                     <tr key={ex.id} className="hover:bg-card-hover transition">
                       <td className="px-6 py-3.5 text-sm text-t-primary">{fmtFecha(ex.fecha_examen)}</td>
