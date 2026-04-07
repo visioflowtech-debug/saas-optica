@@ -76,10 +76,10 @@ export async function generarSobreLaboratorioPDF(data: SobreData) {
   // Letter Landscape: 279.4mm x 215.9mm
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "letter" });
   
-  const marginLeft = 80;     // 8.0 cm
-  const marginRight = 65;    // 6.5 cm
+  const marginLeft = 82;     // 8.2 cm
+  const marginRight = 70;    // 7.0 cm
   const marginTop = 15;      // 1.5 cm
-  const marginBottom = 13;   // 1.3 cm
+  const marginBottom = 15;   // 1.5 cm
   const pageWidth = 279.4;   // Letter width
   
   const rightEdge = pageWidth - marginRight;
@@ -256,8 +256,8 @@ export async function generarSobreLaboratorioPDF(data: SobreData) {
       y += lineH;
     }
 
-    // Observaciones Finales
-    const obs = lab?.observaciones || data.examen.observaciones;
+    // Observaciones propias de la orden de laboratorio (no del examen)
+    const obs = lab?.observaciones;
     if (obs) {
       y += 2;
       doc.setFont("helvetica", "bold"); doc.text("Observaciones:", marginLeft, y);
@@ -268,25 +268,6 @@ export async function generarSobreLaboratorioPDF(data: SobreData) {
       y += obsLines.length * lineH;
     }
   }
-
-  // ── Detalles de Productos Originales ───────────
-  y += 2;
-  doc.setDrawColor(0);
-  doc.line(marginLeft, y, rightEdge, y);
-  y += 5;
-
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text("PRODUCTOS FACTURADOS", marginLeft, y);
-  y += 5;
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-
-  data.detalles.forEach(d => {
-    doc.text(`- [${d.tipo_producto.toUpperCase()}] ${d.descripcion} (Cant: ${d.cantidad})`, marginLeft, y);
-    y += 4;
-  });
 
   imprimirPDF(doc);
 }

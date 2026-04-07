@@ -55,7 +55,7 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
             dp_oi: d?.dp_oi || "",
             dp: d?.dp || (ex?.dp ? String(ex.dp) : ""),
             altura: d?.altura || (ex?.altura ? String(ex.altura) : ""),
-            observaciones: d?.observaciones || (ex?.observaciones ? ex.observaciones : "")
+            observaciones: d?.observaciones || ""
           });
         })
         .finally(() => setLoading(false));
