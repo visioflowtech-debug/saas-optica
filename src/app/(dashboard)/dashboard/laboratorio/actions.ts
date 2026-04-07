@@ -302,7 +302,7 @@ export async function obtenerOrdenesParaListaPDF(filtros: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
   const { data: usuario } = await supabase
-    .from("usuarios").select("tenant_id").eq("id", user.id).single();
+    .from("usuarios").select("tenant_id, sucursal_id").eq("id", user.id).single();
   if (!usuario) return [];
 
   // Obtener datos de laboratorio con laboratorio_id
@@ -320,12 +320,13 @@ export async function obtenerOrdenesParaListaPDF(filtros: {
 
   const ordenIds = labDatos.map((l) => l.orden_id);
 
-  // Obtener las órdenes correspondientes
+  // Obtener las órdenes correspondientes — filtrado por sucursal
   let ordenQuery = supabase
     .from("ordenes")
     .select("id, created_at, estado, total, paciente:pacientes(nombre), campana:campanas(nombre)")
     .eq("tipo", "orden_trabajo")
     .eq("tenant_id", usuario.tenant_id)
+    .eq("sucursal_id", usuario.sucursal_id)
     .in("id", ordenIds);
 
   if (filtros.campana_id) ordenQuery = ordenQuery.eq("campana_id", filtros.campana_id);
