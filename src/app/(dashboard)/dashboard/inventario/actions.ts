@@ -11,12 +11,14 @@ async function getUserContext() {
 
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("tenant_id, sucursal_id, rol")
+    .select("tenant_id, sucursal_id, rol, sucursal:sucursales(items_por_pagina)")
     .eq("id", user.id)
     .single();
 
   if (!perfil) throw new Error("Perfil no encontrado");
-  return { supabase, userId: user.id, ...perfil };
+  const sucursalCfg = Array.isArray(perfil.sucursal) ? perfil.sucursal[0] : perfil.sucursal;
+  const PAGE_SIZE = Math.max(5, (sucursalCfg as any)?.items_por_pagina ?? 20);
+  return { supabase, userId: user.id, PAGE_SIZE, ...perfil };
 }
 
 export type CategoriaProducto = "aro_economico" | "aro_marca" | "aro_sol" | "accesorio" | "servicio" | "lente" | "tratamiento";
@@ -40,9 +42,10 @@ export async function obtenerProductos(
   categoriaSeleccionada?: string,
   searchTerm?: string,
   page: number = 1,
-  pageSize: number = 20
-): Promise<{ productos: Producto[]; total: number }> {
-  const { supabase, tenant_id, sucursal_id } = await getUserContext();
+  pageSize?: number
+): Promise<{ productos: Producto[]; total: number; pageSize: number }> {
+  const { supabase, tenant_id, sucursal_id, PAGE_SIZE } = await getUserContext();
+  const effectivePageSize = pageSize ?? PAGE_SIZE;
 
   let query = supabase
     .from("productos")
@@ -60,17 +63,17 @@ export async function obtenerProductos(
     query = query.or(`nombre.ilike.%${safe}%,marca.ilike.%${safe}%,modelo.ilike.%${safe}%`);
   }
 
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+  const from = (page - 1) * effectivePageSize;
+  const to = from + effectivePageSize - 1;
 
   query = query.order("created_at", { ascending: false }).range(from, to);
 
   const { data, error, count } = await query;
   if (error) {
     console.error("Error fetching products:", error);
-    return { productos: [], total: 0 };
+    return { productos: [], total: 0, pageSize: effectivePageSize };
   }
-  return { productos: data || [], total: count || 0 };
+  return { productos: data || [], total: count || 0, pageSize: effectivePageSize };
 }
 
 export async function ajustarStock(id: string, nuevoStock: number) {

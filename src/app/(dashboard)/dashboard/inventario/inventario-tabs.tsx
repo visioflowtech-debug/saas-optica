@@ -25,15 +25,16 @@ const CATEGORIA_LABELS: Record<string, string> = {
   tratamiento:   "Tratamiento",
 };
 
-const PAGE_SIZE = 10;
-
 export default function InventarioTabs({
   productosIniciales,
   totalInicial,
+  pageSizeInicial,
 }: {
   productosIniciales: Producto[];
   totalInicial: number;
+  pageSizeInicial: number;
 }) {
+  const PAGE_SIZE = pageSizeInicial;
   const [activa, setActiva] = useState<CategoriaProducto | "todo">("todo");
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);

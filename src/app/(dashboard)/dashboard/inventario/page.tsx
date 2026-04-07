@@ -16,7 +16,7 @@ export default async function InventarioPage() {
   const { data: perfil } = await supabase.from("usuarios").select("rol").eq("id", user.id).single();
   if (!puedeAcceder(perfil?.rol ?? "", "inventario")) redirect("/dashboard");
 
-  const { productos, total } = await obtenerProductos();
+  const { productos, total, pageSize } = await obtenerProductos();
 
   return (
     <div className="p-4 sm:p-8 w-full max-w-7xl mx-auto space-y-6 fade-in">
@@ -29,7 +29,7 @@ export default async function InventarioPage() {
         </div>
       </div>
 
-      <InventarioTabs productosIniciales={productos} totalInicial={total} />
+      <InventarioTabs productosIniciales={productos} totalInicial={total} pageSizeInicial={pageSize} />
     </div>
   );
 }
