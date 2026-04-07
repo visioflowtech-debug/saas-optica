@@ -21,9 +21,10 @@ export default function DobEdadInput({
   defaultEdad?: string;
 }) {
   const [dob, setDob] = useState(defaultDob);
+  const [edadManual, setEdadManual] = useState(defaultEdad);
   const computedAge = calcularEdad(dob);
-  // Si hay DOB válido, la edad se calcula automáticamente; si no, el campo es editable
-  const edadValue = computedAge !== null ? String(computedAge) : defaultEdad;
+  // Si hay DOB válido, la edad se calcula automáticamente; si no, usar la edad ingresada manualmente
+  const edadValue = computedAge !== null ? String(computedAge) : edadManual;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -55,7 +56,7 @@ export default function DobEdadInput({
           max="120"
           value={edadValue}
           readOnly={computedAge !== null}
-          onChange={() => {}}
+          onChange={(e) => { if (computedAge === null) setEdadManual(e.target.value); }}
           placeholder={computedAge !== null ? "" : "Ej: 45"}
           className={`w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
             computedAge !== null ? "opacity-60 cursor-not-allowed" : ""
