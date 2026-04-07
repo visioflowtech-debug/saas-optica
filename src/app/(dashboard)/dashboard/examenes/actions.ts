@@ -147,7 +147,15 @@ export async function obtenerDatosReceta(examenId: string) {
 
   const numero_junta = (juntaRes.data as { descripcion: string | null } | null)?.descripcion ?? null;
 
-  return { examen, empresa: empresaRes.data, sucursal: sucursalRes.data, numero_junta };
+  // Usar optometrista_nombre (elegido en el formulario) en lugar del usuario conectado
+  const examenConOpt = {
+    ...examen,
+    optometrista: examen.optometrista_nombre
+      ? { nombre: examen.optometrista_nombre }
+      : examen.optometrista,
+  };
+
+  return { examen: examenConOpt, empresa: empresaRes.data, sucursal: sucursalRes.data, numero_junta };
 }
 
 export async function obtenerUltimaRefraccion(pacienteId: string) {
