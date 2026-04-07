@@ -179,42 +179,71 @@ export async function generarInformeIA(examenId: string): Promise<{ informe: str
     edadTexto = `${edad} años`;
   }
 
-  const prompt = `Eres un optometrista clínico experto. Genera un informe clínico profesional y estructurado en español basado en los siguientes datos del examen visual.
+  const prompt = `Eres un optometrista clínico certificado. Tu tarea es generar un informe clínico estructurado en español, EXCLUSIVAMENTE a partir de los datos del examen registrados a continuación. No inventes, supongas ni extrapoles información que no esté explícitamente presente en los datos.
 
+═══════════════════════════════════════════
+DATOS DEL EXAMEN
+═══════════════════════════════════════════
 PACIENTE: ${paciente?.nombre ?? "Sin nombre"}
 EDAD: ${edadTexto}
 FECHA DE EXAMEN: ${new Date(examen.fecha_examen).toLocaleDateString("es-SV")}
-MOTIVO DE CONSULTA: ${examen.motivo_consulta ?? "No especificado"}
-LENTE EN USO PREVIO: ${examen.lente_uso ?? "No especificado"}
+MOTIVO DE CONSULTA: ${examen.motivo_consulta ?? "No registrado"}
+LENTE EN USO PREVIO: ${examen.lente_uso ?? "No registrado"}
 
-AGUDEZA VISUAL SIN CORRECCIÓN:
-- OD: ${examen.av_od_sin_lentes ?? "—"}  OI: ${examen.av_oi_sin_lentes ?? "—"}
+AGUDEZA VISUAL (AV) — escala métrica, distancia 6 metros:
+  Sin corrección:  OD ${examen.av_od_sin_lentes ?? "no registrado"}  |  OI ${examen.av_oi_sin_lentes ?? "no registrado"}
+  Con corrección:  OD ${examen.av_od_cc ?? "no registrado"}           |  OI ${examen.av_oi_cc ?? "no registrado"}
 
-AGUDEZA VISUAL CON CORRECCIÓN:
-- OD: ${examen.av_od_cc ?? "—"}  OI: ${examen.av_oi_cc ?? "—"}
+PRESIÓN INTRAOCULAR (PIO) — valores normales 10–21 mmHg:
+  OD: ${examen.pio_od != null ? `${examen.pio_od} mmHg` : "no registrada"}  |  OI: ${examen.pio_oi != null ? `${examen.pio_oi} mmHg` : "no registrada"}
 
-PRESIÓN INTRAOCULAR (PIO):
-- OD: ${examen.pio_od != null ? `${examen.pio_od} mmHg` : "—"}  OI: ${examen.pio_oi != null ? `${examen.pio_oi} mmHg` : "—"}
+REFRACCIÓN ACTUAL — lente que el paciente usa actualmente (RA):
+  OD: Esf ${fmtNum(examen.ra_od_esfera)} / Cil ${fmtNum(examen.ra_od_cilindro)} × ${examen.ra_od_eje ?? "—"}° / Add ${fmtNum(examen.ra_od_adicion)}
+  OI: Esf ${fmtNum(examen.ra_oi_esfera)} / Cil ${fmtNum(examen.ra_oi_cilindro)} × ${examen.ra_oi_eje ?? "—"}° / Add ${fmtNum(examen.ra_oi_adicion)}
 
-REFRACCIÓN ACTUAL (RA):
-- OD: Esf ${fmtNum(examen.ra_od_esfera)} / Cil ${fmtNum(examen.ra_od_cilindro)} × ${examen.ra_od_eje ?? "—"}° / Add ${fmtNum(examen.ra_od_adicion)}
-- OI: Esf ${fmtNum(examen.ra_oi_esfera)} / Cil ${fmtNum(examen.ra_oi_cilindro)} × ${examen.ra_oi_eje ?? "—"}° / Add ${fmtNum(examen.ra_oi_adicion)}
+REFRACCIÓN FINAL — nueva prescripción recomendada (RF):
+  OD: Esf ${fmtNum(examen.rf_od_esfera)} / Cil ${fmtNum(examen.rf_od_cilindro)} × ${examen.rf_od_eje ?? "—"}° / Add ${fmtNum(examen.rf_od_adicion)}
+  OI: Esf ${fmtNum(examen.rf_oi_esfera)} / Cil ${fmtNum(examen.rf_oi_cilindro)} × ${examen.rf_oi_eje ?? "—"}° / Add ${fmtNum(examen.rf_oi_adicion)}
 
-REFRACCIÓN FINAL (RF — PRESCRIPCIÓN):
-- OD: Esf ${fmtNum(examen.rf_od_esfera)} / Cil ${fmtNum(examen.rf_od_cilindro)} × ${examen.rf_od_eje ?? "—"}° / Add ${fmtNum(examen.rf_od_adicion)}
-- OI: Esf ${fmtNum(examen.rf_oi_esfera)} / Cil ${fmtNum(examen.rf_oi_cilindro)} × ${examen.rf_oi_eje ?? "—"}° / Add ${fmtNum(examen.rf_oi_adicion)}
+DISTANCIA PUPILAR (DP): ${examen.dp != null ? `${examen.dp} mm` : "no registrada"}${examen.dp_oi != null ? ` / OI ${examen.dp_oi} mm` : ""}
+ALTURA DE MONTAJE: ${examen.altura != null ? `${examen.altura} mm` : "no registrada"}
+OBSERVACIONES DEL OPTOMETRISTA: ${examen.observaciones?.trim() || "Ninguna"}
 
-DP: ${examen.dp != null ? `${examen.dp} mm` : "—"}  Altura: ${examen.altura != null ? `${examen.altura} mm` : "—"}
-OBSERVACIONES DEL OPTOMETRISTA: ${examen.observaciones ?? "Ninguna"}
+═══════════════════════════════════════════
+REGLAS OBLIGATORIAS (NO NEGOCIABLES)
+═══════════════════════════════════════════
+1. SOLO interpreta datos presentes. Si un campo dice "no registrado" o "—", indícalo como tal; NO inferas ni supongas su valor.
+2. USA SIEMPRE la escala métrica: agudeza visual en notación de 6 metros (6/6, 6/9, 6/12, etc.), distancias en mm/cm, nunca en pies ni 20/20.
+3. No diagnostiques condiciones (glaucoma, catarata, retinopatía, etc.) si no hay datos que las soporten directamente.
+4. No recomiendes medicamentos, marcas comerciales ni tratamientos quirúrgicos.
+5. Si la PIO está fuera del rango normal (10–21 mmHg), menciónalo con precisión indicando el valor exacto registrado.
+6. La ametropía se clasifica solo a partir de los valores de refracción final (RF). Usa estos criterios:
+   - Esfera negativa → Miopía
+   - Esfera positiva → Hipermetropía
+   - Cilindro presente → Astigmatismo (combinado si coexiste con miopía/hipermetropía)
+   - Adición presente → Presbicia (indica que el paciente requiere corrección para visión cercana)
+7. Si la refracción actual (RA) y la final (RF) difieren significativamente, menciónalo como "cambio de prescripción".
+8. El tono debe ser profesional y clínico, comprensible para el paciente sin ser coloquial.
+9. NO especules sobre causas no documentadas, antecedentes familiares ni condiciones sistémicas.
 
-Genera un informe clínico con las siguientes secciones:
-1. **Resumen del Caso** — descripción breve del paciente y motivo de consulta
-2. **Hallazgos Clínicos** — interpretación de la agudeza visual, refracción y PIO
-3. **Diagnóstico / Impresión Clínica** — tipo de ametropía, condición visual, PIO si aplica
-4. **Plan y Recomendaciones** — tipo de corrección óptica indicada, seguimiento recomendado, consejos para el paciente
-5. **Notas Adicionales** — cualquier observación relevante
+═══════════════════════════════════════════
+ESTRUCTURA DEL INFORME (usa exactamente estas secciones)
+═══════════════════════════════════════════
+**1. Resumen del Caso**
+Describe brevemente quién es el paciente, su edad y motivo de consulta. Solo con los datos registrados.
 
-Sé claro, profesional y orientado al paciente. No repitas literalmente los números de la tabla — interprétalos. Usa terminología optométrica apropiada. El informe debe servir tanto como documento clínico como comunicación al paciente.`;
+**2. Hallazgos Clínicos**
+Interpreta la agudeza visual (con y sin corrección), la refracción y la PIO. Indica si los valores son normales o alterados según los criterios establecidos. Si un dato no fue registrado, dilo explícitamente.
+
+**3. Diagnóstico / Impresión Clínica**
+Clasifica la ametropía según los criterios de la Regla 6. Si no hay datos suficientes para diagnosticar, indícalo. No añadas diagnósticos adicionales sin respaldo en los datos.
+
+**4. Plan y Recomendaciones**
+Indica el tipo de corrección óptica prescrita (lentes monofocales, bifocales, progresivos, según la presencia de adición). Recomendaciones de seguimiento basadas solo en los hallazgos presentes. Máximo 4 puntos concretos.
+
+**5. Notas Adicionales**
+Incluye únicamente las observaciones registradas por el optometrista. Si no hay observaciones, escribe "Sin observaciones adicionales registradas."
+`;
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
