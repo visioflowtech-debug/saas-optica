@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { actualizarEstado, convertirAOrden, anularOrden, obtenerDatosTicket } from "../actions";
 import { eliminarOrdenCompleta } from "../../eliminar-actions";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function OrdenAcciones({ ordenId, tipo, estado }: Props) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [printing, setPrinting] = useState(false);
   const [showLabModal, setShowLabModal] = useState(false);
@@ -29,7 +31,9 @@ export default function OrdenAcciones({ ordenId, tipo, estado }: Props) {
   const handleConvertir = () => {
     startTransition(async () => {
       await convertirAOrden(ordenId);
-      // After converting, open the lab details modal so the user can fill it out immediately
+      // Refrescar para que el Server Component recargue tipo/estado actualizados
+      router.refresh();
+      // Abrir modal de datos de laboratorio inmediatamente
       setShowLabModal(true);
     });
   };

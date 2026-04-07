@@ -174,6 +174,7 @@ export async function crearProforma(formData: FormData) {
   // Insert line items
   const detalles = items.map((it) => ({
     orden_id: orden.id,
+    tenant_id,
     producto_id: it.producto_id,
     tipo_producto: it.tipo_producto,
     descripcion: it.descripcion,
@@ -245,8 +246,8 @@ export async function convertirAOrden(ordenId: string) {
     .single();
 
   if (!ordenActual) throw new Error("Orden no encontrada");
-  if (ordenActual.tipo !== "proforma" || ordenActual.estado !== "borrador") {
-    // Idempotente: si ya fue convertida, no hacer nada
+  if (ordenActual.tipo !== "proforma" || ordenActual.estado !== "confirmada") {
+    // Idempotente: si ya fue convertida o no está confirmada, no hacer nada
     return;
   }
 
