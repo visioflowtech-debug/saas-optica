@@ -218,7 +218,7 @@ Sé claro, profesional y orientado al paciente. No repitas literalmente los núm
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(prompt);
     const informe = result.response.text();
 
@@ -235,7 +235,10 @@ Sé claro, profesional y orientado al paciente. No repitas literalmente los núm
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[generarInformeIA]", msg);
-    return { error: `Error Gemini: ${msg}` };
+    if (msg.includes("429") || msg.includes("quota") || msg.includes("Too Many Requests")) {
+      return { error: "Límite de cuota de Gemini alcanzado. Espera unos minutos e intenta de nuevo." };
+    }
+    return { error: "Error al conectar con Gemini. Verifica la API key." };
   }
 }
 
