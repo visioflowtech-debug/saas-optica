@@ -41,6 +41,13 @@ export async function crearExamen(formData: FormData) {
     return val?.trim() || null;
   };
 
+  // Parsear módulos opcionales (JSON desde hidden inputs)
+  const parseJsonField = (key: string) => {
+    const raw = (formData.get(key) as string)?.trim();
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  };
+
   const { data: nuevoExamen, error } = await supabase.from("examenes_clinicos").insert({
     tenant_id,
     sucursal_id,
@@ -49,7 +56,7 @@ export async function crearExamen(formData: FormData) {
     optometrista_id: userId,
     optometrista_nombre: parseStr("optometrista_nombre"),
     fecha_examen: new Date().toISOString(),
-    // Extra fields
+    // Datos base
     motivo_consulta: parseStr("motivo_consulta"),
     lente_uso: parseStr("lente_uso"),
     av_od_sin_lentes: parseStr("av_od_sin_lentes"),
@@ -63,6 +70,11 @@ export async function crearExamen(formData: FormData) {
     dp_unico: parseStr("dp_unico"),
     altura: parseNum("altura"),
     observaciones: parseStr("observaciones"),
+    // Plan y recomendaciones
+    lente_material: parseStr("lente_material"),
+    lente_color: parseStr("lente_color"),
+    plan_educacional: parseStr("plan_educacional"),
+    control_proxima: parseStr("control_proxima"),
     // Refracción Actual (RA)
     ra_od_esfera: parseNum("ra_od_esfera"),
     ra_od_cilindro: parseNum("ra_od_cilindro"),
@@ -81,6 +93,11 @@ export async function crearExamen(formData: FormData) {
     rf_oi_cilindro: parseNum("rf_oi_cilindro"),
     rf_oi_eje: parseNum("rf_oi_eje"),
     rf_oi_adicion: parseNum("rf_oi_adicion"),
+    // Módulos opcionales (jsonb — null si no se completaron)
+    anamnesis_ext:       parseJsonField("anamnesis_ext"),
+    exploracion_externa: parseJsonField("exploracion_externa"),
+    binocularidad:       parseJsonField("binocularidad"),
+    proceso_refractivo:  parseJsonField("proceso_refractivo"),
   }).select("id").single();
 
   if (error) {
@@ -160,7 +177,7 @@ export async function generarInformeIA(examenId: string): Promise<{ informe: str
   // Fetch exam + patient
   const { data: examen } = await supabase
     .from("examenes_clinicos")
-    .select("*, paciente:pacientes!examenes_clinicos_paciente_id_fkey(nombre, fecha_nacimiento)")
+    .select("*, paciente:pacientes!examenes_clinicos_paciente_id_fkey(nombre, fecha_nacimiento), anamnesis_ext, exploracion_externa, binocularidad, proceso_refractivo, lente_material, lente_color, plan_educacional, control_proxima")
     .eq("id", examenId)
     .eq("tenant_id", tenant_id)
     .single();
@@ -179,6 +196,64 @@ export async function generarInformeIA(examenId: string): Promise<{ informe: str
     edadTexto = `${edad} años`;
   }
 
+  // ── Construir secciones opcionales para el prompt ──
+  const truncate = (s: unknown, max = 300) => typeof s === "string" ? s.slice(0, max) : "";
+  const an = examen.anamnesis_ext as Record<string, unknown> | null;
+  const ex_ext = examen.exploracion_externa as Record<string, { nl: boolean | null; nota: string }> | null;
+  const bino = examen.binocularidad as Record<string, string> | null;
+  const proc = examen.proceso_refractivo as Record<string, unknown> | null;
+  const hxFam = (an && typeof an.hx_familiar === "object" && an.hx_familiar !== null)
+    ? an.hx_familiar as Record<string, boolean>
+    : { diabetes: false, glaucoma: false, lentes: false, estrabismo: false };
+
+  const seccionAnamnesis = an ? `
+ANAMNESIS CLÍNICA (registrada por el optometrista):
+  Síntomas presentes: ${Array.isArray(an.sintomas) && (an.sintomas as string[]).length > 0 ? (an.sintomas as string[]).join(", ") : "ninguno registrado"}
+  Medicamentos actuales: ${truncate(an.medicamentos) || "no registrados"}
+  Tabaquismo: ${an.fuma ? `Sí (${an.cigarrillos_dia ?? "?"} cig/día)` : "No"}
+  Consumo de alcohol: ${an.consume_alcohol ? "Sí" : "No"}
+  Historia familiar — Diabetes: ${hxFam.diabetes ? "SÍ" : "No"} | Glaucoma: ${hxFam.glaucoma ? "SÍ" : "No"} | Usan lentes: ${hxFam.lentes ? "SÍ" : "No"} | Estrabismo: ${hxFam.estrabismo ? "SÍ" : "No"}` : `
+ANAMNESIS CLÍNICA: No registrada en este examen.`;
+
+  const seccionExploracion = ex_ext ? `
+EXPLORACIÓN OCULAR EXTERNA:
+${Object.entries(ex_ext).map(([seg, val]) => {
+    const nombre = { parpados: "Párpados", conjuntiva: "Conjuntiva", cornea: "Córnea", iris: "Iris", cristalino: "Cristalino", reflejo_pupilar: "Reflejo pupilar", mov_oculares: "Movimientos oculares" }[seg] ?? seg;
+    if (val.nl === null) return `  ${nombre}: No evaluado`;
+    return `  ${nombre}: ${val.nl ? "Normal (NL)" : `Anormal (ANL)${val.nota ? ` — ${val.nota}` : ""}`}`;
+  }).join("\n")}` : `
+EXPLORACIÓN OCULAR EXTERNA: No registrada en este examen.`;
+
+  const seccionBinocularidad = bino && Object.values(bino).some((v) => v?.trim()) ? `
+BINOCULARIDAD Y MOTILIDAD:
+  Cover Test — Lejos: ${bino.cover_lejos || "no registrado"}
+  Cover Test — 40 cm: ${bino.cover_40cm || "no registrado"}
+  Cover Test — 20 cm: ${bino.cover_20cm || "no registrado"}
+  Test de Hirshberg: ${bino.hirshberg || "no registrado"}
+  Ducciones OD: ${bino.ducciones_od || "no registrado"} | OI: ${bino.ducciones_oi || "no registrado"}
+  Versiones: ${bino.versiones || "no registradas"}
+  Ojo dominante: ${bino.ojo_dominante || "no registrado"} | Ojo fijador: ${bino.ojo_fijador || "no registrado"}` : `
+BINOCULARIDAD Y MOTILIDAD: No registrada en este examen.`;
+
+  const seccionProceso = proc && Object.values(proc).some((v) => String(v ?? "").trim()) ? `
+PROCESO REFRACTIVO COMPLETO:
+  Retinoscopía objetiva OD: Esf ${proc.retino_od_esfera ?? "—"} / Cil ${proc.retino_od_cilindro ?? "—"} × ${proc.retino_od_eje ?? "—"}°
+  Retinoscopía objetiva OI: Esf ${proc.retino_oi_esfera ?? "—"} / Cil ${proc.retino_oi_cilindro ?? "—"} × ${proc.retino_oi_eje ?? "—"}°
+  AV sin corrección cerca — OD: ${proc.av_od_sc_cerca ?? "no registrado"} | OI: ${proc.av_oi_sc_cerca ?? "no registrado"}
+  AV con corrección cerca — OD: ${proc.av_od_cc_cerca ?? "no registrado"} | OI: ${proc.av_oi_cc_cerca ?? "no registrado"}
+  Pinhole — OD: ${proc.pinhole_od ?? "no registrado"} | OI: ${proc.pinhole_oi ?? "no registrado"}
+  Prueba subjetiva utilizada: ${proc.prueba_subjetiva ?? "no registrada"}
+  Prueba ambulatoria: ${proc.prueba_ambulatoria ?? "no registrada"}
+  Toleró la prescripción: ${proc.tolera_prescripcion === "si" ? "Sí" : proc.tolera_prescripcion === "no" ? "No" : "no registrado"}` : `
+PROCESO REFRACTIVO COMPLETO: No registrado en este examen.`;
+
+  const seccionPlan = (examen.lente_material || examen.lente_color || examen.plan_educacional || examen.control_proxima) ? `
+PLAN Y RECOMENDACIONES DE LENTE:
+  Material: ${examen.lente_material ?? "no especificado"}
+  Color/tinte: ${examen.lente_color ?? "no especificado"}
+  Próximo control: ${examen.control_proxima ?? "no especificado"}
+  Plan educacional: ${examen.plan_educacional?.trim() || "ninguno registrado"}` : "";
+
   const prompt = `Eres un optometrista clínico certificado. Tu tarea es generar un informe clínico estructurado en español, EXCLUSIVAMENTE a partir de los datos del examen registrados a continuación. No inventes, supongas ni extrapoles información que no esté explícitamente presente en los datos.
 
 ═══════════════════════════════════════════
@@ -189,6 +264,10 @@ EDAD: ${edadTexto}
 FECHA DE EXAMEN: ${new Date(examen.fecha_examen).toLocaleDateString("es-SV")}
 MOTIVO DE CONSULTA: ${examen.motivo_consulta ?? "No registrado"}
 LENTE EN USO PREVIO: ${examen.lente_uso ?? "No registrado"}
+${seccionAnamnesis}
+${seccionExploracion}
+${seccionBinocularidad}
+${seccionProceso}
 
 AGUDEZA VISUAL (AV) — escala métrica, distancia 6 metros:
   Sin corrección:  OD ${examen.av_od_sin_lentes ?? "no registrado"}  |  OI ${examen.av_oi_sin_lentes ?? "no registrado"}
@@ -207,7 +286,8 @@ REFRACCIÓN FINAL — nueva prescripción recomendada (RF):
 
 DISTANCIA PUPILAR (DP): ${examen.dp != null ? `${examen.dp} mm` : "no registrada"}${examen.dp_oi != null ? ` / OI ${examen.dp_oi} mm` : ""}
 ALTURA DE MONTAJE: ${examen.altura != null ? `${examen.altura} mm` : "no registrada"}
-OBSERVACIONES DEL OPTOMETRISTA: ${examen.observaciones?.trim() || "Ninguna"}
+OBSERVACIONES DEL OPTOMETRISTA: ${truncate(examen.observaciones?.trim(), 500) || "Ninguna"}
+${seccionPlan}
 
 ═══════════════════════════════════════════
 REGLAS OBLIGATORIAS (NO NEGOCIABLES)
