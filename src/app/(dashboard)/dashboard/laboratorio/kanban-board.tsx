@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragStartEvent,
   DragEndEvent,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -71,6 +73,14 @@ export default function KanbanBoard({ items: initialItems }: { items: LabItem[] 
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Estrategia: pointerWithin detecta el contenedor bajo el cursor (no la esquina más cercana).
+  // Esto evita que dnd-kit detecte el propio item como "over" cuando se arrastra a otra columna.
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    const pwResult = pointerWithin(args);
+    if (pwResult.length > 0) return pwResult;
+    return rectIntersection(args);
+  }, []);
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
@@ -79,7 +89,8 @@ export default function KanbanBoard({ items: initialItems }: { items: LabItem[] 
     setActiveId(null);
     const { active, over } = event;
 
-    if (!over) return;
+    // Sin destino o soltado sobre sí mismo sin cambio de columna
+    if (!over || over.id === active.id) return;
 
     const activeId = active.id;
     const overId = over.id;
@@ -150,7 +161,7 @@ export default function KanbanBoard({ items: initialItems }: { items: LabItem[] 
     <DndContext
       id="kanban-context"
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
