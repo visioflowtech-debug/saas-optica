@@ -236,42 +236,69 @@ export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
 export async function convertirAOrden(ordenId: string) {
   const { supabase, tenant_id } = await getUserContext();
 
-  // 1. Fetch line items to check stock
+  // 1. Verificar ownership + idempotencia: la orden debe ser proforma en borrador
+  const { data: ordenActual } = await supabase
+    .from("ordenes")
+    .select("id, tipo, estado")
+    .eq("id", ordenId)
+    .eq("tenant_id", tenant_id)
+    .single();
+
+  if (!ordenActual) throw new Error("Orden no encontrada");
+  if (ordenActual.tipo !== "proforma" || ordenActual.estado !== "borrador") {
+    // Idempotente: si ya fue convertida, no hacer nada
+    return;
+  }
+
+  // 2. Fetch line items (seguro: ownership verificado en paso 1)
   const { data: items } = await supabase
     .from("orden_detalle")
     .select("producto_id, cantidad")
     .eq("orden_id", ordenId);
 
   if (items && items.length > 0) {
-    for (const item of items) {
-      if (item.producto_id) {
-        // Fetch product to see if it manages stock
-        const { data: prod } = await supabase
-          .from("productos")
-          .select("maneja_stock, stock")
-          .eq("id", item.producto_id)
-          .eq("tenant_id", tenant_id)
-          .single();
+    const productoIds = items.map(i => i.producto_id).filter(Boolean) as string[];
+    if (productoIds.length > 0) {
+      const { data: productos } = await supabase
+        .from("productos")
+        .select("id, maneja_stock, stock")
+        .in("id", productoIds)
+        .eq("tenant_id", tenant_id);
 
-        if (prod?.maneja_stock) {
-          const nuevoStock = (prod.stock || 0) - (item.cantidad || 0);
-          await supabase
-            .from("productos")
-            .update({ stock: nuevoStock })
-            .eq("id", item.producto_id)
-            .eq("tenant_id", tenant_id);
+      if (productos && productos.length > 0) {
+        const stockMap = new Map(productos.map(p => [p.id, p]));
+        const itemsConStock = items.filter(
+          item => item.producto_id && stockMap.get(item.producto_id)?.maneja_stock
+        );
+
+        // 2a. Validar stock suficiente ANTES de descontar
+        for (const item of itemsConStock) {
+          const prod = stockMap.get(item.producto_id!)!;
+          if ((prod.stock ?? 0) < (item.cantidad ?? 0)) {
+            throw new Error(`Stock insuficiente para el producto ${item.producto_id}`);
+          }
         }
+
+        // 2b. Descontar stock atómicamente (evita race conditions)
+        await Promise.all(
+          itemsConStock.map(item =>
+            supabase.rpc("ajustar_stock_atomico", {
+              p_producto_id: item.producto_id,
+              p_delta: -(item.cantidad ?? 0),
+              p_tenant_id: tenant_id,
+            })
+          )
+        );
       }
     }
   }
 
-  // 2. Update order type and status
+  // 3. Update order type and status
   const { error } = await supabase
     .from("ordenes")
     .update({
       tipo: "orden_trabajo",
       estado: "confirmada",
-      updated_at: new Date().toISOString()
     })
     .eq("id", ordenId)
     .eq("tenant_id", tenant_id);
@@ -318,8 +345,7 @@ export async function anularOrden(ordenId: string) {
 
   if (!orden || orden.estado === "cancelada") return;
 
-  // 2. Restitute stock if it was an "orden_trabajo" (because stock was deducted upon conversion)
-  // or if it was a proforma that somehow already had stock deducted (though currently we deduct on conversion)
+  // 2. Restituir stock atómicamente si fue orden_trabajo (el stock se descontó al convertir)
   if (orden.tipo === "orden_trabajo") {
     const { data: items } = await supabase
       .from("orden_detalle")
@@ -327,23 +353,29 @@ export async function anularOrden(ordenId: string) {
       .eq("orden_id", ordenId);
 
     if (items && items.length > 0) {
-      for (const item of items) {
-        if (item.producto_id) {
-          const { data: prod } = await supabase
-            .from("productos")
-            .select("maneja_stock, stock")
-            .eq("id", item.producto_id)
-            .eq("tenant_id", tenant_id)
-            .single();
+      const productoIds = items.map(i => i.producto_id).filter(Boolean) as string[];
+      if (productoIds.length > 0) {
+        const { data: productos } = await supabase
+          .from("productos")
+          .select("id, maneja_stock")
+          .in("id", productoIds)
+          .eq("tenant_id", tenant_id);
 
-          if (prod?.maneja_stock) {
-            const nuevoStock = (prod.stock || 0) + (item.cantidad || 0);
-            await supabase
-              .from("productos")
-              .update({ stock: nuevoStock })
-              .eq("id", item.producto_id)
-              .eq("tenant_id", tenant_id);
-          }
+        if (productos && productos.length > 0) {
+          const stockSet = new Set(
+            productos.filter(p => p.maneja_stock).map(p => p.id)
+          );
+          await Promise.all(
+            items
+              .filter(item => item.producto_id && stockSet.has(item.producto_id))
+              .map(item =>
+                supabase.rpc("ajustar_stock_atomico", {
+                  p_producto_id: item.producto_id,
+                  p_delta: item.cantidad ?? 0,   // positivo = sumar de vuelta
+                  p_tenant_id: tenant_id,
+                })
+              )
+          );
         }
       }
     }

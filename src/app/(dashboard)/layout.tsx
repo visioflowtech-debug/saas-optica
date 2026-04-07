@@ -103,7 +103,7 @@ export default async function DashboardLayout({
   });
 
   return (
-    <div className="flex h-screen flex-col app-layout" style={{ background: "var(--bg-body)", height: "100dvh" }}>
+    <div className="flex flex-col app-layout" style={{ background: "var(--bg-body)", height: "100dvh" }}>
       {/* Mobile top bar + drawer */}
       <MobileNav
         navItems={navItems}

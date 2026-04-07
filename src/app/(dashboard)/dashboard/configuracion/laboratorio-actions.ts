@@ -43,7 +43,13 @@ export async function actualizarLaboratorio(
 ) {
   const { supabase, tenant_id } = await getUserContext();
   const { error } = await supabase.from("laboratorios")
-    .update({ ...payload, updated_at: new Date().toISOString() })
+    .update({
+      nombre: payload.nombre,
+      contacto: payload.contacto,
+      telefono: payload.telefono,
+      email: payload.email,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id).eq("tenant_id", tenant_id);
   if (error) return { error: error.message };
   revalidatePath("/dashboard/configuracion");
@@ -64,7 +70,7 @@ export async function eliminarLaboratorio(id: string) {
   const { supabase, tenant_id } = await getUserContext();
   // Desvincular órdenes antes de borrar
   await supabase.from("orden_laboratorio_datos")
-    .update({ laboratorio_id: null }).eq("laboratorio_id", id);
+    .update({ laboratorio_id: null }).eq("laboratorio_id", id).eq("tenant_id", tenant_id);
   const { error } = await supabase.from("laboratorios")
     .delete().eq("id", id).eq("tenant_id", tenant_id);
   if (error) return { error: error.message };

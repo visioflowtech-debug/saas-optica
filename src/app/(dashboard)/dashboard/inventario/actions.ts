@@ -56,7 +56,8 @@ export async function obtenerProductos(
   }
 
   if (searchTerm) {
-    query = query.or(`nombre.ilike.%${searchTerm}%,marca.ilike.%${searchTerm}%,modelo.ilike.%${searchTerm}%`);
+    const safe = searchTerm.trim().replace(/[%_\\]/g, "\\$&");
+    query = query.or(`nombre.ilike.%${safe}%,marca.ilike.%${safe}%,modelo.ilike.%${safe}%`);
   }
 
   const from = (page - 1) * pageSize;

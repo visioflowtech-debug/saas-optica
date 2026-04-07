@@ -41,7 +41,8 @@ export async function cambiarSucursal(sucursalId: string) {
   const { error } = await supabase
     .from("usuarios")
     .update({ sucursal_id: sucursalId })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .eq("tenant_id", perfil.tenant_id);
 
   if (error) return { error: "Error al cambiar sucursal: " + error.message };
 

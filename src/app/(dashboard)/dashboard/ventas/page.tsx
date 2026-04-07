@@ -278,8 +278,8 @@ export default async function VentasPage({
         <div className="bg-card border border-b-default rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
           <div className="overflow-x-auto overscroll-x-contain">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-b-subtle">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-b-subtle bg-card">
                 <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Paciente</th>
                 <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Tipo</th>
                 <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Estado</th>

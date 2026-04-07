@@ -18,6 +18,13 @@ export async function obtenerOrdenesLaboratorio() {
   const sucursalCfg = Array.isArray(perfil.sucursal) ? perfil.sucursal[0] : perfil.sucursal;
   const diasKanban = (sucursalCfg as any)?.dias_kanban_entregado ?? 7;
 
+  // Limitar kanban a órdenes de los últimos 90 días para evitar carga excesiva
+  // Usar svFechaInicioUTC para respetar timezone El Salvador (UTC-6)
+  const hace90Dias = new Date();
+  hace90Dias.setDate(hace90Dias.getDate() - 90);
+  const fechaSV = hace90Dias.toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const fechaCorte = svFechaInicioUTC(fechaSV);
+
   // Get orders that are "orden_trabajo" and not "cancelada"
   const { data: ordenes, error: ordenesError } = await supabase
     .from("ordenes")
@@ -34,8 +41,9 @@ export async function obtenerOrdenesLaboratorio() {
     .eq("sucursal_id", perfil.sucursal_id)
     .eq("tipo", "orden_trabajo")
     .neq("estado", "cancelada")
+    .gte("created_at", fechaCorte)
     .order("created_at", { ascending: false })
-    .limit(200);
+    .limit(500);
 
   if (ordenesError) throw new Error(ordenesError.message);
 

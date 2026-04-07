@@ -148,8 +148,8 @@ export default async function PacientesPage({
       <div className="bg-card border border-b-default rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
         <div className="overflow-x-auto overscroll-x-contain">
           <table className="w-full">
-            <thead>
-              <tr className="border-b border-b-subtle bg-input/40">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-b-subtle bg-card">
                 <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-t-muted uppercase tracking-wider">
                   Paciente
                 </th>

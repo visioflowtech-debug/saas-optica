@@ -163,8 +163,17 @@ export async function editarGasto(
   const { data: gasto } = await supabase
     .from("gastos").select("campana_id").eq("id", id).eq("tenant_id", tenant_id).single();
 
+  if (!gasto) return { error: "Gasto no encontrado" };
+
   const { error } = await supabase.from("gastos")
-    .update({ ...payload, updated_at: new Date().toISOString() })
+    .update({
+      concepto: payload.concepto,
+      categoria: payload.categoria,
+      monto: payload.monto,
+      fecha: payload.fecha,
+      notas: payload.notas,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id).eq("tenant_id", tenant_id);
 
   if (error) return { error: error.message };

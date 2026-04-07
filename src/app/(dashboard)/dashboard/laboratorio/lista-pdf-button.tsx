@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { obtenerOrdenesParaListaPDF } from "./actions";
-import { generarListaOrdenesLaboratorioPDF } from "./lista-pdf";
 
 interface Props {
   laboratorios: { id: string; nombre: string }[];
@@ -24,13 +23,16 @@ export default function ListaPDFButton({ laboratorios, campanas }: Props) {
 
   const handleGenerar = () => {
     startTransition(async () => {
-      const ordenes = await obtenerOrdenesParaListaPDF({
-        laboratorio_id: labId || undefined,
-        campana_id: campanaId || undefined,
-        estado: estado || undefined,
-        fecha_desde: fechaDesde || undefined,
-        fecha_hasta: fechaHasta || undefined,
-      });
+      const [ordenes, { generarListaOrdenesLaboratorioPDF }] = await Promise.all([
+        obtenerOrdenesParaListaPDF({
+          laboratorio_id: labId || undefined,
+          campana_id: campanaId || undefined,
+          estado: estado || undefined,
+          fecha_desde: fechaDesde || undefined,
+          fecha_hasta: fechaHasta || undefined,
+        }),
+        import("./lista-pdf"),
+      ]);
 
       if (ordenes.length === 0) {
         alert("No hay órdenes que coincidan con los filtros seleccionados.");
