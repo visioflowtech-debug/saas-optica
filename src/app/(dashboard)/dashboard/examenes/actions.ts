@@ -233,8 +233,9 @@ Sé claro, profesional y orientado al paciente. No repitas literalmente los núm
 
     return { informe };
   } catch (err) {
-    console.error("[generarInformeIA]", err);
-    return { error: "Error al conectar con Gemini. Verifica la API key y el límite de cuota." };
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[generarInformeIA]", msg);
+    return { error: `Error Gemini: ${msg}` };
   }
 }
 
