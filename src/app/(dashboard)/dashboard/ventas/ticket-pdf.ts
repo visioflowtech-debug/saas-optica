@@ -1,6 +1,7 @@
 "use client";
 
 import { jsPDF } from "jspdf";
+import { imprimirPDF } from "@/lib/print-pdf";
 
 interface TicketData {
   empresa: { nombre: string; nit: string | null; logo_url: string | null; email: string | null } | null;
@@ -275,7 +276,5 @@ export async function generarTicketPDF(data: TicketData) {
   // Reset dash
   doc.setLineDashPattern([], 0);
 
-  // Save
-  const fileName = `Ticket_${tipoLabel.replace(/\s+/g, "_")}_${fechaStr.replace(/\//g, "-")}.pdf`;
-  doc.save(fileName);
+  imprimirPDF(doc);
 }

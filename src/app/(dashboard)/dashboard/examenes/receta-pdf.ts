@@ -1,6 +1,7 @@
 "use client";
 
 import { jsPDF } from "jspdf";
+import { imprimirPDF } from "@/lib/print-pdf";
 
 interface RecetaData {
   empresa: { nombre: string; nit: string | null; logo_url: string | null; email: string | null } | null;
@@ -268,7 +269,5 @@ export async function generarRecetaPDF(data: RecetaData) {
     { align: "center" }
   );
 
-  // Save
-  const fileName = `Receta_${paciente.nombre.replace(/\s+/g, "_")}_${fechaStr.replace(/\s+/g, "_")}.pdf`;
-  doc.save(fileName);
+  imprimirPDF(doc);
 }

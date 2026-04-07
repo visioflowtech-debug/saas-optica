@@ -1,6 +1,7 @@
 "use client";
 
 import { jsPDF } from "jspdf";
+import { imprimirPDF } from "@/lib/print-pdf";
 
 interface SobreData {
   empresa: { nombre: string; logo_url: string | null; email: string | null };
@@ -287,6 +288,5 @@ export async function generarSobreLaboratorioPDF(data: SobreData) {
     y += 4;
   });
 
-  const fileName = `Sobre_Lab_${data.paciente.nombre.replace(/\s+/g, "_")}.pdf`;
-  doc.save(fileName);
+  imprimirPDF(doc);
 }

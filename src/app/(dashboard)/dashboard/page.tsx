@@ -80,8 +80,10 @@ export default async function DashboardPage() {
       .eq("anulado", false).lt("fecha_examen", haceUnAnioISO),
   ]);
 
-  const efectivo = Number((cuentasData.data ?? []).find((c: { tipo: string }) => c.tipo === "efectivo")?.saldo_actual ?? -1);
-  const banco = Number((cuentasData.data ?? []).find((c: { tipo: string }) => c.tipo === "banco")?.saldo_actual ?? -1);
+  const efectivoCuenta = (cuentasData.data ?? []).find((c: { tipo: string }) => c.tipo === "efectivo");
+  const efectivo = efectivoCuenta ? Number(efectivoCuenta.saldo_actual) : null;
+  const bancoCuenta = (cuentasData.data ?? []).find((c: { tipo: string }) => c.tipo === "banco");
+  const banco = bancoCuenta ? Number(bancoCuenta.saldo_actual) : null;
   const cxc = Number((cxcData as { data: { saldo_pendiente?: number } | null }).data?.saldo_pendiente ?? 0);
   const gastosMes = Number(gastosData.data ?? 0);
   const alertLentes = Number(alertLentesRes.data ?? 0);
@@ -118,7 +120,7 @@ export default async function DashboardPage() {
               style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-card)" }}>
               <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide mb-2">Efectivo</p>
               <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-                {efectivo >= 0 ? formatUSD(efectivo) : "—"}
+                {efectivo !== null ? formatUSD(efectivo) : "—"}
               </p>
             </Link>
 
@@ -128,7 +130,7 @@ export default async function DashboardPage() {
               style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-card)" }}>
               <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-2">Banco</p>
               <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-                {banco >= 0 ? formatUSD(banco) : "—"}
+                {banco !== null ? formatUSD(banco) : "—"}
               </p>
             </Link>
 
