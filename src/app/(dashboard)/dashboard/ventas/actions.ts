@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerOCrearContactoZoho, crearFacturaZoho, registrarPagoZoho, crearItemZoho, buildZohoItemName, buildZohoProductType } from "@/lib/zoho-books";
 import type { ZohoPaymentMode } from "@/lib/zoho-books";
-import { registrarMovimientoCuenta, tipoCuentaDesdeMetodoPago } from "@/lib/cuentas";
+import { registrarMovimientoCuenta, registrarMovimientoCuentaPorId, tipoCuentaDesdeMetodoPago } from "@/lib/cuentas";
 
 function mapMetodoPago(metodo: string): ZohoPaymentMode {
   const m = metodo.toLowerCase();
@@ -23,12 +23,14 @@ async function getUserContext() {
 
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("tenant_id, sucursal_id, rol")
+    .select("tenant_id, sucursal_id, rol, sucursal:sucursales(zoho_sync_enabled)")
     .eq("id", user.id)
     .single();
 
   if (!perfil) throw new Error("Perfil no encontrado");
-  return { supabase, userId: user.id, ...perfil };
+  const sucursalCfg = Array.isArray(perfil.sucursal) ? perfil.sucursal[0] : perfil.sucursal;
+  const zohoEnabled = (sucursalCfg as any)?.zoho_sync_enabled === true;
+  return { supabase, userId: user.id, zohoEnabled, ...perfil };
 }
 
 /* ── Fetch Product Catalog ───────────────────────────────── */
@@ -202,7 +204,7 @@ export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
   if (!(ORDEN_ESTADOS_VALIDOS as readonly string[]).includes(nuevoEstado)) {
     throw new Error("Estado de orden inválido");
   }
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, zohoEnabled } = await getUserContext();
 
   const { data: orden } = await supabase
     .from("ordenes").select("campana_id").eq("id", ordenId).eq("tenant_id", tenant_id).single();
@@ -215,8 +217,8 @@ export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
 
   if (error) throw new Error(error.message);
 
-  // Zoho Books — crear factura al confirmar (best-effort, solo si aún no tiene invoice)
-  if (nuevoEstado === "confirmada") {
+  // Zoho Books — crear factura al confirmar (best-effort, solo si sync habilitado)
+  if (zohoEnabled && nuevoEstado === "confirmada") {
     const { data: ordenConfirmada } = await supabase
       .from("ordenes")
       .select("paciente_id, notas, descuento, zoho_invoice_id, campana_id")
@@ -235,7 +237,7 @@ export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
 
 /* ── Convert Proforma → Orden de Trabajo ────────────────── */
 export async function convertirAOrden(ordenId: string) {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, zohoEnabled } = await getUserContext();
 
   // 1. Verificar ownership + idempotencia: la orden debe ser proforma en borrador
   const { data: ordenActual } = await supabase
@@ -321,8 +323,8 @@ export async function convertirAOrden(ordenId: string) {
     .eq("tenant_id", tenant_id)
     .single();
 
-  // 5. Zoho Books — solo si aún no tiene factura (puede ya tenerla si se confirmó primero)
-  if (ordenData && !ordenData.zoho_invoice_id) {
+  // 5. Zoho Books — solo si sync habilitado y aún no tiene factura
+  if (zohoEnabled && ordenData && !ordenData.zoho_invoice_id) {
     await sincronizarFacturaZoho(supabase, ordenId, ordenData);
   }
 
@@ -507,8 +509,8 @@ export async function obtenerDatosTicket(ordenId: string) {
 }
 
 /* ── Register Payment / Abono ───────────────────────────── */
-export async function registrarPago(ordenId: string, monto: number, metodoPago: string, referencia?: string, notas?: string) {
-  const { supabase, tenant_id, sucursal_id } = await getUserContext();
+export async function registrarPago(ordenId: string, monto: number, metodoPago: string, referencia?: string, notas?: string, cuentaId?: string) {
+  const { supabase, tenant_id, sucursal_id, zohoEnabled } = await getUserContext();
 
   if (monto <= 0) throw new Error("El monto debe ser mayor a 0");
 
@@ -552,21 +554,35 @@ export async function registrarPago(ordenId: string, monto: number, metodoPago: 
 
   // Cuentas — registrar ingreso (best-effort)
   try {
-    await registrarMovimientoCuenta({
-      supabase,
-      tenant_id,
-      sucursal_id,
-      tipo_cuenta: tipoCuentaDesdeMetodoPago(metodoPago),
-      tipo_movimiento: "ingreso",
-      monto,
-      descripcion: `Abono venta — ${metodoPago}`,
-      referencia_tipo: "pago",
-      referencia_id: pago?.id ?? null,
-    });
+    if (cuentaId) {
+      await registrarMovimientoCuentaPorId({
+        supabase,
+        tenant_id,
+        sucursal_id,
+        cuenta_id: cuentaId,
+        tipo_movimiento: "ingreso",
+        monto,
+        descripcion: `Abono venta — ${metodoPago}`,
+        referencia_tipo: "pago",
+        referencia_id: pago?.id ?? null,
+      });
+    } else {
+      await registrarMovimientoCuenta({
+        supabase,
+        tenant_id,
+        sucursal_id,
+        tipo_cuenta: tipoCuentaDesdeMetodoPago(metodoPago),
+        tipo_movimiento: "ingreso",
+        monto,
+        descripcion: `Abono venta — ${metodoPago}`,
+        referencia_tipo: "pago",
+        referencia_id: pago?.id ?? null,
+      });
+    }
   } catch { /* fail-soft */ }
 
-  // Zoho Books — registrar abono (best-effort)
-  try {
+  // Zoho Books — registrar abono (best-effort, solo si sync habilitado)
+  if (zohoEnabled) try {
     const { data: ordenZoho } = await supabase
       .from("ordenes")
       .select("zoho_invoice_id, paciente_id")

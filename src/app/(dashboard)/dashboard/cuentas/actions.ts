@@ -22,7 +22,7 @@ async function getUserContext() {
 export interface CuentaInfo {
   id: string;
   nombre: string;
-  tipo: "efectivo" | "banco";
+  tipo: string;
   saldo_actual: number;
   saldo_inicial: number;
 }
@@ -48,6 +48,69 @@ export async function obtenerCuentas(): Promise<CuentaInfo[]> {
     .order("tipo");
 
   return (data ?? []) as CuentaInfo[];
+}
+
+// ── Crear cuenta nueva (tipo libre) ────────────────────────
+export async function crearCuentaNueva(nombre: string, tipo: string, saldoInicial: number) {
+  const { supabase, tenant_id, sucursal_id } = await getUserContext();
+  const nombreLimpio = nombre.trim();
+  if (!nombreLimpio) return { error: "El nombre es obligatorio" };
+  if (saldoInicial < 0) return { error: "El saldo inicial no puede ser negativo" };
+
+  const { data: cuenta, error } = await supabase
+    .from("cuentas")
+    .insert({ tenant_id, sucursal_id, nombre: nombreLimpio, tipo: tipo.trim() || "otro", saldo_inicial: saldoInicial, saldo_actual: 0 })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message };
+
+  if (saldoInicial > 0 && cuenta) {
+    await supabase.from("movimientos_cuenta").insert({
+      cuenta_id: cuenta.id,
+      tenant_id,
+      tipo: "ajuste_inicial",
+      monto: saldoInicial,
+      descripcion: "Saldo inicial",
+      referencia_tipo: "ajuste",
+    });
+  }
+
+  revalidatePath("/dashboard/cuentas");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+// ── Registrar ingreso manual en una cuenta ─────────────────
+export async function registrarIngresoCuenta(cuentaId: string, monto: number, descripcion: string, fecha?: string) {
+  const { supabase, tenant_id, sucursal_id } = await getUserContext();
+  if (monto <= 0) return { error: "El monto debe ser mayor a 0" };
+
+  // Verificar ownership
+  const { data: cuenta } = await supabase
+    .from("cuentas")
+    .select("id")
+    .eq("id", cuentaId)
+    .eq("tenant_id", tenant_id)
+    .eq("sucursal_id", sucursal_id)
+    .single();
+
+  if (!cuenta) return { error: "Cuenta no encontrada" };
+
+  const { error } = await supabase.from("movimientos_cuenta").insert({
+    cuenta_id: cuentaId,
+    tenant_id,
+    tipo: "ingreso",
+    monto,
+    descripcion: descripcion.trim() || "Ingreso manual",
+    referencia_tipo: "ingreso_manual",
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/cuentas");
+  revalidatePath("/dashboard");
+  return { success: true };
 }
 
 // ── Configurar saldo inicial (crear o actualizar) ──────────
@@ -106,7 +169,18 @@ export async function obtenerMovimientos(
   pagina: number = 1,
   pageSize: number = 30
 ): Promise<{ movimientos: Movimiento[]; total: number }> {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, sucursal_id } = await getUserContext();
+
+  // Validar que la cuenta pertenece a este tenant y sucursal
+  const { data: cuentaOk } = await supabase
+    .from("cuentas")
+    .select("id")
+    .eq("id", cuentaId)
+    .eq("tenant_id", tenant_id)
+    .eq("sucursal_id", sucursal_id)
+    .maybeSingle();
+
+  if (!cuentaOk) return { movimientos: [], total: 0 };
 
   const from = (pagina - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -182,6 +256,11 @@ export async function transferirEntreCuentas(
   revalidatePath("/dashboard/cuentas");
   revalidatePath("/dashboard");
   return { success: true };
+}
+
+// ── Obtener cuentas (para selects en gastos/ventas) ────────
+export async function obtenerCuentasParaSelector(): Promise<CuentaInfo[]> {
+  return obtenerCuentas();
 }
 
 // ── KPIs para dashboard ────────────────────────────────────

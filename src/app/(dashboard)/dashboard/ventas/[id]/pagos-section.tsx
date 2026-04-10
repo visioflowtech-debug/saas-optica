@@ -13,10 +13,17 @@ interface Pago {
   created_at: string;
 }
 
+interface CuentaOpcion {
+  id: string;
+  nombre: string;
+  tipo: string;
+}
+
 interface Props {
   ordenId: string;
   totalOrden: number;
   pagos: Pago[];
+  cuentas: CuentaOpcion[];
 }
 
 const METODOS_PAGO = [
@@ -26,11 +33,12 @@ const METODOS_PAGO = [
   { value: "cheque", label: "📝 Cheque" },
 ];
 
-export default function PagosSection({ ordenId, totalOrden, pagos: initialPagos }: Props) {
+export default function PagosSection({ ordenId, totalOrden, pagos: initialPagos, cuentas }: Props) {
   const [isPending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
   const [monto, setMonto] = useState("");
   const [metodo, setMetodo] = useState("efectivo");
+  const [cuentaId, setCuentaId] = useState(cuentas[0]?.id ?? "");
   const [referencia, setReferencia] = useState("");
   const [notas, setNotas] = useState("");
   const [error, setError] = useState("");
@@ -50,7 +58,7 @@ export default function PagosSection({ ordenId, totalOrden, pagos: initialPagos 
     setError("");
     startTransition(async () => {
       try {
-        await registrarPago(ordenId, montoNum, metodo, referencia || undefined, notas || undefined);
+        await registrarPago(ordenId, montoNum, metodo, referencia || undefined, notas || undefined, cuentaId || undefined);
         setMonto("");
         setReferencia("");
         setNotas("");
@@ -121,6 +129,18 @@ export default function PagosSection({ ordenId, totalOrden, pagos: initialPagos 
               </select>
             </div>
           </div>
+          {cuentas.length > 0 && (
+            <div>
+              <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Cuenta destino</label>
+              <select
+                value={cuentaId}
+                onChange={(e) => setCuentaId(e.target.value)}
+                className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              >
+                {cuentas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Referencia (opcional)</label>
             <input

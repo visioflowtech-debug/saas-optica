@@ -30,7 +30,7 @@ export async function obtenerConfiguracion() {
 
   const { data: sucursales, error: sucursalError } = await supabase
     .from("sucursales")
-    .select("id, nombre, direccion, telefono, activa, campanas_activas, items_por_pagina, dias_kanban_entregado, created_at, updated_at")
+    .select("id, nombre, direccion, telefono, activa, campanas_activas, zoho_sync_enabled, items_por_pagina, dias_kanban_entregado, created_at, updated_at")
     .eq("tenant_id", tenant_id)
     .order("created_at", { ascending: true });
 
@@ -116,6 +116,22 @@ export async function actualizarConfigOperacional(sucursalId: string, payload: {
 
   revalidatePath("/dashboard/configuracion");
   revalidatePath("/", "layout");
+  return { success: true };
+}
+
+export async function toggleZohoSync(sucursalId: string, habilitado: boolean) {
+  const { supabase, tenant_id, rol } = await getUserContext();
+  if (rol !== "administrador") return { success: false, error: "Sin permisos" };
+
+  const { error } = await supabase
+    .from("sucursales")
+    .update({ zoho_sync_enabled: habilitado, updated_at: new Date().toISOString() })
+    .eq("id", sucursalId)
+    .eq("tenant_id", tenant_id);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/dashboard/configuracion");
   return { success: true };
 }
 

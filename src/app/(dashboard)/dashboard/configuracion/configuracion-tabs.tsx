@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { actualizarEmpresa, actualizarSucursal, toggleCampanasActivas, actualizarConfigOperacional, actualizarUsuario, toggleUsuarioActivo, asignarSucursalUsuario, quitarSucursalUsuario } from "./actions";
+import { actualizarEmpresa, actualizarSucursal, toggleCampanasActivas, toggleZohoSync, actualizarConfigOperacional, actualizarUsuario, toggleUsuarioActivo, asignarSucursalUsuario, quitarSucursalUsuario } from "./actions";
 import {
   crearLaboratorio, actualizarLaboratorio, toggleLaboratorioActivo, eliminarLaboratorio,
 } from "./laboratorio-actions";
@@ -18,7 +18,7 @@ import { probarConexionZoho, sincronizarCuentasGastoZoho, obtenerCuentasGastoZoh
 import { createClient } from "@/lib/supabase/client";
 
 interface Empresa  { id: string; nombre: string; nit: string | null; logo_url: string | null; email: string | null; }
-interface Sucursal { id: string; nombre: string; direccion: string | null; telefono: string | null; campanas_activas: boolean; items_por_pagina: number; dias_kanban_entregado: number; }
+interface Sucursal { id: string; nombre: string; direccion: string | null; telefono: string | null; campanas_activas: boolean; zoho_sync_enabled: boolean; items_por_pagina: number; dias_kanban_entregado: number; }
 interface Laboratorio { id: string; nombre: string; contacto: string | null; telefono: string | null; email: string | null; activo: boolean; }
 interface UsuarioItem { id: string; nombre: string; rol: string; sucursal_id: string; activo: boolean; sucursal: { nombre: string } | { nombre: string }[] | null; sucursales_asignadas: { id: string; nombre: string }[]; }
 
@@ -183,6 +183,7 @@ function SucursalCard({ sucursal, index }: { sucursal: Sucursal; index: number }
   const [isPending, startTransition] = useTransition();
   const [successMsg, setSuccessMsg] = useState("");
   const [campanas, setCampanas] = useState(sucursal.campanas_activas);
+  const [zohoSync, setZohoSync] = useState(sucursal.zoho_sync_enabled);
   const [itemsPagina, setItemsPagina] = useState(sucursal.items_por_pagina ?? 25);
   const [diasKanban, setDiasKanban] = useState(sucursal.dias_kanban_entregado ?? 7);
 
@@ -201,6 +202,14 @@ function SucursalCard({ sucursal, index }: { sucursal: Sucursal; index: number }
     startTransition(async () => {
       const r = await toggleCampanasActivas(sucursal.id, nuevo);
       if (!r.success) { setCampanas(!nuevo); alert(r.error); }
+    });
+  };
+
+  const handleToggleZohoSync = () => {
+    const nuevo = !zohoSync; setZohoSync(nuevo);
+    startTransition(async () => {
+      const r = await toggleZohoSync(sucursal.id, nuevo);
+      if (!r.success) { setZohoSync(!nuevo); alert(r.error); }
     });
   };
 
@@ -239,14 +248,26 @@ function SucursalCard({ sucursal, index }: { sucursal: Sucursal; index: number }
           </div>
         </div>
         <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={handleToggleCampanas} disabled={isPending}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${campanas ? "bg-[var(--accent-blue)]" : "bg-gray-600"}`}>
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${campanas ? "translate-x-6" : "translate-x-1"}`} />
-            </button>
-            <div>
-              <p className="text-xs font-semibold text-t-primary">Módulo de Campañas</p>
-              <p className="text-[10px] text-t-muted">{campanas ? "Activo" : "Inactivo"}</p>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={handleToggleCampanas} disabled={isPending}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${campanas ? "bg-[var(--accent-blue)]" : "bg-gray-600"}`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${campanas ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+              <div>
+                <p className="text-xs font-semibold text-t-primary">Módulo de Campañas</p>
+                <p className="text-[10px] text-t-muted">{campanas ? "Activo" : "Inactivo"}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={handleToggleZohoSync} disabled={isPending}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${zohoSync ? "bg-green-600" : "bg-gray-600"}`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${zohoSync ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+              <div>
+                <p className="text-xs font-semibold text-t-primary">Sincronización Zoho Books</p>
+                <p className="text-[10px] text-t-muted">{zohoSync ? "Activa — envía transacciones a Zoho" : "Inactiva — no envía a Zoho"}</p>
+              </div>
             </div>
           </div>
           <button type="submit" disabled={isPending}

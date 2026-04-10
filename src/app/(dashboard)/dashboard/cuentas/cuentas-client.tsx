@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { configurarCuenta, transferirEntreCuentas, obtenerMovimientos } from "./actions";
+import { configurarCuenta, crearCuentaNueva, transferirEntreCuentas, registrarIngresoCuenta, obtenerMovimientos } from "./actions";
 import type { CuentaInfo, Movimiento } from "./actions";
 
 function formatCLP(n: number) {
@@ -9,15 +9,28 @@ function formatCLP(n: number) {
 }
 
 function tipoColor(tipo: string) {
-  if (tipo === "ingreso" || tipo === "transferencia_in") return "text-green-600 dark:text-green-400";
+  if (tipo === "ingreso" || tipo === "transferencia_in" || tipo === "ingreso_manual") return "text-green-600 dark:text-green-400";
   if (tipo === "egreso" || tipo === "transferencia_out") return "text-red-500 dark:text-red-400";
   return "text-blue-500";
+}
+
+function badgeCuenta(tipo: string) {
+  if (tipo === "efectivo") return "bg-green-500/15 text-green-600 dark:text-green-400";
+  if (tipo === "banco") return "bg-blue-500/15 text-blue-600 dark:text-blue-400";
+  return "bg-purple-500/15 text-purple-600 dark:text-purple-400";
+}
+
+function labelTipo(tipo: string) {
+  if (tipo === "efectivo") return "Efectivo";
+  if (tipo === "banco") return "Banco";
+  return tipo.charAt(0).toUpperCase() + tipo.slice(1);
 }
 
 function tipoLabel(tipo: string) {
   const map: Record<string, string> = {
     ingreso: "Ingreso",
     egreso: "Egreso",
+    ingreso_manual: "Ingreso Manual",
     transferencia_in: "Transferencia entrada",
     transferencia_out: "Transferencia salida",
     ajuste_inicial: "Saldo inicial",
@@ -27,6 +40,112 @@ function tipoLabel(tipo: string) {
 
 function tipoSigno(tipo: string) {
   return tipo === "ingreso" || tipo === "transferencia_in" || tipo === "ajuste_inicial" ? "+" : "−";
+}
+
+// ── Modal: Nueva Cuenta (tipo libre) ───────────────────────
+function ModalNuevaCuenta({ onClose }: { onClose: () => void }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(fd: FormData) {
+    const nombre = (fd.get("nombre") as string).trim();
+    const tipo = (fd.get("tipo") as string).trim();
+    const saldo = parseFloat(fd.get("saldo_inicial") as string) || 0;
+    setError(null);
+    start(async () => {
+      const res = await crearCuentaNueva(nombre, tipo, saldo);
+      if (res?.error) { setError(res.error); return; }
+      onClose();
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-card border border-b-default rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5">
+        <h2 className="text-lg font-bold text-t-primary">Nueva Cuenta</h2>
+        {error && <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{error}</p>}
+        <form className="space-y-4" action={handleSubmit}>
+          <div>
+            <label className="block text-sm font-medium text-t-secondary mb-1">Nombre *</label>
+            <input name="nombre" type="text" required placeholder="Ej: Caja Campaña, Cuenta Promerica..."
+              className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-t-secondary mb-1">Tipo</label>
+            <select name="tipo" className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="efectivo">Efectivo</option>
+              <option value="banco">Banco</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-t-secondary mb-1">Saldo inicial ($)</label>
+            <input name="saldo_inicial" type="number" min="0" step="0.01" defaultValue={0}
+              className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 px-4 py-2 text-sm text-t-muted hover:text-t-primary border border-b-default rounded-lg transition">
+              Cancelar
+            </button>
+            <button type="submit" disabled={pending}
+              className="flex-1 px-4 py-2 bg-[var(--accent-blue)] hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-60">
+              {pending ? "Creando..." : "Crear Cuenta"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Modal: Registrar Ingreso ────────────────────────────────
+function ModalIngreso({ cuenta, onClose }: { cuenta: CuentaInfo; onClose: () => void }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(fd: FormData) {
+    const monto = parseFloat(fd.get("monto") as string);
+    const descripcion = (fd.get("descripcion") as string)?.trim() || "Ingreso manual";
+    setError(null);
+    start(async () => {
+      const res = await registrarIngresoCuenta(cuenta.id, monto, descripcion);
+      if (res?.error) { setError(res.error); return; }
+      onClose();
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-card border border-b-default rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5">
+        <h2 className="text-lg font-bold text-t-primary">Registrar Ingreso</h2>
+        <p className="text-sm text-t-muted">Cuenta: <span className="font-semibold text-t-primary">{cuenta.nombre}</span></p>
+        {error && <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{error}</p>}
+        <form className="space-y-4" action={handleSubmit}>
+          <div>
+            <label className="block text-sm font-medium text-t-secondary mb-1">Monto ($) *</label>
+            <input name="monto" type="number" min="0.01" step="0.01" required placeholder="0.00"
+              className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-t-secondary mb-1">Descripción *</label>
+            <input name="descripcion" type="text" required placeholder="Ej: Cobro servicio, Ingreso campaña..."
+              className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 px-4 py-2 text-sm text-t-muted hover:text-t-primary border border-b-default rounded-lg transition">
+              Cancelar
+            </button>
+            <button type="submit" disabled={pending}
+              className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-60">
+              {pending ? "Registrando..." : "Registrar Ingreso"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 // ── Modal: Configurar cuenta ────────────────────────────────
@@ -263,12 +382,13 @@ function HistorialCuenta({ cuenta }: { cuenta: CuentaInfo }) {
 function CuentaCard({
   cuenta,
   onEditar,
+  onIngreso,
 }: {
   cuenta: CuentaInfo;
   onEditar: (c: CuentaInfo) => void;
+  onIngreso: (c: CuentaInfo) => void;
 }) {
   const [expandido, setExpandido] = useState(false);
-  const esBanco = cuenta.tipo === "banco";
 
   return (
     <div className="bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)] overflow-hidden">
@@ -276,18 +396,24 @@ function CuentaCard({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${esBanco ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" : "bg-green-500/15 text-green-600 dark:text-green-400"}`}>
-                {esBanco ? "Banco" : "Efectivo"}
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeCuenta(cuenta.tipo)}`}>
+                {labelTipo(cuenta.tipo)}
               </span>
             </div>
             <h3 className="text-base font-bold text-t-primary">{cuenta.nombre}</h3>
             <p className="text-2xl font-extrabold text-t-primary mt-1">{formatCLP(cuenta.saldo_actual)}</p>
             <p className="text-xs text-t-muted mt-0.5">Saldo inicial: {formatCLP(cuenta.saldo_inicial)}</p>
           </div>
-          <button onClick={() => onEditar(cuenta)}
-            className="text-xs text-t-muted hover:text-t-primary border border-b-default px-3 py-1.5 rounded-lg transition shrink-0">
-            Editar
-          </button>
+          <div className="flex flex-col gap-2 shrink-0">
+            <button onClick={() => onIngreso(cuenta)}
+              className="text-xs text-green-700 dark:text-green-400 hover:opacity-80 border border-green-500/40 bg-green-500/10 px-3 py-1.5 rounded-lg transition">
+              + Ingreso
+            </button>
+            <button onClick={() => onEditar(cuenta)}
+              className="text-xs text-t-muted hover:text-t-primary border border-b-default px-3 py-1.5 rounded-lg transition">
+              Editar
+            </button>
+          </div>
         </div>
 
         <button onClick={() => setExpandido(!expandido)}
@@ -309,9 +435,11 @@ function CuentaCard({
 // ── Componente principal ────────────────────────────────────
 export default function CuentasClient({ cuentasIniciales }: { cuentasIniciales: CuentaInfo[] }) {
   const [cuentas, setCuentas] = useState(cuentasIniciales);
-  const [modalConfigurar, setModalConfigurar] = useState<{ tipo: "efectivo" | "banco"; nombre: string; saldo_inicial: number } | null | undefined>(undefined);
+  const [modalConfigurar, setModalConfigurar] = useState<{ tipo: string; nombre: string; saldo_inicial: number } | null | undefined>(undefined);
   const [modalEsNueva, setModalEsNueva] = useState(false);
   const [modalTransferencia, setModalTransferencia] = useState(false);
+  const [modalNuevaCuenta, setModalNuevaCuenta] = useState(false);
+  const [modalIngreso, setModalIngreso] = useState<CuentaInfo | null>(null);
 
   // undefined = cerrado, object = abierto (nuevo o editando según modalEsNueva)
   const modalAbierto = modalConfigurar !== undefined;
@@ -323,7 +451,6 @@ export default function CuentasClient({ cuentasIniciales }: { cuentasIniciales: 
 
   function handleCerrarModal() {
     setModalConfigurar(undefined);
-    // Recargar la página para reflejar cambios (Server Component)
     window.location.reload();
   }
 
@@ -353,6 +480,11 @@ export default function CuentasClient({ cuentasIniciales }: { cuentasIniciales: 
             + Configurar Banco
           </button>
         )}
+        <button
+          onClick={() => setModalNuevaCuenta(true)}
+          className="px-4 py-2 bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-400 text-sm font-semibold rounded-lg border border-purple-500/30 transition">
+          + Nueva Cuenta
+        </button>
         {cuentas.length >= 2 && (
           <button
             onClick={() => setModalTransferencia(true)}
@@ -366,20 +498,20 @@ export default function CuentasClient({ cuentasIniciales }: { cuentasIniciales: 
       {cuentas.length === 0 && (
         <div className="text-center py-16 text-t-muted">
           <p className="text-lg font-medium">Sin cuentas configuradas</p>
-          <p className="text-sm mt-1">Configura tu cuenta de efectivo y banco para comenzar.</p>
+          <p className="text-sm mt-1">Configura tu cuenta de efectivo y banco, o crea una cuenta personalizada.</p>
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {cuentas.map((c) => (
-          <CuentaCard key={c.id} cuenta={c} onEditar={handleEditar} />
+          <CuentaCard key={c.id} cuenta={c} onEditar={handleEditar} onIngreso={setModalIngreso} />
         ))}
       </div>
 
       {/* Modales */}
       {modalAbierto && (
         <ModalConfigurar
-          cuenta={modalConfigurar}
+          cuenta={modalConfigurar as { tipo: "efectivo" | "banco"; nombre: string; saldo_inicial: number } | null}
           esNueva={modalEsNueva}
           onClose={handleCerrarModal}
         />
@@ -389,6 +521,12 @@ export default function CuentasClient({ cuentasIniciales }: { cuentasIniciales: 
           cuentas={cuentas}
           onClose={handleCerrarTransferencia}
         />
+      )}
+      {modalNuevaCuenta && (
+        <ModalNuevaCuenta onClose={() => { setModalNuevaCuenta(false); window.location.reload(); }} />
+      )}
+      {modalIngreso && (
+        <ModalIngreso cuenta={modalIngreso} onClose={() => { setModalIngreso(null); window.location.reload(); }} />
       )}
     </div>
   );

@@ -46,7 +46,7 @@ export default async function DashboardPage() {
     supabase.from("ordenes").select("*", { count: "exact", head: true })
       .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id),
     esAdmin
-      ? supabase.from("cuentas").select("tipo, saldo_actual")
+      ? supabase.from("cuentas").select("tipo, nombre, saldo_actual")
           .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id)
       : Promise.resolve({ data: null }),
     esAdmin
@@ -80,10 +80,13 @@ export default async function DashboardPage() {
       .eq("anulado", false).lt("fecha_examen", haceUnAnioISO),
   ]);
 
-  const efectivoCuenta = (cuentasData.data ?? []).find((c: { tipo: string }) => c.tipo === "efectivo");
+  const todasLasCuentas = (cuentasData.data ?? []) as { tipo: string; nombre: string; saldo_actual: number }[];
+  const efectivoCuenta = todasLasCuentas.find((c) => c.tipo === "efectivo");
   const efectivo = efectivoCuenta ? Number(efectivoCuenta.saldo_actual) : null;
-  const bancoCuenta = (cuentasData.data ?? []).find((c: { tipo: string }) => c.tipo === "banco");
+  const bancoCuenta = todasLasCuentas.find((c) => c.tipo === "banco");
   const banco = bancoCuenta ? Number(bancoCuenta.saldo_actual) : null;
+  // Cuentas adicionales (tipo distinto a efectivo/banco)
+  const cuentasExtra = todasLasCuentas.filter((c) => c.tipo !== "efectivo" && c.tipo !== "banco");
   const cxc = Number((cxcData as { data: { saldo_pendiente?: number } | null }).data?.saldo_pendiente ?? 0);
   const gastosMes = Number(gastosData.data ?? 0);
   const alertLentes = Number(alertLentesRes.data ?? 0);
@@ -98,7 +101,7 @@ export default async function DashboardPage() {
     return n.toLocaleString("es-SV", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
   }
 
-  const cuentasConfiguradas = (cuentasData.data ?? []).length > 0;
+  const cuentasConfiguradas = todasLasCuentas.length > 0;
 
   return (
     <div className="space-y-8">
@@ -149,6 +152,16 @@ export default async function DashboardPage() {
               <p className="text-xs font-semibold text-red-500 dark:text-red-400 uppercase tracking-wide mb-2">Gastos del mes</p>
               <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{formatUSD(gastosMes)}</p>
             </Link>
+
+            {/* Cuentas extra (tipo != efectivo ni banco) */}
+            {cuentasExtra.map((c) => (
+              <Link key={c.nombre + c.tipo} href="/dashboard/cuentas"
+                className="p-5 rounded-xl border transition-colors hover:border-purple-500/50"
+                style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-card)" }}>
+                <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide mb-2">{c.nombre}</p>
+                <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{formatUSD(Number(c.saldo_actual))}</p>
+              </Link>
+            ))}
           </div>
         </div>
       )}

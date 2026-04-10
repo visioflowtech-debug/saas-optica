@@ -1,5 +1,6 @@
 import { registrarGasto } from "../actions";
 import { obtenerCategoriasGasto } from "@/app/(dashboard)/dashboard/configuracion/categorias-actions";
+import { obtenerCuentas } from "@/app/(dashboard)/dashboard/cuentas/actions";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -41,7 +42,10 @@ export default async function NuevoGastoPage({
     }
   }
 
-  const categorias = await obtenerCategoriasGasto();
+  const [categorias, cuentas] = await Promise.all([
+    obtenerCategoriasGasto(),
+    obtenerCuentas(),
+  ]);
   const categoriasActivas = categorias.filter((c) => c.activo);
 
   const today = new Date().toISOString().split("T")[0];
@@ -149,18 +153,34 @@ export default async function NuevoGastoPage({
         </div>
 
         <div>
-          <label htmlFor="pagado_con" className="block text-sm font-medium text-t-secondary mb-1.5">
-            Pagado con *
+          <label htmlFor="cuenta_id" className="block text-sm font-medium text-t-secondary mb-1.5">
+            Pagado con (cuenta) *
           </label>
-          <select
-            id="pagado_con"
-            name="pagado_con"
-            required
-            className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-          >
-            <option value="efectivo">Efectivo</option>
-            <option value="banco">Banco</option>
-          </select>
+          {cuentas.length > 0 ? (
+            <select
+              id="cuenta_id"
+              name="cuenta_id"
+              required
+              className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            >
+              {cuentas.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+          ) : (
+            <>
+              <select
+                id="pagado_con"
+                name="pagado_con"
+                required
+                className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              >
+                <option value="efectivo">Efectivo</option>
+                <option value="banco">Banco</option>
+              </select>
+              <p className="text-xs text-t-muted mt-1">Configura cuentas en el módulo de Cuentas para mayor control.</p>
+            </>
+          )}
         </div>
 
         <div>

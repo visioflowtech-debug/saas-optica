@@ -51,6 +51,49 @@ export async function registrarMovimientoCuenta(input: MovimientoInput): Promise
   }
 }
 
+/** Registra un movimiento usando cuenta_id directamente. Valida ownership (tenant + sucursal). */
+export async function registrarMovimientoCuentaPorId(input: {
+  supabase: SupabaseClient;
+  tenant_id: string;
+  sucursal_id: string;
+  cuenta_id: string;
+  tipo_movimiento: TipoMovimiento;
+  monto: number;
+  descripcion?: string | null;
+  referencia_tipo?: "pago" | "gasto" | "transferencia" | "ajuste" | "ingreso_manual";
+  referencia_id?: string | null;
+}): Promise<void> {
+  const { supabase, tenant_id, sucursal_id, cuenta_id, tipo_movimiento, monto, descripcion, referencia_tipo, referencia_id } = input;
+
+  // Validar ownership: la cuenta debe pertenecer al mismo tenant y sucursal
+  const { data: cuenta } = await supabase
+    .from("cuentas")
+    .select("id")
+    .eq("id", cuenta_id)
+    .eq("tenant_id", tenant_id)
+    .eq("sucursal_id", sucursal_id)
+    .maybeSingle();
+
+  if (!cuenta) {
+    console.error("[cuentas] Cuenta no encontrada o no pertenece a esta sucursal:", { cuenta_id, tenant_id, sucursal_id });
+    return; // fail-soft: no registrar en cuenta ajena
+  }
+
+  const { error } = await supabase.from("movimientos_cuenta").insert({
+    cuenta_id,
+    tenant_id,
+    tipo: tipo_movimiento,
+    monto,
+    descripcion: descripcion ?? null,
+    referencia_tipo: referencia_tipo ?? null,
+    referencia_id: referencia_id ?? null,
+  });
+
+  if (error) {
+    console.error("[cuentas] Error al insertar movimiento por id:", error.message, { cuenta_id, tipo: tipo_movimiento, monto });
+  }
+}
+
 /** Determina la cuenta destino según el método de pago */
 export function tipoCuentaDesdeMetodoPago(metodoPago: string): TipoCuenta {
   const m = metodoPago.toLowerCase();

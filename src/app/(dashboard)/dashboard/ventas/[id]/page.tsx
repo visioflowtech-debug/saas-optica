@@ -5,6 +5,7 @@ import OrdenAcciones from "./orden-acciones";
 import PagosSection from "./pagos-section";
 import ProformaLineasEdit from "./proforma-lineas-edit";
 import { obtenerCatalogo } from "../actions";
+import { obtenerCuentas } from "@/app/(dashboard)/dashboard/cuentas/actions";
 import { fmtFecha } from "@/lib/date-sv";
 
 export default async function OrdenDetallePage({
@@ -39,11 +40,12 @@ export default async function OrdenDetallePage({
 
   if (!orden) notFound();
 
-  const [{ data: detalles }, { data: labEstado }, { data: pagos }, { data: labSpecs }] = await Promise.all([
+  const [{ data: detalles }, { data: labEstado }, { data: pagos }, { data: labSpecs }, cuentas] = await Promise.all([
     supabase.from("orden_detalle").select("*").eq("orden_id", id).eq("tenant_id", perfil.tenant_id).order("created_at", { ascending: true }),
     supabase.from("laboratorio_estados").select("*").eq("orden_id", id).eq("tenant_id", perfil.tenant_id).order("updated_at", { ascending: false }).limit(1).maybeSingle().then(r => ({ data: r.data })),
     supabase.from("pagos").select("*").eq("orden_id", id).eq("tenant_id", perfil.tenant_id).order("created_at", { ascending: true }),
     supabase.from("orden_laboratorio_datos").select("*").eq("orden_id", id).eq("tenant_id", perfil.tenant_id).single().then(r => ({ data: r.data })),
+    obtenerCuentas(),
   ]);
 
   const esProformaBorrador = orden.tipo === "proforma" && orden.estado === "borrador";
@@ -245,7 +247,7 @@ export default async function OrdenDetallePage({
       )}
 
       {/* Payments */}
-      <PagosSection ordenId={id} totalOrden={Number(orden.total)} pagos={pagos ?? []} />
+      <PagosSection ordenId={id} totalOrden={Number(orden.total)} pagos={pagos ?? []} cuentas={cuentas} />
 
       {/* Actions */}
       <OrdenAcciones ordenId={id} tipo={orden.tipo} estado={orden.estado} />
