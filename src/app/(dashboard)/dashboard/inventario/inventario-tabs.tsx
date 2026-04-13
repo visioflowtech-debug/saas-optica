@@ -63,12 +63,15 @@ export default function InventarioTabs({
 
   function openNewItem() {
     setSaveError("");
+    const esAroNuevo = activa !== "todo" && activa.includes("aro");
     setEditingItem({
       categoria: activa === "todo" ? "aro_economico" : activa,
       precio: 0,
       precio_costo: 0,
-      maneja_stock: activa !== "todo" && activa.includes("aro"),
-      stock: 0,
+      maneja_stock: esAroNuevo,
+      stock: esAroNuevo ? 1 : 0,
+      nombre: esAroNuevo ? "ARO" : null,
+      sku: null,
     });
     setModalOpen(true);
   }
@@ -201,6 +204,11 @@ export default function InventarioTabs({
                       {p.nombre && (p.marca || p.modelo) && (
                         <p className="text-xs text-t-muted mt-0.5">
                           {[p.marca, p.modelo, p.color].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                      {p.sku && (
+                        <p className="text-xs text-t-muted mt-1 font-mono">
+                          SKU: {p.sku}
                         </p>
                       )}
                     </td>
@@ -347,7 +355,15 @@ export default function InventarioTabs({
                   value={editingItem.categoria}
                   onChange={(e) => {
                     const cat = e.target.value as CategoriaProducto;
-                    setEditingItem({ ...editingItem, categoria: cat, maneja_stock: cat.includes("aro") });
+                    const esAro = cat.includes("aro");
+                    const esNuevo = !editingItem.id;
+                    setEditingItem({
+                      ...editingItem,
+                      categoria: cat,
+                      maneja_stock: esAro,
+                      stock: esAro && esNuevo ? 1 : editingItem.stock,
+                      nombre: esAro && esNuevo && !editingItem.nombre ? "ARO" : editingItem.nombre,
+                    });
                   }}
                   className="w-full px-3 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                 >
@@ -369,6 +385,21 @@ export default function InventarioTabs({
                   onChange={(e) => setEditingItem({ ...editingItem, nombre: e.target.value })}
                   placeholder={requiresBrand ? "Ej: Aro Deportivo" : "Ej: Examen Visual Completo"}
                   className="w-full px-3 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                />
+              </div>
+
+              {/* SKU */}
+              <div>
+                <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">
+                  SKU
+                </label>
+                <input
+                  type="text"
+                  value={editingItem.sku || ""}
+                  onChange={(e) => setEditingItem({ ...editingItem, sku: e.target.value || null })}
+                  placeholder="Auto-generado"
+                  className="w-full px-3 py-2.5 bg-input border border-b-default rounded-lg text-t-primary text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={editingItem.id !== undefined && editingItem.id !== ""}
                 />
               </div>
 

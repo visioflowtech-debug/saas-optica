@@ -41,6 +41,7 @@ export interface CatalogItem {
   precio: number;
   stock: number | null;
   maneja_stock: boolean;
+  sku: string | null;
 }
 
 export async function obtenerCatalogo(): Promise<CatalogItem[]> {
@@ -48,7 +49,7 @@ export async function obtenerCatalogo(): Promise<CatalogItem[]> {
 
   const { data: productos } = await supabase
     .from("productos")
-    .select("id, categoria, nombre, marca, modelo, color, precio, stock, maneja_stock")
+    .select("id, categoria, nombre, marca, modelo, color, precio, stock, maneja_stock, sku")
     .eq("tenant_id", tenant_id)
     .eq("activo", true)
     .or(`sucursal_id.eq.${sucursal_id},sucursal_id.is.null`)
@@ -66,7 +67,12 @@ export async function obtenerCatalogo(): Promise<CatalogItem[]> {
 
   (productos ?? []).forEach((p) => {
     let label = "";
-    if (p.categoria.includes("aro") || p.categoria === "accesorio") {
+    const esAro = p.categoria.startsWith("aro");
+    if (esAro) {
+      const parts = [p.nombre, p.marca, p.color, p.modelo].filter(Boolean).join(" ");
+      const skuStr = p.sku ? ` — SKU ${p.sku}` : "";
+      label = parts + skuStr || p.categoria;
+    } else if (p.categoria === "accesorio") {
       const parts = [p.nombre, p.marca, p.modelo, p.color].filter(Boolean);
       label = parts.join(" — ");
     } else {
@@ -78,7 +84,8 @@ export async function obtenerCatalogo(): Promise<CatalogItem[]> {
       label,
       precio: Number(p.precio),
       stock: p.stock,
-      maneja_stock: p.maneja_stock
+      maneja_stock: p.maneja_stock,
+      sku: p.sku
     });
   });
 

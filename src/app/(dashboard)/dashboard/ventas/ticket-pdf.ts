@@ -63,11 +63,11 @@ export async function generarTicketPDF(data: TicketData) {
 
   // 80mm thermal printer width ≈ 80mm, we use a long roll height
   const ticketWidth = 80;
-  // Estimate height based on content
-  const baseHeight = 120;
-  const itemHeight = data.detalles.length * 8;
-  const pagosHeight = 15 + (data.pagos.length > 0 ? 15 + data.pagos.length * 4 : 0);
-  const ticketHeight = baseHeight + itemHeight + pagosHeight + (data.orden.notas ? 20 : 0);
+  // Estimate height based on content (with improved spacing)
+  const baseHeight = 130;
+  const itemHeight = data.detalles.length * 12; // increased from 8 to 12 for better spacing
+  const pagosHeight = 15 + (data.pagos.length > 0 ? 15 + data.pagos.length * 5 : 0);
+  const ticketHeight = baseHeight + itemHeight + pagosHeight + (data.orden.notas ? 25 : 0);
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [ticketWidth, ticketHeight] });
   const margin = 4;
@@ -102,21 +102,21 @@ export async function generarTicketPDF(data: TicketData) {
   doc.text(empresaNombre.toUpperCase(), ticketWidth / 2, y, { align: "center" });
   y += 5;
 
-  doc.setFontSize(6);
+  doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  
+
   if (sucursalDir) {
     // Split long addresses so they don't break the ticket width
     const splitDir = doc.splitTextToSize(sucursalDir, contentWidth - 4);
     for (let i = 0; i < splitDir.length; i++) {
         doc.text(splitDir[i], ticketWidth / 2, y, { align: "center" });
-        y += 3;
+        y += 3.5;
     }
   }
-  
-  if (sucursalTel) { doc.text(`Tel: ${sucursalTel}`, ticketWidth / 2, y, { align: "center" }); y += 3; }
-  if (data.empresa?.nit) { doc.text(`NIT: ${data.empresa.nit}`, ticketWidth / 2, y, { align: "center" }); y += 3; }
-  if (data.empresa?.email) { doc.text(`${data.empresa.email}`, ticketWidth / 2, y, { align: "center" }); y += 3; }
+
+  if (sucursalTel) { doc.text(`Tel: ${sucursalTel}`, ticketWidth / 2, y, { align: "center" }); y += 3.5; }
+  if (data.empresa?.nit) { doc.text(`NIT: ${data.empresa.nit}`, ticketWidth / 2, y, { align: "center" }); y += 3.5; }
+  if (data.empresa?.email) { doc.text(`${data.empresa.email}`, ticketWidth / 2, y, { align: "center" }); y += 3.5; }
 
   // Dashed separator
   doc.setLineDashPattern([1, 1], 0);
@@ -125,13 +125,13 @@ export async function generarTicketPDF(data: TicketData) {
   y += 3;
 
   // ── Document Type ───────────────────────────────────────
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text(tipoLabel, ticketWidth / 2, y, { align: "center" });
-  y += 5;
+  y += 5.5;
 
   // ── Date & Info ─────────────────────────────────────────
-  doc.setFontSize(7);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   const fechaStr = new Date(data.orden.created_at).toLocaleDateString("es-SV", {
     timeZone: "America/El_Salvador", year: "numeric", month: "2-digit", day: "2-digit",
@@ -140,23 +140,23 @@ export async function generarTicketPDF(data: TicketData) {
     timeZone: "America/El_Salvador", hour: "2-digit", minute: "2-digit",
   });
   doc.text(`Fecha: ${fechaStr}  ${horaStr}`, margin, y);
-  y += 3.5;
+  y += 4;
   doc.text(`Paciente: ${paciente.nombre}`, margin, y);
-  y += 3.5;
-  if (paciente.telefono) { doc.text(`Tel: ${paciente.telefono}`, margin, y); y += 3.5; }
-  y += 1;
+  y += 4;
+  if (paciente.telefono) { doc.text(`Tel: ${paciente.telefono}`, margin, y); y += 4; }
+  y += 1.5;
 
   // ── Separator ───────────────────────────────────────────
   doc.line(margin, y, ticketWidth - margin, y);
   y += 3;
 
   // ── Items Header ────────────────────────────────────────
-  doc.setFontSize(6.5);
+  doc.setFontSize(7);
   doc.setFont("helvetica", "bold");
   doc.text("CANT", margin, y);
   doc.text("DESCRIPCIÓN", margin + 10, y);
   doc.text("TOTAL", ticketWidth - margin, y, { align: "right" });
-  y += 3;
+  y += 3.5;
 
   doc.setLineDashPattern([0.5, 0.5], 0);
   doc.line(margin, y, ticketWidth - margin, y);
@@ -164,28 +164,32 @@ export async function generarTicketPDF(data: TicketData) {
 
   // ── Items ───────────────────────────────────────────────
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(6.5);
+  doc.setFontSize(8);
 
   for (const item of data.detalles) {
     const desc = item.descripcion || "—";
-    // Truncate description to fit
+    // Wrap description to fit in 2 lines max instead of truncating
     const maxDescWidth = contentWidth - 22;
-    const truncatedDesc = doc.getTextWidth(desc) > maxDescWidth
-      ? desc.substring(0, Math.floor(desc.length * maxDescWidth / doc.getTextWidth(desc))) + "…"
-      : desc;
+    const descLines = doc.splitTextToSize(desc, maxDescWidth);
+    const displayDesc = descLines.length > 2 ? descLines.slice(0, 2).join("\n") + "…" : descLines.join("\n");
 
     doc.text(`${item.cantidad}`, margin + 2, y, { align: "center" });
-    doc.text(truncatedDesc, margin + 10, y);
+    doc.text(displayDesc, margin + 10, y);
     doc.text(fmtCurrency(Number(item.subtotal)), ticketWidth - margin, y, { align: "right" });
-    y += 4;
+
+    // Calculate lines consumed by wrapped desc
+    const lineCount = displayDesc.split("\n").length;
+    y += 3.5 * lineCount;
 
     // Show unit price if qty > 1
     if (item.cantidad > 1) {
-      doc.setFontSize(5.5);
+      doc.setFontSize(7);
       doc.text(`  c/u ${fmtCurrency(Number(item.precio_unitario))}`, margin + 10, y);
-      doc.setFontSize(6.5);
-      y += 3;
+      doc.setFontSize(8);
+      y += 3.5;
     }
+
+    y += 1.5; // extra spacing between items
   }
 
   y += 1;
@@ -193,36 +197,36 @@ export async function generarTicketPDF(data: TicketData) {
   // ── Totals ──────────────────────────────────────────────
   doc.setLineDashPattern([1, 1], 0);
   doc.line(margin, y, ticketWidth - margin, y);
-  y += 4;
+  y += 4.5;
 
-  doc.setFontSize(7);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.text("Subtotal:", margin, y);
   doc.text(fmtCurrency(Number(data.orden.subtotal)), ticketWidth - margin, y, { align: "right" });
-  y += 4;
+  y += 4.5;
 
   if (Number(data.orden.descuento) > 0) {
     doc.text("Descuento:", margin, y);
     doc.text(`-${fmtCurrency(Number(data.orden.descuento))}`, ticketWidth - margin, y, { align: "right" });
-    y += 4;
+    y += 4.5;
   }
 
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text("TOTAL:", margin, y);
   doc.text(fmtCurrency(Number(data.orden.total)), ticketWidth - margin, y, { align: "right" });
-  y += 5;
+  y += 5.5;
 
   // ── Notes ───────────────────────────────────────────────
   if (data.orden.notas) {
     doc.setLineDashPattern([0.5, 0.5], 0);
     doc.line(margin, y, ticketWidth - margin, y);
-    y += 3;
-    doc.setFontSize(6);
+    y += 3.5;
+    doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     const notaLines = doc.splitTextToSize(data.orden.notas, contentWidth);
     doc.text(notaLines, margin, y);
-    y += notaLines.length * 3 + 2;
+    y += notaLines.length * 3.5 + 2;
   }
 
   // ── Payment Summary ──────────────────────────────────────
@@ -231,13 +235,13 @@ export async function generarTicketPDF(data: TicketData) {
   y += 3;
 
   if (data.pagos.length > 0) {
-    doc.setFontSize(7);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
     doc.text("ABONOS", margin, y);
-    y += 3.5;
+    y += 4;
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.5);
+    doc.setFontSize(7.5);
     const metodoLabels: Record<string, string> = { efectivo: "Efect.", tarjeta: "Tarj.", transferencia: "Transf.", cheque: "Cheque" };
 
     for (const pago of data.pagos) {
@@ -245,32 +249,32 @@ export async function generarTicketPDF(data: TicketData) {
       const metod = metodoLabels[pago.metodo_pago] ?? pago.metodo_pago;
       doc.text(`${fecha} ${metod}`, margin, y);
       doc.text(fmtCurrency(Number(pago.monto)), ticketWidth - margin, y, { align: "right" });
-      y += 3.5;
+      y += 4;
     }
 
-    y += 1;
-    doc.setFontSize(7);
+    y += 1.5;
+    doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
     doc.text("Total Abonado:", margin, y);
     doc.text(fmtCurrency(data.totalAbonado), ticketWidth - margin, y, { align: "right" });
-    y += 4;
+    y += 4.5;
   }
 
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.text("SALDO PENDIENTE:", margin, y);
   doc.text(fmtCurrency(Math.max(data.saldoPendiente, 0)), ticketWidth - margin, y, { align: "right" });
-  y += 5;
+  y += 5.5;
 
   // ── Footer ──────────────────────────────────────────────
   doc.setLineDashPattern([1, 1], 0);
   doc.line(margin, y, ticketWidth - margin, y);
   y += 4;
 
-  doc.setFontSize(6);
+  doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.text("¡Gracias por su preferencia!", ticketWidth / 2, y, { align: "center" });
-  y += 3;
+  y += 3.5;
   doc.text(empresaNombre, ticketWidth / 2, y, { align: "center" });
 
   // Reset dash

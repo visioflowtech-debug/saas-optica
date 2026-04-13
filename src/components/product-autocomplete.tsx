@@ -10,6 +10,7 @@ export interface CatalogItem {
   precio: number;
   stock: number | null;
   maneja_stock: boolean;
+  sku: string | null;
 }
 
 interface ProductAutocompleteProps {

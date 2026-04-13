@@ -34,6 +34,7 @@ export interface Producto {
   precio_costo: number;
   maneja_stock: boolean;
   stock: number;
+  sku: string | null;
   activo: boolean;
   created_at: string;
 }
@@ -115,6 +116,7 @@ export async function upsertProducto(payload: Partial<Producto>) {
     precio_costo: payload.precio_costo || 0,
     maneja_stock: payload.maneja_stock || false,
     stock: payload.stock || 0,
+    sku: payload.sku || null,
     updated_at: new Date().toISOString(),
   };
 
@@ -153,6 +155,7 @@ export async function upsertProducto(payload: Partial<Producto>) {
         marca: payload.marca ?? null,
         modelo: payload.modelo ?? null,
         color: payload.color ?? null,
+        sku: payload.sku ?? null,
       });
       const productType = buildZohoProductType(payload.categoria);
 
