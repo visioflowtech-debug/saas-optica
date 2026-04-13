@@ -8,5 +8,5 @@ ALTER TABLE productos ALTER COLUMN sku SET DEFAULT upper(substring(gen_random_uu
 -- Populate existing rows without SKU
 UPDATE productos SET sku = upper(substring(gen_random_uuid()::text, 1, 8)) WHERE sku IS NULL;
 
--- Add unique constraint
-ALTER TABLE productos ADD CONSTRAINT productos_sku_unique UNIQUE (sku);
+-- Add unique constraint scoped to tenant (prevents SKU collision between tenants)
+ALTER TABLE productos ADD CONSTRAINT productos_sku_unique UNIQUE (tenant_id, sku);

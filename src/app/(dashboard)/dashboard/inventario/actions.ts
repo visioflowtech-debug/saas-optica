@@ -106,6 +106,7 @@ export async function upsertProducto(payload: Partial<Producto>) {
     (payload.categoria && ["aro_economico", "aro_marca", "aro_sol", "accesorio", "lente"].includes(payload.categoria));
 
   // Campos comunes para INSERT y UPDATE
+  // Para UPDATE: NO incluir SKU (no permitir edición de SKU existente)
   const camposBase = {
     categoria: payload.categoria,
     nombre: payload.nombre || null,
@@ -116,7 +117,7 @@ export async function upsertProducto(payload: Partial<Producto>) {
     precio_costo: payload.precio_costo || 0,
     maneja_stock: payload.maneja_stock || false,
     stock: payload.stock || 0,
-    sku: payload.sku || null,
+    ...(isNew && { sku: payload.sku || null }), // SKU solo en INSERT
     updated_at: new Date().toISOString(),
   };
 

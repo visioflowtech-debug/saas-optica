@@ -135,8 +135,9 @@ export function buildZohoItemName(p: {
   const esAro = p.categoria.startsWith("aro");
   if (esAro) {
     const partes = [p.nombre, p.marca, p.color, p.modelo].filter(Boolean).join(" ");
+    const cleaned = partes.trim();
     const skuStr = p.sku ? ` — SKU ${p.sku}` : "";
-    return partes + skuStr || p.categoria;
+    return (cleaned || p.categoria) + skuStr;
   }
   if (p.categoria === "accesorio") {
     return [p.nombre, p.marca, p.modelo, p.color].filter(Boolean).join(" — ") || p.categoria;
