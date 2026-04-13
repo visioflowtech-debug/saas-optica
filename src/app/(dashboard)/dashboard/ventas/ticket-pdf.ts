@@ -64,15 +64,15 @@ export async function generarTicketPDF(data: TicketData) {
   // 80mm thermal printer width ≈ 80mm, we use a long roll height
   const ticketWidth = 80;
   // Estimate height based on content (with improved spacing)
-  const baseHeight = 130;
-  const itemHeight = data.detalles.length * 12; // increased from 8 to 12 for better spacing
-  const pagosHeight = 15 + (data.pagos.length > 0 ? 15 + data.pagos.length * 5 : 0);
-  const ticketHeight = baseHeight + itemHeight + pagosHeight + (data.orden.notas ? 25 : 0);
+  const baseHeight = 155;
+  const itemHeight = data.detalles.length * 15; // increased for better spacing
+  const pagosHeight = 18 + (data.pagos.length > 0 ? 18 + data.pagos.length * 6 : 0);
+  const ticketHeight = baseHeight + itemHeight + pagosHeight + (data.orden.notas ? 35 : 0);
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [ticketWidth, ticketHeight] });
-  const margin = 4;
+  const margin = 3;
   const contentWidth = ticketWidth - margin * 2;
-  let y = margin + 2;
+  let y = margin + 1;
 
   const paciente = getNestedPat(data.orden.paciente);
   const asesor = getNested(data.orden.asesor);
@@ -87,22 +87,22 @@ export async function generarTicketPDF(data: TicketData) {
   if (data.empresa?.logo_url) {
     try {
       const base64Logo = await loadImage(data.empresa.logo_url);
-      const logoWidth = 24;
-      const logoHeight = 24;
+      const logoWidth = 32; // increased from 24
+      const logoHeight = 32; // increased from 24
       const logoX = (ticketWidth - logoWidth) / 2;
       doc.addImage(base64Logo, 'PNG', logoX, y, logoWidth, logoHeight);
-      y += logoHeight + 4;
+      y += logoHeight + 5;
     } catch (e) {
       console.warn("Could not load logo image for PDF", e);
     }
   }
 
-  doc.setFontSize(12);
+  doc.setFontSize(14); // increased from 12
   doc.setFont("helvetica", "bold");
   doc.text(empresaNombre.toUpperCase(), ticketWidth / 2, y, { align: "center" });
-  y += 5;
+  y += 6;
 
-  doc.setFontSize(7);
+  doc.setFontSize(8); // increased from 7
   doc.setFont("helvetica", "normal");
 
   if (sucursalDir) {
@@ -110,138 +110,158 @@ export async function generarTicketPDF(data: TicketData) {
     const splitDir = doc.splitTextToSize(sucursalDir, contentWidth - 4);
     for (let i = 0; i < splitDir.length; i++) {
         doc.text(splitDir[i], ticketWidth / 2, y, { align: "center" });
-        y += 3.5;
+        y += 4;
     }
   }
 
-  if (sucursalTel) { doc.text(`Tel: ${sucursalTel}`, ticketWidth / 2, y, { align: "center" }); y += 3.5; }
-  if (data.empresa?.nit) { doc.text(`NIT: ${data.empresa.nit}`, ticketWidth / 2, y, { align: "center" }); y += 3.5; }
-  if (data.empresa?.email) { doc.text(`${data.empresa.email}`, ticketWidth / 2, y, { align: "center" }); y += 3.5; }
+  if (sucursalTel) { doc.text(`Tel: ${sucursalTel}`, ticketWidth / 2, y, { align: "center" }); y += 4; }
+  if (data.empresa?.nit) { doc.text(`NIT: ${data.empresa.nit}`, ticketWidth / 2, y, { align: "center" }); y += 4; }
+  if (data.empresa?.email) { doc.text(`${data.empresa.email}`, ticketWidth / 2, y, { align: "center" }); y += 4; }
 
   // Dashed separator
   doc.setLineDashPattern([1, 1], 0);
   doc.setLineWidth(0.2);
   doc.line(margin, y, ticketWidth - margin, y);
-  y += 3;
+  y += 4;
 
-  // ── Document Type ───────────────────────────────────────
-  doc.setFontSize(10);
+  // ── Invoice Number & Type ───────────────────────────────
+  doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text(tipoLabel, ticketWidth / 2, y, { align: "center" });
-  y += 5.5;
+  doc.text(`N.° de ${tipoLabel}`, margin, y);
+  doc.text(data.orden.id.toUpperCase(), ticketWidth - margin, y, { align: "right" });
+  y += 5;
 
-  // ── Date & Info ─────────────────────────────────────────
   doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
   const fechaStr = new Date(data.orden.created_at).toLocaleDateString("es-SV", {
     timeZone: "America/El_Salvador", year: "numeric", month: "2-digit", day: "2-digit",
   });
-  const horaStr = new Date(data.orden.created_at).toLocaleTimeString("es-SV", {
-    timeZone: "America/El_Salvador", hour: "2-digit", minute: "2-digit",
-  });
-  doc.text(`Fecha: ${fechaStr}  ${horaStr}`, margin, y);
-  y += 4;
-  doc.text(`Paciente: ${paciente.nombre}`, margin, y);
-  y += 4;
-  if (paciente.telefono) { doc.text(`Tel: ${paciente.telefono}`, margin, y); y += 4; }
-  y += 1.5;
+  doc.text("Fecha", margin, y);
+  doc.text(fechaStr, ticketWidth - margin, y, { align: "right" });
+  y += 4.5;
 
   // ── Separator ───────────────────────────────────────────
+  doc.setLineDashPattern([1, 1], 0);
   doc.line(margin, y, ticketWidth - margin, y);
-  y += 3;
+  y += 4;
+
+  // ── Customer Info ───────────────────────────────────────
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("Cliente::", margin, y);
+  y += 4;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text(paciente.nombre.toUpperCase(), margin, y);
+  y += 5;
+
+  doc.setFontSize(7);
+  if (paciente.telefono) { doc.text(`Tel: ${paciente.telefono}`, margin, y); y += 3.5; }
+
+  y += 2;
+
+  // ── Separator ───────────────────────────────────────────
+  doc.setLineDashPattern([1, 1], 0);
+  doc.line(margin, y, ticketWidth - margin, y);
+  y += 4;
 
   // ── Items Header ────────────────────────────────────────
-  doc.setFontSize(7);
+  doc.setFontSize(8); // increased from 7
   doc.setFont("helvetica", "bold");
-  doc.text("CANT", margin, y);
-  doc.text("DESCRIPCIÓN", margin + 10, y);
-  doc.text("TOTAL", ticketWidth - margin, y, { align: "right" });
-  y += 3.5;
+  doc.text("#", margin, y);
+  doc.text("Artículo", margin + 6, y);
+  doc.text("Cant.", margin + 28, y);
+  doc.text("Cantidad", ticketWidth - margin - 18, y);
+  y += 4;
 
-  doc.setLineDashPattern([0.5, 0.5], 0);
+  doc.setLineDashPattern([1, 1], 0);
   doc.line(margin, y, ticketWidth - margin, y);
-  y += 3;
+  y += 4;
 
   // ── Items ───────────────────────────────────────────────
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
+  let itemNum = 1;
 
   for (const item of data.detalles) {
     const desc = item.descripcion || "—";
-    // Wrap description to fit in 2 lines max instead of truncating
-    const maxDescWidth = contentWidth - 22;
+    // Wrap description to fit better
+    const maxDescWidth = contentWidth - 18;
     const descLines = doc.splitTextToSize(desc, maxDescWidth);
     const displayDesc = descLines.length > 2 ? descLines.slice(0, 2).join("\n") + "…" : descLines.join("\n");
 
-    doc.text(`${item.cantidad}`, margin + 2, y, { align: "center" });
-    doc.text(displayDesc, margin + 10, y);
+    doc.text(`${itemNum}`, margin, y);
+    doc.text(displayDesc, margin + 6, y);
+    doc.text(`${item.cantidad}`, margin + 28, y);
     doc.text(fmtCurrency(Number(item.subtotal)), ticketWidth - margin, y, { align: "right" });
 
     // Calculate lines consumed by wrapped desc
     const lineCount = displayDesc.split("\n").length;
-    y += 3.5 * lineCount;
+    y += 4.5 * lineCount;
 
     // Show unit price if qty > 1
     if (item.cantidad > 1) {
       doc.setFontSize(7);
-      doc.text(`  c/u ${fmtCurrency(Number(item.precio_unitario))}`, margin + 10, y);
+      doc.text(`  c/u ${fmtCurrency(Number(item.precio_unitario))}`, margin + 6, y);
       doc.setFontSize(8);
       y += 3.5;
     }
 
-    y += 1.5; // extra spacing between items
+    y += 2; // extra spacing between items
+    itemNum++;
   }
 
-  y += 1;
+  y += 2;
 
   // ── Totals ──────────────────────────────────────────────
   doc.setLineDashPattern([1, 1], 0);
   doc.line(margin, y, ticketWidth - margin, y);
-  y += 4.5;
+  y += 5;
 
-  doc.setFontSize(8);
+  doc.setFontSize(9); // increased from 8
   doc.setFont("helvetica", "normal");
-  doc.text("Subtotal:", margin, y);
+  doc.text("Subtotal", margin, y);
   doc.text(fmtCurrency(Number(data.orden.subtotal)), ticketWidth - margin, y, { align: "right" });
-  y += 4.5;
+  y += 5;
 
   if (Number(data.orden.descuento) > 0) {
-    doc.text("Descuento:", margin, y);
+    doc.text("Descuento", margin, y);
     doc.text(`-${fmtCurrency(Number(data.orden.descuento))}`, ticketWidth - margin, y, { align: "right" });
-    y += 4.5;
+    y += 5;
   }
 
-  doc.setFontSize(10);
+  doc.setFontSize(12); // increased from 10
   doc.setFont("helvetica", "bold");
-  doc.text("TOTAL:", margin, y);
+  doc.text("Total", margin, y);
   doc.text(fmtCurrency(Number(data.orden.total)), ticketWidth - margin, y, { align: "right" });
-  y += 5.5;
+  y += 6;
+
+  // ── Payment Info ─────────────────────────────────────────
+  doc.setLineDashPattern([1, 1], 0);
+  doc.line(margin, y, ticketWidth - margin, y);
+  y += 5;
 
   // ── Notes ───────────────────────────────────────────────
   if (data.orden.notas) {
-    doc.setLineDashPattern([0.5, 0.5], 0);
-    doc.line(margin, y, ticketWidth - margin, y);
-    y += 3.5;
     doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.text("Notas:", margin, y);
+    y += 4;
+
     doc.setFont("helvetica", "normal");
     const notaLines = doc.splitTextToSize(data.orden.notas, contentWidth);
     doc.text(notaLines, margin, y);
-    y += notaLines.length * 3.5 + 2;
+    y += notaLines.length * 3.5 + 3;
   }
-
-  // ── Payment Summary ──────────────────────────────────────
-  doc.setLineDashPattern([1, 1], 0);
-  doc.line(margin, y, ticketWidth - margin, y);
-  y += 3;
 
   if (data.pagos.length > 0) {
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
     doc.text("ABONOS", margin, y);
-    y += 4;
+    y += 4.5;
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     const metodoLabels: Record<string, string> = { efectivo: "Efect.", tarjeta: "Tarj.", transferencia: "Transf.", cheque: "Cheque" };
 
     for (const pago of data.pagos) {
@@ -249,22 +269,38 @@ export async function generarTicketPDF(data: TicketData) {
       const metod = metodoLabels[pago.metodo_pago] ?? pago.metodo_pago;
       doc.text(`${fecha} ${metod}`, margin, y);
       doc.text(fmtCurrency(Number(pago.monto)), ticketWidth - margin, y, { align: "right" });
-      y += 4;
+      y += 4.5;
     }
 
-    y += 1.5;
-    doc.setFontSize(8);
+    y += 2;
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text("Total Abonado:", margin, y);
     doc.text(fmtCurrency(data.totalAbonado), ticketWidth - margin, y, { align: "right" });
-    y += 4.5;
+    y += 5;
   }
 
-  doc.setFontSize(9);
+  doc.setLineDashPattern([1, 1], 0);
+  doc.line(margin, y, ticketWidth - margin, y);
+  y += 5;
+
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("SALDO PENDIENTE:", margin, y);
+  doc.text("SALDO PENDIENTE", margin, y);
   doc.text(fmtCurrency(Math.max(data.saldoPendiente, 0)), ticketWidth - margin, y, { align: "right" });
-  y += 5.5;
+  y += 6;
+
+  // ── Terms ────────────────────────────────────────────────
+  doc.setLineDashPattern([1, 1], 0);
+  doc.line(margin, y, ticketWidth - margin, y);
+  y += 4;
+
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.text("Términos y condiciones: 90 días de garantía por", margin, y);
+  y += 3;
+  doc.text("desperfectos de fábrica", margin, y);
+  y += 5;
 
   // ── Footer ──────────────────────────────────────────────
   doc.setLineDashPattern([1, 1], 0);
