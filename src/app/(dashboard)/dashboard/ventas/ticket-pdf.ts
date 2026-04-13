@@ -42,6 +42,42 @@ function getNestedPat(rel: TicketData["orden"]["paciente"]): { nombre: string; t
   return rel;
 }
 
+function numeroALetras(num: number): string {
+  const unidades = ["", "Uno", "Dos", "Tres", "Cuatro", "Cinco", "Seis", "Siete", "Ocho", "Nueve"];
+  const decenas = ["", "", "Veinte", "Treinta", "Cuarenta", "Cincuenta", "Sesenta", "Setenta", "Ochenta", "Noventa"];
+  const especiales = ["Diez", "Once", "Doce", "Trece", "Catorce", "Quince", "Dieciséis", "Diecisiete", "Dieciocho", "Diecinueve"];
+  const centenas = ["", "Ciento", "Doscientos", "Trescientos", "Cuatrocientos", "Quinientos", "Seiscientos", "Setecientos", "Ochocientos", "Novecientos"];
+
+  const int = Math.floor(num);
+  const decimales = Math.round((num - int) * 100);
+
+  if (int === 0) return "Cero";
+
+  let resultado = "";
+
+  // Centenas
+  if (int >= 100) {
+    resultado += centenas[Math.floor(int / 100)];
+    const resto = int % 100;
+    if (resto > 0) resultado += " " + numeroALetras(resto);
+  } else if (int >= 20) {
+    const d = Math.floor(int / 10);
+    const u = int % 10;
+    resultado = decenas[d];
+    if (u > 0) resultado += " y " + unidades[u];
+  } else if (int >= 10) {
+    resultado = especiales[int - 10];
+  } else {
+    resultado = unidades[int];
+  }
+
+  if (decimales > 0) {
+    resultado += ` con ${decimales}/100`;
+  }
+
+  return resultado;
+}
+
 export async function generarTicketPDF(data: TicketData) {
   // Helper to load image URL into base64 for jsPDF
   const loadImage = (url: string): Promise<string> => {
@@ -72,7 +108,7 @@ export async function generarTicketPDF(data: TicketData) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [ticketWidth, ticketHeight] });
   const margin = 3;
   const contentWidth = ticketWidth - margin * 2;
-  let y = margin + 1;
+  let y = margin; // reduced from margin + 1 to eliminate top margin
 
   const paciente = getNestedPat(data.orden.paciente);
   const asesor = getNested(data.orden.asesor);
@@ -125,13 +161,17 @@ export async function generarTicketPDF(data: TicketData) {
   y += 4;
 
   // ── Invoice Number & Type ───────────────────────────────
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  doc.text(`N.° de ${tipoLabel}`, margin, y);
-  doc.text(data.orden.id.toUpperCase(), ticketWidth - margin, y, { align: "right" });
+  doc.text(`N.° de factura`, margin, y);
+  y += 4;
+
+  doc.setFontSize(10);
+  doc.text(data.orden.id.toUpperCase(), margin, y);
   y += 5;
 
   doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
   const fechaStr = new Date(data.orden.created_at).toLocaleDateString("es-SV", {
     timeZone: "America/El_Salvador", year: "numeric", month: "2-digit", day: "2-digit",
   });
@@ -289,6 +329,23 @@ export async function generarTicketPDF(data: TicketData) {
   doc.text("SALDO PENDIENTE", margin, y);
   doc.text(fmtCurrency(Math.max(data.saldoPendiente, 0)), ticketWidth - margin, y, { align: "right" });
   y += 6;
+
+  // ── Amount in Words ──────────────────────────────────────
+  doc.setLineDashPattern([1, 1], 0);
+  doc.line(margin, y, ticketWidth - margin, y);
+  y += 4;
+
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.text("Importe en letras:", margin, y);
+  y += 3;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  const importeLetras = numeroALetras(Number(data.orden.total));
+  const letraLines = doc.splitTextToSize(importeLetras, contentWidth);
+  doc.text(letraLines, margin, y);
+  y += letraLines.length * 3.5 + 3;
 
   // ── Terms ────────────────────────────────────────────────
   doc.setLineDashPattern([1, 1], 0);
