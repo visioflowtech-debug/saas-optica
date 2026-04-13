@@ -111,7 +111,6 @@ export async function generarTicketPDF(data: TicketData) {
   let y = margin; // reduced from margin + 1 to eliminate top margin
 
   const paciente = getNestedPat(data.orden.paciente);
-  const asesor = getNested(data.orden.asesor);
   const empresaNombre = data.empresa?.nombre ?? "Óptica";
   const sucursalDir = data.sucursal?.direccion ?? "";
   const sucursalTel = data.sucursal?.telefono ?? "";
@@ -342,7 +341,7 @@ export async function generarTicketPDF(data: TicketData) {
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
-  const importeLetras = numeroALetras(Number(data.orden.total));
+  const importeLetras = numeroALetras(Number(data.orden.total) || 0);
   const letraLines = doc.splitTextToSize(importeLetras, contentWidth);
   doc.text(letraLines, margin, y);
   y += letraLines.length * 3.5 + 3;
