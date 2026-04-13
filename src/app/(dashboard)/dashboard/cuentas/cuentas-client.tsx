@@ -17,13 +17,20 @@ function tipoColor(tipo: string) {
 function badgeCuenta(tipo: string) {
   if (tipo === "efectivo") return "bg-green-500/15 text-green-600 dark:text-green-400";
   if (tipo === "banco") return "bg-blue-500/15 text-blue-600 dark:text-blue-400";
+  if (tipo === "cxp") return "bg-orange-500/15 text-orange-600 dark:text-orange-400";
+  if (tipo === "cxc") return "bg-amber-500/15 text-amber-600 dark:text-amber-400";
   return "bg-purple-500/15 text-purple-600 dark:text-purple-400";
 }
 
 function labelTipo(tipo: string) {
-  if (tipo === "efectivo") return "Efectivo";
-  if (tipo === "banco") return "Banco";
-  return tipo.charAt(0).toUpperCase() + tipo.slice(1);
+  const labels: Record<string, string> = {
+    efectivo: "Efectivo",
+    banco: "Banco",
+    cxp: "CxP",
+    cxc: "CxC",
+    otro: "Otro"
+  };
+  return labels[tipo] ?? (tipo.charAt(0).toUpperCase() + tipo.slice(1));
 }
 
 function tipoLabel(tipo: string) {
@@ -75,6 +82,8 @@ function ModalNuevaCuenta({ onClose }: { onClose: () => void }) {
             <select name="tipo" className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="efectivo">Efectivo</option>
               <option value="banco">Banco</option>
+              <option value="cxp">Cuentas por Pagar (CxP)</option>
+              <option value="cxc">Cuentas por Cobrar (CxC)</option>
               <option value="otro">Otro</option>
             </select>
           </div>
