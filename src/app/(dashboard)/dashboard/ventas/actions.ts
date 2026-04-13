@@ -69,11 +69,11 @@ export async function obtenerCatalogo(): Promise<CatalogItem[]> {
     let label = "";
     const esAro = p.categoria.startsWith("aro");
     if (esAro) {
-      // Aros: solo marca, color, modelo, SKU (sin nombre "ARO")
+      // Aros: "ARO" + marca, color, modelo, SKU
       const parts = [p.marca, p.color, p.modelo].filter(Boolean).join(" ");
       const cleaned = parts.trim();
       const skuStr = p.sku ? ` — SKU ${p.sku}` : "";
-      label = (cleaned || p.categoria) + skuStr;
+      label = "ARO " + (cleaned || p.categoria) + skuStr;
     } else if (p.categoria === "accesorio") {
       const parts = [p.nombre, p.marca, p.modelo, p.color].filter(Boolean);
       label = parts.join(" — ") || p.categoria;
