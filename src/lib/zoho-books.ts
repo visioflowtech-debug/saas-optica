@@ -134,7 +134,8 @@ export function buildZohoItemName(p: {
 }): string {
   const esAro = p.categoria.startsWith("aro");
   if (esAro) {
-    const partes = [p.nombre, p.marca, p.color, p.modelo].filter(Boolean).join(" ");
+    // Aros: solo marca, color, modelo, SKU (sin nombre)
+    const partes = [p.marca, p.color, p.modelo].filter(Boolean).join(" ");
     const cleaned = partes.trim();
     const skuStr = p.sku ? ` — SKU ${p.sku}` : "";
     return (cleaned || p.categoria) + skuStr;
