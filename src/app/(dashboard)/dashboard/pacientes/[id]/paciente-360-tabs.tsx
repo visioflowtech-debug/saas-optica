@@ -208,7 +208,7 @@ function TabClinico({ examenes }: { examenes: Examen[] }) {
                 {ex.dp_unico && <ExamDetail label="DP" value={ex.dp_unico} />}
                 {ex.dp != null && <ExamDetail label="DP OD" value={`${ex.dp} mm`} />}
                 {ex.dp_oi != null && <ExamDetail label="DP OI" value={`${ex.dp_oi} mm`} />}
-                {ex.altura != null && <ExamDetail label="Altura" value={`${ex.altura} mm`} />}
+                <ExamDetail label="Altura" value={ex.altura != null ? `${ex.altura} mm` : "—"} />
               </div>
 
               {/* Motivo de consulta */}
