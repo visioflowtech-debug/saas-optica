@@ -355,11 +355,17 @@ Incluye únicamente las observaciones registradas por el optometrista. Si no hay
     return { informe };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[generarInformeIA]", msg);
-    if (msg.includes("429") || msg.includes("quota") || msg.includes("Too Many Requests")) {
+    const fullErr = JSON.stringify(err, null, 2);
+    console.error("[generarInformeIA] Error:", msg);
+    console.error("[generarInformeIA] Full error:", fullErr);
+
+    if (msg.includes("429") || msg.includes("quota") || msg.includes("Too Many Requests") || msg.includes("RESOURCE_EXHAUSTED")) {
       return { error: "Límite de cuota de Gemini alcanzado. Espera unos minutos e intenta de nuevo." };
     }
-    return { error: "Error al conectar con Gemini. Verifica la API key." };
+    if (msg.includes("API key") || msg.includes("UNAUTHENTICATED") || msg.includes("401")) {
+      return { error: "Error de autenticación con Gemini. Verifica la GEMINI_API_KEY en el servidor." };
+    }
+    return { error: `Error al generar informe: ${msg.substring(0, 100)}` };
   }
 }
 
