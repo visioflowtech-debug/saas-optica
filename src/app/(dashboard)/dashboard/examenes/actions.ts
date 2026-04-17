@@ -339,12 +339,15 @@ Incluye únicamente las observaciones registradas por el optometrista. Si no hay
 
   try {
     console.log("[generarInformeIA] Iniciando con modelo gemini-2.5-flash...");
+    console.log("[generarInformeIA] Tamaño del prompt:", prompt.length, "caracteres");
+
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     console.log("[generarInformeIA] Modelo cargado, enviando prompt...");
+
     const result = await model.generateContent(prompt);
     const informe = result.response.text();
-    console.log("[generarInformeIA] ✓ Informe generado exitosamente");
+    console.log("[generarInformeIA] ✓ Informe generado exitosamente, tamaño:", informe.length, "caracteres");
 
     // Guardar en la base de datos
     await supabase
