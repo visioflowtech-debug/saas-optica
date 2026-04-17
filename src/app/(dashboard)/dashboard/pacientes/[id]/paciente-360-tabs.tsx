@@ -201,21 +201,29 @@ function TabClinico({ examenes }: { examenes: Examen[] }) {
                 </tbody>
               </table>
             </div>
-            {/* Extra fields */}
+            {/* Extra fields — DP y Altura after refracción, motivo_consulta after those */}
             <div className="flex flex-col gap-4 mt-4 pt-3 border-t border-b-subtle">
+              {/* DP y Altura */}
+              <div className="flex flex-wrap gap-4">
+                {ex.dp_unico && <ExamDetail label="DP" value={ex.dp_unico} />}
+                {ex.dp != null && <ExamDetail label="DP OD" value={`${ex.dp} mm`} />}
+                {ex.dp_oi != null && <ExamDetail label="DP OI" value={`${ex.dp_oi} mm`} />}
+                {ex.altura != null && <ExamDetail label="Altura" value={`${ex.altura} mm`} />}
+              </div>
+
+              {/* Motivo de consulta */}
               {ex.motivo_consulta && (
                 <div>
                   <span className="text-[10px] text-t-muted uppercase tracking-wider">Motivo de consulta</span>
                   <p className="text-sm text-t-primary font-medium">{ex.motivo_consulta}</p>
                 </div>
               )}
-              
+
+              {/* Otros detalles */}
               <div className="flex flex-wrap gap-4">
                 {ex.lente_uso && <ExamDetail label="Lente-Uso" value={ex.lente_uso} />}
                 {ex.av_od_sin_lentes && <ExamDetail label="AV OD s/l" value={ex.av_od_sin_lentes} />}
                 {ex.av_oi_sin_lentes && <ExamDetail label="AV OI s/l" value={ex.av_oi_sin_lentes} />}
-                {ex.dp != null && <ExamDetail label="DP" value={`${ex.dp} mm`} />}
-                {ex.altura != null && <ExamDetail label="Altura" value={`${ex.altura} mm`} />}
               </div>
             </div>
             {ex.observaciones && (
@@ -699,7 +707,7 @@ function VerDetalleExamenModal({ examen, onClose }: { examen: Examen, onClose: (
             <ExamDetail label="Lente/Uso" value={examen.lente_uso || "—"} />
             <ExamDetail label="DP OD" value={examen.dp != null ? `${examen.dp} mm` : "—"} />
             <ExamDetail label="DP OI" value={examen.dp_oi != null ? `${examen.dp_oi} mm` : "—"} />
-            <ExamDetail label="DP único" value={examen.dp_unico || "—"} />
+            <ExamDetail label="DP" value={examen.dp_unico || "—"} />
             <ExamDetail label="Altura" value={examen.altura != null ? `${examen.altura} mm` : "—"} />
           </div>
 

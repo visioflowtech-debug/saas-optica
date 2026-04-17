@@ -470,7 +470,7 @@ export default function ExamenFormClient({
           )}
 
           <div>
-            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">DP <span className="normal-case text-t-muted font-normal">único</span></label>
+            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">DP</label>
             <input name="dp_unico" value={dp_unico} onChange={(e) => setDpUnico(e.target.value)} type="text" className={inputCls} placeholder="" />
           </div>
           <div>
