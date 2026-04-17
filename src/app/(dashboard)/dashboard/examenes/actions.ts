@@ -441,7 +441,6 @@ export async function actualizarExamen(formData: FormData) {
       exploracion_externa: parseJsonField("exploracion_externa"),
       binocularidad: parseJsonField("binocularidad"),
       proceso_refractivo: parseJsonField("proceso_refractivo"),
-      updated_at: new Date().toISOString(),
     })
     .eq("id", examen_id)
     .eq("tenant_id", tenant_id)
