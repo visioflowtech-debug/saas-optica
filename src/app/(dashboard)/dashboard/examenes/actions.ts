@@ -280,12 +280,15 @@ ${seccionExploracion}
 ${seccionBinocularidad}
 ${seccionProceso}
 
+${examen.av_od_sin_lentes || examen.av_oi_sin_lentes || examen.av_od_cc || examen.av_oi_cc ? `
 AGUDEZA VISUAL (AV) — escala métrica, distancia 6 metros:
   Sin corrección:  OD ${examen.av_od_sin_lentes ?? "no registrado"}  |  OI ${examen.av_oi_sin_lentes ?? "no registrado"}
   Con corrección:  OD ${examen.av_od_cc ?? "no registrado"}           |  OI ${examen.av_oi_cc ?? "no registrado"}
-
+` : ""}
+${examen.pio_od != null || examen.pio_oi != null ? `
 PRESIÓN INTRAOCULAR (PIO) — valores normales 10–21 mmHg:
   OD: ${examen.pio_od != null ? `${examen.pio_od} mmHg` : "no registrada"}  |  OI: ${examen.pio_oi != null ? `${examen.pio_oi} mmHg` : "no registrada"}
+` : ""}
 
 REFRACCIÓN ACTUAL — lente que el paciente usa actualmente (RA):
   OD: Esf ${fmtNum(examen.ra_od_esfera)} / Cil ${fmtNum(examen.ra_od_cilindro)} × ${examen.ra_od_eje ?? "—"}° / Add ${fmtAdd(examen.ra_od_adicion)}
@@ -296,9 +299,11 @@ REFRACCIÓN FINAL — nueva prescripción recomendada (RF):
   OI: Esf ${fmtNum(examen.rf_oi_esfera)} / Cil ${fmtNum(examen.rf_oi_cilindro)} × ${examen.rf_oi_eje ?? "—"}° / Add ${fmtAdd(examen.rf_oi_adicion)}
 
 DISTANCIA PUPILAR (DP): ${
-  examen.dp_unico
-    ? examen.dp_unico
-    : (examen.dp != null ? `${examen.dp} mm` : "no registrada") + (examen.dp_oi != null ? ` / OI ${examen.dp_oi} mm` : "")
+  examen.dp_unico || examen.dp != null || examen.dp_oi != null
+    ? (examen.dp_unico
+        ? examen.dp_unico
+        : (examen.dp != null ? `${examen.dp} mm` : "no registrada") + (examen.dp_oi != null ? ` / OI ${examen.dp_oi} mm` : ""))
+    : "no registrada"
 }
 ALTURA DE MONTAJE: ${examen.altura != null ? `${examen.altura} mm` : "no registrada"}
 OBSERVACIONES DEL OPTOMETRISTA: ${truncate(examen.observaciones?.trim(), 500) || "Ninguna"}
