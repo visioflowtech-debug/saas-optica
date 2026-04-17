@@ -3,6 +3,8 @@
 import { useState, useTransition, useEffect, useRef } from "react";
 import { crearExamen, actualizarExamen, obtenerUltimaRefraccion } from "../actions";
 
+// v2: Campos AV/PIO ocultos, módulos clínicos colapsados por defecto
+
 interface Props {
   buscarPacientes?: (q: string) => Promise<{ id: string; nombre: string }[]>;
   defaultPaciente?: { id: string; nombre: string } | null;
