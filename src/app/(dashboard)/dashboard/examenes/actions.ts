@@ -338,10 +338,13 @@ Incluye únicamente las observaciones registradas por el optometrista. Si no hay
 `;
 
   try {
+    console.log("[generarInformeIA] Iniciando con modelo gemini-2.5-flash...");
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    console.log("[generarInformeIA] Modelo cargado, enviando prompt...");
     const result = await model.generateContent(prompt);
     const informe = result.response.text();
+    console.log("[generarInformeIA] ✓ Informe generado exitosamente");
 
     // Guardar en la base de datos
     await supabase
@@ -355,9 +358,11 @@ Incluye únicamente las observaciones registradas por el optometrista. Si no hay
     return { informe };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    const fullErr = JSON.stringify(err, null, 2);
-    console.error("[generarInformeIA] Error:", msg);
-    console.error("[generarInformeIA] Full error:", fullErr);
+    console.error("[generarInformeIA] ❌ Error capturado:", msg);
+    console.error("[generarInformeIA] Tipo de error:", typeof err, err?.constructor?.name);
+    if (err instanceof Error && err.cause) {
+      console.error("[generarInformeIA] Causa:", err.cause);
+    }
 
     if (msg.includes("429") || msg.includes("quota") || msg.includes("Too Many Requests") || msg.includes("RESOURCE_EXHAUSTED")) {
       return { error: "Límite de cuota de Gemini alcanzado. Espera unos minutos e intenta de nuevo." };
@@ -365,7 +370,10 @@ Incluye únicamente las observaciones registradas por el optometrista. Si no hay
     if (msg.includes("API key") || msg.includes("UNAUTHENTICATED") || msg.includes("401")) {
       return { error: "Error de autenticación con Gemini. Verifica la GEMINI_API_KEY en el servidor." };
     }
-    return { error: `Error al generar informe: ${msg.substring(0, 100)}` };
+    if (msg.includes("fetch") || msg.includes("generativelanguage.googleapis.com")) {
+      return { error: "Error de conexión con Gemini API. Verifica la conectividad de red y que GEMINI_API_KEY sea válida." };
+    }
+    return { error: `Error al generar informe: ${msg.substring(0, 150)}` };
   }
 }
 
