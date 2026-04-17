@@ -6,7 +6,7 @@
 - **UI**: Tailwind CSS v4 + Lucide React
 - **PDF**: jsPDF + jspdf-autotable
 - **Drag & drop**: @dnd-kit (kanban laboratorio)
-- **IA clínica**: @google/generative-ai → `gemini-2.0-flash` (llamadas siempre server-side)
+- **IA clínica**: @google/generative-ai → `gemini-2.5-flash` (modelo recomendado por Google para producción, llamadas siempre server-side)
 - **Deploy**: Vercel (branch `main` → producción automática)
 - **Timezone**: El Salvador UTC-6, sin horario de verano
 
