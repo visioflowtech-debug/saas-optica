@@ -349,6 +349,7 @@ Incluye únicamente las observaciones registradas por el optometrista. Si no hay
   try {
     console.log("[generarInformeIA] Iniciando con modelo gemini-2.5-flash...");
     console.log("[generarInformeIA] Tamaño del prompt:", prompt.length, "caracteres");
+    console.log("[generarInformeIA] API Key presente:", apiKey ? "sí (primeros 10 chars: " + apiKey.slice(0, 10) + "...)" : "NO");
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });

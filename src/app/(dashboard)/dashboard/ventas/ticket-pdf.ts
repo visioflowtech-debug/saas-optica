@@ -119,17 +119,22 @@ export async function generarTicketPDF(data: TicketData) {
   const tipoLabel = data.orden.tipo === "proforma" ? "VENTA" : "ORDEN DE TRABAJO";
 
   // ── Header ──────────────────────────────────────────────
+  console.log("[ticket-pdf] Logo URL:", data.empresa?.logo_url ? "presente" : "NULL/undefined");
   if (data.empresa?.logo_url) {
     try {
+      console.log("[ticket-pdf] Intentando cargar logo desde:", data.empresa.logo_url);
       const base64Logo = await loadImage(data.empresa.logo_url);
       const logoWidth = 32; // increased from 24
       const logoHeight = 32; // increased from 24
       const logoX = (ticketWidth - logoWidth) / 2;
       doc.addImage(base64Logo, 'PNG', logoX, y, logoWidth, logoHeight);
       y += logoHeight + 5;
+      console.log("[ticket-pdf] ✓ Logo cargado exitosamente");
     } catch (e) {
-      console.warn("Could not load logo image for PDF", e);
+      console.warn("[ticket-pdf] ✗ No se pudo cargar el logo:", e instanceof Error ? e.message : String(e));
     }
+  } else {
+    console.warn("[ticket-pdf] ⚠ Logo URL no configurado en empresas.logo_url");
   }
 
   doc.setFontSize(14); // increased from 12
