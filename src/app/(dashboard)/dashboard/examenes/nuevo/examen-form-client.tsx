@@ -304,7 +304,7 @@ export default function ExamenFormClient({
   };
 
   useEffect(() => {
-    if (defaultPacienteId) doImport(defaultPacienteId);
+    if (defaultPacienteId && !isEditMode) doImport(defaultPacienteId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -477,10 +477,12 @@ export default function ExamenFormClient({
             <h2 className="text-lg font-semibold text-t-primary">Refracción Actual (RA)</h2>
             <p className="text-xs text-t-muted mt-0.5">Graduación que el paciente lleva actualmente</p>
           </div>
-          <button type="button" onClick={handleImport} disabled={isPending}
-            className="px-3 py-2.5 min-h-11 text-xs font-medium bg-a-amber-bg text-t-amber border border-a-amber-border rounded-lg hover:opacity-80 transition disabled:opacity-50">
-            {isPending ? "Importando..." : "📋 Importar última RF"}
-          </button>
+          {!isEditMode && (
+            <button type="button" onClick={handleImport} disabled={isPending}
+              className="px-3 py-2.5 min-h-11 text-xs font-medium bg-a-amber-bg text-t-amber border border-a-amber-border rounded-lg hover:opacity-80 transition disabled:opacity-50">
+              {isPending ? "Importando..." : "📋 Importar última RF"}
+            </button>
+          )}
         </div>
         {importMsg && <p className={`text-xs mb-3 ${importMsg.startsWith("✓") ? "text-t-green" : "text-t-amber"}`}>{importMsg}</p>}
         <RefraccionGrid prefix="ra" fields={fields} onChange={updateField} plano={plano} onTogglePlano={togglePlano} />

@@ -26,6 +26,7 @@ export default async function EditarExamenPage({
     .select("*")
     .eq("id", id)
     .eq("tenant_id", perfil.tenant_id)
+    .eq("sucursal_id", perfil.sucursal_id)
     .single();
 
   if (!examen || examen.anulado) notFound();
@@ -35,6 +36,7 @@ export default async function EditarExamenPage({
       .select("id, nombre, fecha_nacimiento, edad")
       .eq("id", examen.paciente_id)
       .eq("tenant_id", perfil.tenant_id)
+      .eq("sucursal_id", perfil.sucursal_id)
       .single(),
     supabase.from("categorias_config")
       .select("label")
