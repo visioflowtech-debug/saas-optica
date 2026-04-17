@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls -la /c/saas_optica/src/app/\\(dashboard\\)/dashboard/configuracion/)"
+      "Bash(ls -la /c/saas_optica/src/app/\\(dashboard\\)/dashboard/configuracion/)",
+      "WebFetch(domain:saas-optica.vercel.app)"
     ]
   },
   "hooks": {
