@@ -154,6 +154,15 @@ function TabClinico({ examenes }: { examenes: Examen[] }) {
                 >
                   👁️ Ver
                 </button>
+                {!ex.anulado && (
+                  <a
+                    href={`/dashboard/examenes/${ex.id}/editar`}
+                    className="px-2 py-1 text-[10px] font-medium bg-purple-600/15 text-purple-500 border border-purple-500/30 rounded-md hover:opacity-80 transition"
+                    title="Editar examen"
+                  >
+                    ✏️ Editar
+                  </a>
+                )}
                 {!ex.anulado && <RecetaPDFButton examenId={ex.id} />}
                 {!ex.anulado && <AnularExamenButton examenId={ex.id} />}
                 <ConfirmDeleteButton

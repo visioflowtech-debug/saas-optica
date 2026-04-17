@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useTransition, useEffect, useRef } from "react";
-import { crearExamen, obtenerUltimaRefraccion } from "../actions";
+import { crearExamen, actualizarExamen, obtenerUltimaRefraccion } from "../actions";
 
 interface Props {
-  buscarPacientes: (q: string) => Promise<{ id: string; nombre: string }[]>;
+  buscarPacientes?: (q: string) => Promise<{ id: string; nombre: string }[]>;
   defaultPaciente?: { id: string; nombre: string } | null;
-  optometristas: { id: string; nombre: string; activo: boolean }[];
+  optometristas?: { id: string; nombre: string; activo: boolean }[];
   campanaId?: string;
+  examenInicial?: any | null;
+  pacienteInicial?: { id: string; nombre: string; fecha_nacimiento?: string; edad?: number } | null;
+  optometristasDisponibles?: string[];
 }
 
 type RefraccionFields = {
@@ -66,68 +69,177 @@ type ProcesoRefractivoState = {
   prueba_subjetiva: string; prueba_ambulatoria: string; tolera_prescripcion: string;
 };
 
-export default function ExamenFormClient({ buscarPacientes, defaultPaciente, optometristas, campanaId }: Props) {
-  const defaultPacienteId = defaultPaciente?.id;
-  const [pacienteId, setPacienteId] = useState(defaultPaciente?.id || "");
-  const [fields, setFields] = useState<RefraccionFields>(EMPTY);
+export default function ExamenFormClient({
+  buscarPacientes = async () => [],
+  defaultPaciente,
+  optometristas = [],
+  campanaId,
+  examenInicial,
+  pacienteInicial,
+  optometristasDisponibles = [],
+}: Props) {
+  const isEditMode = Boolean(examenInicial);
+  const defaultPacienteId = pacienteInicial?.id || defaultPaciente?.id;
+
+  // Inicializar refracción desde examen
+  const initFields = (): RefraccionFields => {
+    if (!examenInicial) return EMPTY;
+    return {
+      ra_od_esfera: examenInicial.ra_od_esfera?.toString() ?? "",
+      ra_od_cilindro: examenInicial.ra_od_cilindro?.toString() ?? "",
+      ra_od_eje: examenInicial.ra_od_eje?.toString() ?? "",
+      ra_od_adicion: examenInicial.ra_od_adicion?.toString() ?? "",
+      ra_oi_esfera: examenInicial.ra_oi_esfera?.toString() ?? "",
+      ra_oi_cilindro: examenInicial.ra_oi_cilindro?.toString() ?? "",
+      ra_oi_eje: examenInicial.ra_oi_eje?.toString() ?? "",
+      ra_oi_adicion: examenInicial.ra_oi_adicion?.toString() ?? "",
+      rf_od_esfera: examenInicial.rf_od_esfera?.toString() ?? "",
+      rf_od_cilindro: examenInicial.rf_od_cilindro?.toString() ?? "",
+      rf_od_eje: examenInicial.rf_od_eje?.toString() ?? "",
+      rf_od_adicion: examenInicial.rf_od_adicion?.toString() ?? "",
+      rf_oi_esfera: examenInicial.rf_oi_esfera?.toString() ?? "",
+      rf_oi_cilindro: examenInicial.rf_oi_cilindro?.toString() ?? "",
+      rf_oi_eje: examenInicial.rf_oi_eje?.toString() ?? "",
+      rf_oi_adicion: examenInicial.rf_oi_adicion?.toString() ?? "",
+    };
+  };
+
+  const initExploracion = (): ExploracionState => {
+    if (!examenInicial?.exploracion_externa) return EXPLORACION_INICIAL;
+    const data = examenInicial.exploracion_externa as Record<string, any>;
+    return Object.fromEntries(
+      SEGMENTOS_EXPLORACION.map((s) => [
+        s.key,
+        { nl: data[s.key]?.nl ?? null, nota: data[s.key]?.nota ?? "" },
+      ])
+    );
+  };
+
+  const initBino = (): BinocularidadState => {
+    if (!examenInicial?.binocularidad) {
+      return {
+        cover_lejos: "",
+        cover_40cm: "",
+        cover_20cm: "",
+        hirshberg: "",
+        ojo_dominante: "",
+        ojo_fijador: "",
+        ducciones_od: "",
+        ducciones_oi: "",
+        versiones: "",
+      };
+    }
+    const data = examenInicial.binocularidad as Record<string, any>;
+    return {
+      cover_lejos: data.cover_lejos ?? "",
+      cover_40cm: data.cover_40cm ?? "",
+      cover_20cm: data.cover_20cm ?? "",
+      hirshberg: data.hirshberg ?? "",
+      ojo_dominante: data.ojo_dominante ?? "",
+      ojo_fijador: data.ojo_fijador ?? "",
+      ducciones_od: data.ducciones_od ?? "",
+      ducciones_oi: data.ducciones_oi ?? "",
+      versiones: data.versiones ?? "",
+    };
+  };
+
+  const initProceso = (): ProcesoRefractivoState => {
+    if (!examenInicial?.proceso_refractivo) {
+      return {
+        retino_od_esfera: "",
+        retino_od_cilindro: "",
+        retino_od_eje: "",
+        retino_oi_esfera: "",
+        retino_oi_cilindro: "",
+        retino_oi_eje: "",
+        av_od_sc_cerca: "",
+        av_oi_sc_cerca: "",
+        av_od_cc_cerca: "",
+        av_oi_cc_cerca: "",
+        pinhole_od: "",
+        pinhole_oi: "",
+        prueba_subjetiva: "",
+        prueba_ambulatoria: "",
+        tolera_prescripcion: "",
+      };
+    }
+    const data = examenInicial.proceso_refractivo as Record<string, any>;
+    return {
+      retino_od_esfera: data.retino_od_esfera ?? "",
+      retino_od_cilindro: data.retino_od_cilindro ?? "",
+      retino_od_eje: data.retino_od_eje ?? "",
+      retino_oi_esfera: data.retino_oi_esfera ?? "",
+      retino_oi_cilindro: data.retino_oi_cilindro ?? "",
+      retino_oi_eje: data.retino_oi_eje ?? "",
+      av_od_sc_cerca: data.av_od_sc_cerca ?? "",
+      av_oi_sc_cerca: data.av_oi_sc_cerca ?? "",
+      av_od_cc_cerca: data.av_od_cc_cerca ?? "",
+      av_oi_cc_cerca: data.av_oi_cc_cerca ?? "",
+      pinhole_od: data.pinhole_od ?? "",
+      pinhole_oi: data.pinhole_oi ?? "",
+      prueba_subjetiva: data.prueba_subjetiva ?? "",
+      prueba_ambulatoria: data.prueba_ambulatoria ?? "",
+      tolera_prescripcion: data.tolera_prescripcion ?? "",
+    };
+  };
+
+  const initAnamnesis = () => {
+    if (!examenInicial?.anamnesis_ext) {
+      return { sintomas: [], medicamentos: "", fuma: false, cigarrillos: "", alcohol: false, hxFamiliar: { diabetes: false, glaucoma: false, lentes: false, estrabismo: false } };
+    }
+    const data = examenInicial.anamnesis_ext as Record<string, any>;
+    return {
+      sintomas: data.sintomas ?? [],
+      medicamentos: data.medicamentos ?? "",
+      fuma: data.fuma ?? false,
+      cigarrillos: data.cigarrillos_dia?.toString() ?? "",
+      alcohol: data.consume_alcohol ?? false,
+      hxFamiliar: data.hx_familiar ?? { diabetes: false, glaucoma: false, lentes: false, estrabismo: false },
+    };
+  };
+
+  const [pacienteId, setPacienteId] = useState(pacienteInicial?.id || defaultPaciente?.id || "");
+  const [fields, setFields] = useState<RefraccionFields>(initFields());
   const [plano, setPlano] = useState({ ra_od: false, ra_oi: false, rf_od: false, rf_oi: false });
-  const [optometristaNombre, setOptometristaNombre] = useState(optometristas[0]?.nombre ?? "");
-  const [lente_uso, setLenteUso] = useState("");
-  const [av_od, setAvOd] = useState("");
-  const [av_oi, setAvOi] = useState("");
-  const [av_od_cc, setAvOdCc] = useState("");
-  const [av_oi_cc, setAvOiCc] = useState("");
-  const [pio_od, setPioOd] = useState("");
-  const [pio_oi, setPioOi] = useState("");
-  const [dp, setDp] = useState("");
-  const [dp_oi, setDpOi] = useState("");
-  const [dp_unico, setDpUnico] = useState("");
-  const [altura, setAltura] = useState("");
-  const [motivo_consulta, setMotivoConsulta] = useState("");
-  const [observaciones, setObservaciones] = useState("");
-  const [lente_material, setLenteMaterial] = useState("");
-  const [lente_color, setLenteColor] = useState("");
-  const [plan_educacional, setPlanEducacional] = useState("");
-  const [control_proxima, setControlProxima] = useState("");
+  const [optometristaNombre, setOptometristaNombre] = useState(examenInicial?.optometrista_nombre ?? optometristasDisponibles[0] ?? optometristas[0]?.nombre ?? "");
+  const [lente_uso, setLenteUso] = useState(examenInicial?.lente_uso ?? "");
+  const [av_od, setAvOd] = useState(examenInicial?.av_od_sin_lentes ?? "");
+  const [av_oi, setAvOi] = useState(examenInicial?.av_oi_sin_lentes ?? "");
+  const [av_od_cc, setAvOdCc] = useState(examenInicial?.av_od_cc ?? "");
+  const [av_oi_cc, setAvOiCc] = useState(examenInicial?.av_oi_cc ?? "");
+  const [pio_od, setPioOd] = useState(examenInicial?.pio_od?.toString() ?? "");
+  const [pio_oi, setPioOi] = useState(examenInicial?.pio_oi?.toString() ?? "");
+  const [dp, setDp] = useState(examenInicial?.dp?.toString() ?? "");
+  const [dp_oi, setDpOi] = useState(examenInicial?.dp_oi?.toString() ?? "");
+  const [dp_unico, setDpUnico] = useState(examenInicial?.dp_unico ?? "");
+  const [altura, setAltura] = useState(examenInicial?.altura?.toString() ?? "");
+  const [motivo_consulta, setMotivoConsulta] = useState(examenInicial?.motivo_consulta ?? "");
+  const [observaciones, setObservaciones] = useState(examenInicial?.observaciones ?? "");
+  const [lente_material, setLenteMaterial] = useState(examenInicial?.lente_material ?? "");
+  const [lente_color, setLenteColor] = useState(examenInicial?.lente_color ?? "");
+  const [plan_educacional, setPlanEducacional] = useState(examenInicial?.plan_educacional ?? "");
+  const [control_proxima, setControlProxima] = useState(examenInicial?.control_proxima ?? "");
   const [isPending, startTransition] = useTransition();
   const [importMsg, setImportMsg] = useState("");
 
-  // ── Módulos opcionales: estado abierto/cerrado ──
   const [openAnamnesis, setOpenAnamnesis] = useState(false);
   const [openExploracion, setOpenExploracion] = useState(false);
   const [openBinocularidad, setOpenBinocularidad] = useState(false);
   const [openProceso, setOpenProceso] = useState(false);
 
-  // ── Anamnesis ──
-  const [sintomas, setSintomas] = useState<string[]>([]);
-  const [medicamentos, setMedicamentos] = useState("");
-  const [fuma, setFuma] = useState(false);
-  const [cigarrillos, setCigarrillos] = useState("");
-  const [alcohol, setAlcohol] = useState(false);
-  const [hxFamiliar, setHxFamiliar] = useState({ diabetes: false, glaucoma: false, lentes: false, estrabismo: false });
+  const ana = initAnamnesis();
+  const [sintomas, setSintomas] = useState<string[]>(ana.sintomas);
+  const [medicamentos, setMedicamentos] = useState(ana.medicamentos);
+  const [fuma, setFuma] = useState(ana.fuma);
+  const [cigarrillos, setCigarrillos] = useState(ana.cigarrillos);
+  const [alcohol, setAlcohol] = useState(ana.alcohol);
+  const [hxFamiliar, setHxFamiliar] = useState(ana.hxFamiliar);
 
-  // ── Exploración externa ──
-  const [exploracion, setExploracion] = useState<ExploracionState>(EXPLORACION_INICIAL);
+  const [exploracion, setExploracion] = useState<ExploracionState>(initExploracion());
+  const [bino, setBino] = useState<BinocularidadState>(initBino());
+  const [proceso, setProceso] = useState<ProcesoRefractivoState>(initProceso());
 
-  // ── Binocularidad ──
-  const [bino, setBino] = useState<BinocularidadState>({
-    cover_lejos: "", cover_40cm: "", cover_20cm: "",
-    hirshberg: "", ojo_dominante: "", ojo_fijador: "",
-    ducciones_od: "", ducciones_oi: "", versiones: "",
-  });
-
-  // ── Proceso refractivo ──
-  const [proceso, setProceso] = useState<ProcesoRefractivoState>({
-    retino_od_esfera: "", retino_od_cilindro: "", retino_od_eje: "",
-    retino_oi_esfera: "", retino_oi_cilindro: "", retino_oi_eje: "",
-    av_od_sc_cerca: "", av_oi_sc_cerca: "",
-    av_od_cc_cerca: "", av_oi_cc_cerca: "",
-    pinhole_od: "", pinhole_oi: "",
-    prueba_subjetiva: "", prueba_ambulatoria: "", tolera_prescripcion: "",
-  });
-
-  // ── Searchable dropdown ──
-  const [searchPatient, setSearchPatient] = useState(defaultPaciente?.nombre ?? "");
+  const [searchPatient, setSearchPatient] = useState(pacienteInicial?.nombre || defaultPaciente?.nombre || "");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [pacientesResult, setPacientesResult] = useState<{ id: string; nombre: string }[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -228,6 +340,7 @@ export default function ExamenFormClient({ buscarPacientes, defaultPaciente, opt
   return (
     <form className="space-y-6">
       {/* Campos ocultos */}
+      {isEditMode && <input type="hidden" name="examen_id" value={examenInicial?.id} />}
       <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="optometrista_nombre" value={optometristaNombre} />
       {campanaId && <input type="hidden" name="campana_id" value={campanaId} />}
@@ -463,7 +576,7 @@ export default function ExamenFormClient({ buscarPacientes, defaultPaciente, opt
                 ] as const).map(({ key, label }) => (
                   <label key={key} className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={hxFamiliar[key]}
-                      onChange={(e) => setHxFamiliar((prev) => ({ ...prev, [key]: e.target.checked }))}
+                      onChange={(e) => setHxFamiliar((prev: typeof hxFamiliar) => ({ ...prev, [key]: e.target.checked }))}
                       className="w-4 h-4 rounded border-b-default bg-input text-blue-600" />
                     <span className="text-sm text-t-secondary">{label}</span>
                   </label>
@@ -710,7 +823,7 @@ export default function ExamenFormClient({ buscarPacientes, defaultPaciente, opt
       {/* ── Acciones ── */}
       <div className="flex flex-wrap gap-3">
         <button
-          formAction={crearExamen}
+          formAction={isEditMode ? actualizarExamen : crearExamen}
           disabled={isPending}
           onClick={() => {
             (document.getElementById("anamnesis_ext_input") as HTMLInputElement).value = buildAnamnesisJson();
@@ -719,24 +832,26 @@ export default function ExamenFormClient({ buscarPacientes, defaultPaciente, opt
             (document.getElementById("proceso_refractivo_input") as HTMLInputElement).value = buildProcesoJson();
           }}
           className="px-6 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25 disabled:opacity-50 disabled:cursor-not-allowed">
-          {isPending ? "Guardando..." : "Guardar examen"}
+          {isPending ? (isEditMode ? "Actualizando..." : "Guardando...") : (isEditMode ? "Actualizar examen" : "Guardar examen")}
         </button>
-        <button
-          type="submit"
-          disabled={isPending}
-          onClick={() => {
-            const flag = document.getElementById("crear_venta_flag") as HTMLInputElement;
-            if (flag) flag.value = "1";
-            (document.getElementById("anamnesis_ext_input") as HTMLInputElement).value = buildAnamnesisJson();
-            (document.getElementById("exploracion_externa_input") as HTMLInputElement).value = buildExploracionJson();
-            (document.getElementById("binocularidad_input") as HTMLInputElement).value = buildBinoJson();
-            (document.getElementById("proceso_refractivo_input") as HTMLInputElement).value = buildProcesoJson();
-          }}
-          formAction={crearExamen}
-          className="px-6 py-2.5 min-h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-emerald-600/25 disabled:opacity-50 disabled:cursor-not-allowed">
-          {isPending ? "Guardando..." : "Guardar y crear venta →"}
-        </button>
-        <a href="/dashboard/examenes"
+        {!isEditMode && (
+          <button
+            type="submit"
+            disabled={isPending}
+            onClick={() => {
+              const flag = document.getElementById("crear_venta_flag") as HTMLInputElement;
+              if (flag) flag.value = "1";
+              (document.getElementById("anamnesis_ext_input") as HTMLInputElement).value = buildAnamnesisJson();
+              (document.getElementById("exploracion_externa_input") as HTMLInputElement).value = buildExploracionJson();
+              (document.getElementById("binocularidad_input") as HTMLInputElement).value = buildBinoJson();
+              (document.getElementById("proceso_refractivo_input") as HTMLInputElement).value = buildProcesoJson();
+            }}
+            formAction={crearExamen}
+            className="px-6 py-2.5 min-h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-emerald-600/25 disabled:opacity-50 disabled:cursor-not-allowed">
+            {isPending ? "Guardando..." : "Guardar y crear venta →"}
+          </button>
+        )}
+        <a href={isEditMode ? `/dashboard/pacientes/${pacienteId}` : "/dashboard/examenes"}
           className="px-6 py-2.5 min-h-11 bg-card border border-b-default text-t-secondary hover:text-t-primary rounded-lg transition-colors inline-flex items-center">
           Cancelar
         </a>

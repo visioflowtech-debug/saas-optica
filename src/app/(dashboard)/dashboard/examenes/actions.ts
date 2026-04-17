@@ -193,6 +193,7 @@ export async function generarInformeIA(examenId: string): Promise<{ informe: str
   if (!examen) return { error: "Examen no encontrado." };
 
   const fmtNum = (v: number | null) => v != null ? (v >= 0 ? `+${v.toFixed(2)}` : v.toFixed(2)) : "—";
+  const fmtAdd = (v: number | null) => (v == null || v === 0) ? "SIN ADICIÓN" : (v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2));
   const paciente = examen.paciente as { nombre: string; fecha_nacimiento: string | null; edad: number | null } | null;
 
   // Calcular edad aproximada
@@ -287,12 +288,12 @@ PRESIÓN INTRAOCULAR (PIO) — valores normales 10–21 mmHg:
   OD: ${examen.pio_od != null ? `${examen.pio_od} mmHg` : "no registrada"}  |  OI: ${examen.pio_oi != null ? `${examen.pio_oi} mmHg` : "no registrada"}
 
 REFRACCIÓN ACTUAL — lente que el paciente usa actualmente (RA):
-  OD: Esf ${fmtNum(examen.ra_od_esfera)} / Cil ${fmtNum(examen.ra_od_cilindro)} × ${examen.ra_od_eje ?? "—"}° / Add ${fmtNum(examen.ra_od_adicion)}
-  OI: Esf ${fmtNum(examen.ra_oi_esfera)} / Cil ${fmtNum(examen.ra_oi_cilindro)} × ${examen.ra_oi_eje ?? "—"}° / Add ${fmtNum(examen.ra_oi_adicion)}
+  OD: Esf ${fmtNum(examen.ra_od_esfera)} / Cil ${fmtNum(examen.ra_od_cilindro)} × ${examen.ra_od_eje ?? "—"}° / Add ${fmtAdd(examen.ra_od_adicion)}
+  OI: Esf ${fmtNum(examen.ra_oi_esfera)} / Cil ${fmtNum(examen.ra_oi_cilindro)} × ${examen.ra_oi_eje ?? "—"}° / Add ${fmtAdd(examen.ra_oi_adicion)}
 
 REFRACCIÓN FINAL — nueva prescripción recomendada (RF):
-  OD: Esf ${fmtNum(examen.rf_od_esfera)} / Cil ${fmtNum(examen.rf_od_cilindro)} × ${examen.rf_od_eje ?? "—"}° / Add ${fmtNum(examen.rf_od_adicion)}
-  OI: Esf ${fmtNum(examen.rf_oi_esfera)} / Cil ${fmtNum(examen.rf_oi_cilindro)} × ${examen.rf_oi_eje ?? "—"}° / Add ${fmtNum(examen.rf_oi_adicion)}
+  OD: Esf ${fmtNum(examen.rf_od_esfera)} / Cil ${fmtNum(examen.rf_od_cilindro)} × ${examen.rf_od_eje ?? "—"}° / Add ${fmtAdd(examen.rf_od_adicion)}
+  OI: Esf ${fmtNum(examen.rf_oi_esfera)} / Cil ${fmtNum(examen.rf_oi_cilindro)} × ${examen.rf_oi_eje ?? "—"}° / Add ${fmtAdd(examen.rf_oi_adicion)}
 
 DISTANCIA PUPILAR (DP): ${examen.dp != null ? `${examen.dp} mm` : "no registrada"}${examen.dp_oi != null ? ` / OI ${examen.dp_oi} mm` : ""}
 ALTURA DE MONTAJE: ${examen.altura != null ? `${examen.altura} mm` : "no registrada"}
@@ -311,7 +312,8 @@ REGLAS OBLIGATORIAS (NO NEGOCIABLES)
    - Esfera negativa → Miopía
    - Esfera positiva → Hipermetropía
    - Cilindro presente → Astigmatismo (combinado si coexiste con miopía/hipermetropía)
-   - Adición presente → Presbicia (indica que el paciente requiere corrección para visión cercana)
+   - Adición con valor NUMÉRICO POSITIVO → Presbicia (indica que el paciente requiere corrección para visión cercana)
+   - Si la adición dice "SIN ADICIÓN": NO diagnosticar Presbicia bajo ninguna circunstancia
 7. Si la refracción actual (RA) y la final (RF) difieren significativamente, menciónalo como "cambio de prescripción".
 8. El tono debe ser profesional y clínico, comprensible para el paciente sin ser coloquial.
 9. NO especules sobre causas no documentadas, antecedentes familiares ni condiciones sistémicas.
@@ -359,6 +361,93 @@ Incluye únicamente las observaciones registradas por el optometrista. Si no hay
     }
     return { error: "Error al conectar con Gemini. Verifica la API key." };
   }
+}
+
+/* ── Actualizar Examen ─────────────────────────────────── */
+export async function actualizarExamen(formData: FormData) {
+  const { supabase, tenant_id } = await getUserContext();
+
+  const examen_id = formData.get("examen_id") as string;
+  if (!examen_id) return redirect("/dashboard/examenes");
+
+  // Verificar que el examen existe y pertenece al tenant
+  const { data: ex } = await supabase
+    .from("examenes_clinicos")
+    .select("paciente_id, anulado")
+    .eq("id", examen_id)
+    .eq("tenant_id", tenant_id)
+    .single();
+
+  if (!ex || ex.anulado) return redirect("/dashboard/examenes");
+
+  const parseNum = (key: string) => {
+    const val = formData.get(key) as string;
+    return val !== "" && val !== null ? parseFloat(val) : null;
+  };
+  const parseStr = (key: string) => {
+    const val = formData.get(key) as string;
+    return val?.trim() || null;
+  };
+  const parseJsonField = (key: string) => {
+    const raw = (formData.get(key) as string)?.trim();
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  };
+
+  const { error } = await supabase
+    .from("examenes_clinicos")
+    .update({
+      optometrista_nombre: parseStr("optometrista_nombre"),
+      motivo_consulta: parseStr("motivo_consulta"),
+      lente_uso: parseStr("lente_uso"),
+      av_od_sin_lentes: parseStr("av_od_sin_lentes"),
+      av_oi_sin_lentes: parseStr("av_oi_sin_lentes"),
+      av_od_cc: parseStr("av_od_cc"),
+      av_oi_cc: parseStr("av_oi_cc"),
+      pio_od: parseNum("pio_od"),
+      pio_oi: parseNum("pio_oi"),
+      dp: parseNum("dp"),
+      dp_oi: parseNum("dp_oi"),
+      dp_unico: parseStr("dp_unico"),
+      altura: parseNum("altura"),
+      observaciones: parseStr("observaciones"),
+      lente_material: parseStr("lente_material"),
+      lente_color: parseStr("lente_color"),
+      plan_educacional: parseStr("plan_educacional"),
+      control_proxima: parseStr("control_proxima"),
+      ra_od_esfera: parseNum("ra_od_esfera"),
+      ra_od_cilindro: parseNum("ra_od_cilindro"),
+      ra_od_eje: parseNum("ra_od_eje"),
+      ra_od_adicion: parseNum("ra_od_adicion"),
+      ra_oi_esfera: parseNum("ra_oi_esfera"),
+      ra_oi_cilindro: parseNum("ra_oi_cilindro"),
+      ra_oi_eje: parseNum("ra_oi_eje"),
+      ra_oi_adicion: parseNum("ra_oi_adicion"),
+      rf_od_esfera: parseNum("rf_od_esfera"),
+      rf_od_cilindro: parseNum("rf_od_cilindro"),
+      rf_od_eje: parseNum("rf_od_eje"),
+      rf_od_adicion: parseNum("rf_od_adicion"),
+      rf_oi_esfera: parseNum("rf_oi_esfera"),
+      rf_oi_cilindro: parseNum("rf_oi_cilindro"),
+      rf_oi_eje: parseNum("rf_oi_eje"),
+      rf_oi_adicion: parseNum("rf_oi_adicion"),
+      anamnesis_ext: parseJsonField("anamnesis_ext"),
+      exploracion_externa: parseJsonField("exploracion_externa"),
+      binocularidad: parseJsonField("binocularidad"),
+      proceso_refractivo: parseJsonField("proceso_refractivo"),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", examen_id)
+    .eq("tenant_id", tenant_id);
+
+  if (error) {
+    console.error("[actualizarExamen]", error);
+    return redirect(`/dashboard/examenes/${examen_id}/editar?error=Error+al+guardar`);
+  }
+
+  revalidatePath("/dashboard/examenes");
+  revalidatePath(`/dashboard/pacientes/${ex.paciente_id}`);
+  redirect(`/dashboard/pacientes/${ex.paciente_id}`);
 }
 
 /* ── Anular Examen ──────────────────────────────────────── */
