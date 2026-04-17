@@ -147,6 +147,22 @@ export async function obtenerDatosReceta(examenId: string) {
 
   const numero_junta = (juntaRes.data as { descripcion: string | null } | null)?.descripcion ?? null;
 
+  // Si logo_url es null, intentar obtener automáticamente desde Storage
+  let empresa = empresaRes.data;
+  if (empresa && !empresa.logo_url) {
+    try {
+      const { data: files } = await supabase.storage.from("logos").list(tenant_id, { limit: 1, sortBy: { column: "created_at", order: "desc" } });
+      if (files && files.length > 0) {
+        const logoFile = files[0];
+        const { data: { publicUrl } } = supabase.storage.from("logos").getPublicUrl(`${tenant_id}/${logoFile.name}`);
+        empresa = { ...empresa, logo_url: publicUrl };
+        console.log("[obtenerDatosReceta] Logo encontrado en Storage:", logoFile.name);
+      }
+    } catch (e) {
+      console.warn("[obtenerDatosReceta] No se pudo obtener logo de Storage:", e instanceof Error ? e.message : String(e));
+    }
+  }
+
   // Usar optometrista_nombre (elegido en el formulario) en lugar del usuario conectado
   const examenConOpt = {
     ...examen,
@@ -155,7 +171,7 @@ export async function obtenerDatosReceta(examenId: string) {
       : examen.optometrista,
   };
 
-  return { examen: examenConOpt, empresa: empresaRes.data, sucursal: sucursalRes.data, numero_junta };
+  return { examen: examenConOpt, empresa, sucursal: sucursalRes.data, numero_junta };
 }
 
 export async function obtenerUltimaRefraccion(pacienteId: string) {
