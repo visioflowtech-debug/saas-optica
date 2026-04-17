@@ -825,6 +825,7 @@ export default function ExamenFormClient({
       {/* ── Acciones ── */}
       <div className="flex flex-wrap gap-3">
         <button
+          type="submit"
           formAction={isEditMode ? actualizarExamen : crearExamen}
           disabled={isPending}
           onClick={() => {
