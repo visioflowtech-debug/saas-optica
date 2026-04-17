@@ -222,6 +222,7 @@ export default function ExamenFormClient({
   const [isPending, startTransition] = useTransition();
   const [importMsg, setImportMsg] = useState("");
 
+  const [showAVPIO, setShowAVPIO] = useState(false);
   const [openAnamnesis, setOpenAnamnesis] = useState(false);
   const [openExploracion, setOpenExploracion] = useState(false);
   const [openBinocularidad, setOpenBinocularidad] = useState(false);
@@ -416,7 +417,7 @@ export default function ExamenFormClient({
         <div className="mb-4">
           <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">Motivo de Consulta</label>
           <input name="motivo_consulta" value={motivo_consulta} onChange={(e) => setMotivoConsulta(e.target.value)}
-            placeholder="Ej: Visión borrosa, ardor, chequeo rutinario..." type="text" className={inputCls} />
+            type="text" className={inputCls} placeholder="" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -427,46 +428,64 @@ export default function ExamenFormClient({
               {LENTE_USO_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">AV OD <span className="normal-case text-t-blue">(sin lentes)</span></label>
-            <input name="av_od_sin_lentes" value={av_od} onChange={(e) => setAvOd(e.target.value)} placeholder="Ej: 20/40" type="text" className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">AV OI <span className="normal-case text-t-purple">(sin lentes)</span></label>
-            <input name="av_oi_sin_lentes" value={av_oi} onChange={(e) => setAvOi(e.target.value)} placeholder="Ej: 20/30" type="text" className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">AV OD <span className="normal-case text-t-blue">(con corrección)</span></label>
-            <input name="av_od_cc" value={av_od_cc} onChange={(e) => setAvOdCc(e.target.value)} placeholder="Ej: 20/20" type="text" className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">AV OI <span className="normal-case text-t-purple">(con corrección)</span></label>
-            <input name="av_oi_cc" value={av_oi_cc} onChange={(e) => setAvOiCc(e.target.value)} placeholder="Ej: 20/25" type="text" className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">PIO <span className="normal-case text-t-blue font-semibold">OD</span> (mmHg)</label>
-            <input name="pio_od" value={pio_od} onChange={(e) => setPioOd(e.target.value)} placeholder="Ej: 14" type="text" inputMode="decimal" className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">PIO <span className="normal-case text-t-purple font-semibold">OI</span> (mmHg)</label>
-            <input name="pio_oi" value={pio_oi} onChange={(e) => setPioOi(e.target.value)} placeholder="Ej: 15" type="text" inputMode="decimal" className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">DP <span className="normal-case text-t-blue font-semibold">OD</span> (mm)</label>
-            <input name="dp" value={dp} onChange={(e) => setDp(e.target.value)} placeholder="Ej: 32" type="number" step="0.5" className={inputCls + " [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">DP <span className="normal-case text-t-purple font-semibold">OI</span> (mm)</label>
-            <input name="dp_oi" value={dp_oi} onChange={(e) => setDpOi(e.target.value)} placeholder="Ej: 31" type="number" step="0.5" className={inputCls + " [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"} />
-          </div>
+
+          {/* AV y PIO ocultos por defecto */}
+          {showAVPIO && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">AV OD <span className="normal-case text-t-blue">(sin lentes)</span></label>
+                <input name="av_od_sin_lentes" value={av_od} onChange={(e) => setAvOd(e.target.value)} type="text" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">AV OI <span className="normal-case text-t-purple">(sin lentes)</span></label>
+                <input name="av_oi_sin_lentes" value={av_oi} onChange={(e) => setAvOi(e.target.value)} type="text" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">AV OD <span className="normal-case text-t-blue">(con corrección)</span></label>
+                <input name="av_od_cc" value={av_od_cc} onChange={(e) => setAvOdCc(e.target.value)} type="text" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">AV OI <span className="normal-case text-t-purple">(con corrección)</span></label>
+                <input name="av_oi_cc" value={av_oi_cc} onChange={(e) => setAvOiCc(e.target.value)} type="text" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">PIO <span className="normal-case text-t-blue font-semibold">OD</span> (mmHg)</label>
+                <input name="pio_od" value={pio_od} onChange={(e) => setPioOd(e.target.value)} type="text" inputMode="decimal" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">PIO <span className="normal-case text-t-purple font-semibold">OI</span> (mmHg)</label>
+                <input name="pio_oi" value={pio_oi} onChange={(e) => setPioOi(e.target.value)} type="text" inputMode="decimal" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">DP <span className="normal-case text-t-blue font-semibold">OD</span> (mm)</label>
+                <input name="dp" value={dp} onChange={(e) => setDp(e.target.value)} type="number" step="0.5" className={inputCls + " [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">DP <span className="normal-case text-t-purple font-semibold">OI</span> (mm)</label>
+                <input name="dp_oi" value={dp_oi} onChange={(e) => setDpOi(e.target.value)} type="number" step="0.5" className={inputCls + " [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"} />
+              </div>
+            </>
+          )}
+
           <div>
             <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">DP <span className="normal-case text-t-muted font-normal">único</span></label>
-            <input name="dp_unico" value={dp_unico} onChange={(e) => setDpUnico(e.target.value)} placeholder="Ej: 60 ó 60/65" type="text" className={inputCls} />
+            <input name="dp_unico" value={dp_unico} onChange={(e) => setDpUnico(e.target.value)} type="text" className={inputCls} placeholder="" />
           </div>
           <div>
             <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">Altura (mm)</label>
-            <input name="altura" value={altura} onChange={(e) => setAltura(e.target.value)} placeholder="Ej: 20" type="number" step="0.5" className={inputCls + " [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"} />
+            <input name="altura" value={altura} onChange={(e) => setAltura(e.target.value)} type="number" step="0.5" className={inputCls + " [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"} placeholder="" />
           </div>
+        </div>
+
+        {/* Botón toggle para AV y PIO */}
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setShowAVPIO(!showAVPIO)}
+            className="text-sm font-medium text-blue-600 hover:text-blue-500 transition"
+          >
+            {showAVPIO ? "✕ Ocultar campos adicionales (AV, PIO, DP OD/OI)" : "+ Agregar campos adicionales (AV, PIO, DP OD/OI)"}
+          </button>
         </div>
       </div>
 
@@ -501,17 +520,38 @@ export default function ExamenFormClient({
       <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
         <label className="block text-sm font-medium text-t-secondary mb-1.5">Observaciones</label>
         <textarea name="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
-          rows={3} placeholder="Notas del examen, hallazgos, recomendaciones..."
+          rows={3} placeholder=""
           className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none text-base sm:text-sm" />
       </div>
 
       {/* ══════════════════════════════════════════════════════
-          MÓDULOS OPCIONALES
+          MÓDULOS OPCIONALES - TOGGLE
           ══════════════════════════════════════════════════ */}
+      <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
+        <button
+          type="button"
+          onClick={() => {
+            const anyOpen = openAnamnesis || openExploracion || openBinocularidad || openProceso;
+            setOpenAnamnesis(!anyOpen);
+            setOpenExploracion(false);
+            setOpenBinocularidad(false);
+            setOpenProceso(false);
+          }}
+          className="w-full text-left"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-t-primary">Módulos clínicos opcionales</h2>
+              <p className="text-xs text-t-muted mt-0.5">Anamnesis, exploración, binocularidad, proceso refractivo completo</p>
+            </div>
+            <span className="text-2xl text-t-secondary">{(openAnamnesis || openExploracion || openBinocularidad || openProceso) ? "▼" : "▶"}</span>
+          </div>
+        </button>
+      </div>
+
+      {/* Mostrar módulos solo si al menos uno está abierto O hay datos */}
+      {(openAnamnesis || openExploracion || openBinocularidad || openProceso || sintomas.length > 0 || medicamentos.trim() || fuma || alcohol || Object.values(hxFamiliar).some(Boolean) || Object.values(exploracion).some((s) => s.nl !== null || s.nota.trim()) || Object.values(bino).some((v) => v.trim()) || Object.values(proceso).some((v) => v.trim())) && (
       <div className="space-y-3">
-        <p className="text-xs font-semibold text-t-muted uppercase tracking-wider px-1">
-          Módulos clínicos opcionales
-        </p>
 
         {/* ── Módulo 1: Anamnesis Clínica ── */}
         <ModuloOpcional
@@ -789,8 +829,10 @@ export default function ExamenFormClient({
           </div>
         </ModuloOpcional>
       </div>
+      )}
 
-      {/* ── Plan y Recomendaciones de Lente ── */}
+      {/* ── Plan y Recomendaciones de Lente (dentro de módulos opcionales) ── */}
+      {(openAnamnesis || openExploracion || openBinocularidad || openProceso || sintomas.length > 0 || medicamentos.trim() || fuma || alcohol || Object.values(hxFamiliar).some(Boolean) || Object.values(exploracion).some((s) => s.nl !== null || s.nota.trim()) || Object.values(bino).some((v) => v.trim()) || Object.values(proceso).some((v) => v.trim()) || lente_material || lente_color || plan_educacional || control_proxima) && (
       <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
         <h2 className="text-lg font-semibold text-t-primary mb-4">Plan y Recomendaciones</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -821,6 +863,7 @@ export default function ExamenFormClient({
             className="w-full px-4 py-2.5 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none text-base sm:text-sm" />
         </div>
       </div>
+      )}
 
       {/* ── Acciones ── */}
       <div className="flex flex-wrap gap-3">
