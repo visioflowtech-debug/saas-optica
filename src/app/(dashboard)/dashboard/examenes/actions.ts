@@ -365,17 +365,18 @@ Incluye únicamente las observaciones registradas por el optometrista. Si no hay
 
 /* ── Actualizar Examen ─────────────────────────────────── */
 export async function actualizarExamen(formData: FormData) {
-  const { supabase, tenant_id } = await getUserContext();
+  const { supabase, tenant_id, sucursal_id } = await getUserContext();
 
   const examen_id = formData.get("examen_id") as string;
   if (!examen_id) return redirect("/dashboard/examenes");
 
-  // Verificar que el examen existe y pertenece al tenant
+  // Verificar que el examen existe y pertenece al tenant + sucursal
   const { data: ex } = await supabase
     .from("examenes_clinicos")
     .select("paciente_id, anulado")
     .eq("id", examen_id)
     .eq("tenant_id", tenant_id)
+    .eq("sucursal_id", sucursal_id)
     .single();
 
   if (!ex || ex.anulado) return redirect("/dashboard/examenes");
@@ -438,7 +439,8 @@ export async function actualizarExamen(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", examen_id)
-    .eq("tenant_id", tenant_id);
+    .eq("tenant_id", tenant_id)
+    .eq("sucursal_id", sucursal_id);
 
   if (error) {
     console.error("[actualizarExamen]", error);
