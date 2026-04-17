@@ -295,7 +295,11 @@ REFRACCIÓN FINAL — nueva prescripción recomendada (RF):
   OD: Esf ${fmtNum(examen.rf_od_esfera)} / Cil ${fmtNum(examen.rf_od_cilindro)} × ${examen.rf_od_eje ?? "—"}° / Add ${fmtAdd(examen.rf_od_adicion)}
   OI: Esf ${fmtNum(examen.rf_oi_esfera)} / Cil ${fmtNum(examen.rf_oi_cilindro)} × ${examen.rf_oi_eje ?? "—"}° / Add ${fmtAdd(examen.rf_oi_adicion)}
 
-DISTANCIA PUPILAR (DP): ${examen.dp != null ? `${examen.dp} mm` : "no registrada"}${examen.dp_oi != null ? ` / OI ${examen.dp_oi} mm` : ""}
+DISTANCIA PUPILAR (DP): ${
+  examen.dp_unico
+    ? examen.dp_unico
+    : (examen.dp != null ? `${examen.dp} mm` : "no registrada") + (examen.dp_oi != null ? ` / OI ${examen.dp_oi} mm` : "")
+}
 ALTURA DE MONTAJE: ${examen.altura != null ? `${examen.altura} mm` : "no registrada"}
 OBSERVACIONES DEL OPTOMETRISTA: ${truncate(examen.observaciones?.trim(), 500) || "Ninguna"}
 ${seccionPlan}
