@@ -368,7 +368,12 @@ export async function actualizarExamen(formData: FormData) {
   const { supabase, tenant_id, sucursal_id } = await getUserContext();
 
   const examen_id = formData.get("examen_id") as string;
-  if (!examen_id) return redirect("/dashboard/examenes");
+  console.log("[actualizarExamen] examen_id:", examen_id);
+  console.log("[actualizarExamen] FormData keys:", Array.from(formData.keys()));
+  if (!examen_id) {
+    console.error("[actualizarExamen] examen_id no proporcionado");
+    return redirect("/dashboard/examenes");
+  }
 
   // Verificar que el examen existe y pertenece al tenant + sucursal
   const { data: ex } = await supabase
@@ -443,10 +448,11 @@ export async function actualizarExamen(formData: FormData) {
     .eq("sucursal_id", sucursal_id);
 
   if (error) {
-    console.error("[actualizarExamen]", error);
+    console.error("[actualizarExamen] Error en UPDATE:", error);
     return redirect(`/dashboard/examenes/${examen_id}/editar?error=Error+al+guardar`);
   }
 
+  console.log("[actualizarExamen] ✓ Éxito. Paciente:", ex.paciente_id);
   revalidatePath("/dashboard/examenes");
   revalidatePath(`/dashboard/pacientes/${ex.paciente_id}`);
   redirect(`/dashboard/pacientes/${ex.paciente_id}`);
