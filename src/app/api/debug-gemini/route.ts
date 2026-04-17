@@ -1,5 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// Endpoint público para debugging sin autenticación
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const apiKey = process.env.GEMINI_API_KEY;
 
@@ -23,6 +26,7 @@ export async function GET() {
       success: true,
       message: text.substring(0, 100),
       model: "gemini-2.5-flash",
+      apiKeyLength: apiKey.length,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
