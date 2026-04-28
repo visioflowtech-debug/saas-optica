@@ -110,7 +110,7 @@ export default async function DashboardPage() {
         <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Resumen general de tu óptica</p>
       </div>
 
-      {/* Centro de alertas — PRIMERO */}
+      {/* Centro de alertas + Acciones rápidas */}
       {(() => {
         const alertas = [
           alertLentes > 0
@@ -121,22 +121,47 @@ export default async function DashboardPage() {
             : null,
         ].filter(Boolean);
 
-        if (alertas.length === 0) return null;
+        const acciones = [
+          { label: "Nuevo paciente", href: "/dashboard/pacientes/nuevo", icon: "👤" },
+          { label: "Nuevo examen", href: "/dashboard/examenes/nuevo", icon: "🔬" },
+          { label: "Nueva venta", href: "/dashboard/ventas/nueva", icon: "💰" },
+          { label: "Laboratorio", href: "/dashboard/laboratorio", icon: "⚙️" },
+        ];
+
         return (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Alertas</h2>
-              <span className="px-2 py-0.5 text-xs font-bold text-white rounded-full bg-red-500">{alertas.length}</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {alertas.map((a) => a && (
-                <Link key={a.href + a.label} href={a.href}
-                  className={`flex items-center gap-3 p-4 rounded-xl border transition-all hover:opacity-90 ${a.color}`}>
-                  <span className="text-xl shrink-0">{a.icon}</span>
-                  <span className="text-sm font-medium flex-1" style={{ color: "var(--text-primary)" }}>{a.label}</span>
-                  <span className="text-[10px] text-t-muted shrink-0">Ver →</span>
-                </Link>
-              ))}
+          <div className="space-y-3">
+            {alertas.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Alertas</h2>
+                  <span className="px-2 py-0.5 text-xs font-bold text-white rounded-full bg-red-500">{alertas.length}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {alertas.map((a) => a && (
+                    <Link key={a.href + a.label} href={a.href}
+                      className={`flex items-center gap-3 p-4 rounded-xl border transition-all hover:opacity-90 ${a.color}`}>
+                      <span className="text-xl shrink-0">{a.icon}</span>
+                      <span className="text-sm font-medium flex-1" style={{ color: "var(--text-primary)" }}>{a.label}</span>
+                      <span className="text-[10px] text-t-muted shrink-0">Ver →</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quick actions — compactas */}
+            <div>
+              <h2 className="text-lg font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Acciones rápidas</h2>
+              <div className="flex flex-wrap gap-2">
+                {acciones.map((a) => (
+                  <Link key={a.href} href={a.href}
+                    className="flex items-center justify-center w-12 h-12 rounded-lg border transition-all hover:bg-input"
+                    title={a.label}
+                    style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)" }}>
+                    <span className="text-2xl">{a.icon}</span>
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         );
@@ -225,26 +250,6 @@ export default async function DashboardPage() {
               </div>
               <p className="font-semibold mt-3" style={{ color: "var(--text-primary)" }}>{s.label}</p>
               <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>Total registrados</p>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick actions */}
-      <div>
-        <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Acciones rápidas</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: "Nuevo paciente", href: "/dashboard/pacientes/nuevo", icon: "👤" },
-            { label: "Nuevo examen", href: "/dashboard/examenes/nuevo", icon: "🔬" },
-            { label: "Nueva venta", href: "/dashboard/ventas", icon: "💰" },
-            { label: "Ver laboratorio", href: "/dashboard/laboratorio", icon: "🔧" },
-          ].map((a) => (
-            <Link key={a.href} href={a.href}
-              className="flex items-center gap-3 p-4 rounded-xl transition-colors"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}>
-              <span className="text-xl">{a.icon}</span>
-              <span className="text-sm font-medium">{a.label}</span>
             </Link>
           ))}
         </div>
