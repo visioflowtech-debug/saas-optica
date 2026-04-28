@@ -417,8 +417,10 @@ export async function actualizarExamen(formData: FormData) {
   console.log("[actualizarExamen] Muestra de valores:");
   console.log("  motivo_consulta:", formData.get("motivo_consulta"));
   console.log("  rf_od_esfera:", formData.get("rf_od_esfera"));
-  console.log("  anamnesis_ext:", formData.get("anamnesis_ext")?.substring(0, 50));
-  console.log("  exploracion_externa:", formData.get("exploracion_externa")?.substring(0, 50));
+  const anamnesisVal = formData.get("anamnesis_ext");
+  const exploracionVal = formData.get("exploracion_externa");
+  console.log("  anamnesis_ext:", typeof anamnesisVal === "string" ? anamnesisVal.substring(0, 50) : "(vacío)");
+  console.log("  exploracion_externa:", typeof exploracionVal === "string" ? exploracionVal.substring(0, 50) : "(vacío)");
 
   // Verificar que el examen existe y pertenece al tenant + sucursal
   const { data: ex } = await supabase
