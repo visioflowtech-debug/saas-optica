@@ -479,6 +479,7 @@ export async function actualizarExamen(formData: FormData) {
       exploracion_externa: parseJsonField("exploracion_externa"),
       binocularidad: parseJsonField("binocularidad"),
       proceso_refractivo: parseJsonField("proceso_refractivo"),
+      updated_at: new Date().toISOString(),
     })
     .eq("id", examen_id)
     .eq("tenant_id", tenant_id)
@@ -489,9 +490,17 @@ export async function actualizarExamen(formData: FormData) {
     return redirect(`/dashboard/examenes/${examen_id}/editar?error=Error+al+guardar`);
   }
 
+  // Actualizar fecha de modificación del paciente para que aparezca en "recientes"
+  await supabase
+    .from("pacientes")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", ex.paciente_id)
+    .eq("tenant_id", tenant_id);
+
   console.log("[actualizarExamen] ✓ Éxito. Paciente:", ex.paciente_id);
   revalidatePath("/dashboard/examenes");
   revalidatePath(`/dashboard/pacientes/${ex.paciente_id}`);
+  revalidatePath("/dashboard/pacientes");
   redirect(`/dashboard/pacientes/${ex.paciente_id}`);
 }
 

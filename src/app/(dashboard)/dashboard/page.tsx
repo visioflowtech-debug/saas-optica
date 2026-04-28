@@ -62,9 +62,9 @@ export default async function DashboardPage() {
           p_fecha_inicio: fechaInicioMes,
         })
       : Promise.resolve({ data: null }),
-    supabase.from("pacientes").select("id, nombre, created_at")
+    supabase.from("pacientes").select("id, nombre, updated_at")
       .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id)
-      .order("created_at", { ascending: false }).limit(5),
+      .order("updated_at", { ascending: false }).limit(5),
     // RPC: cuenta órdenes cuyo estado ACTUAL de lab es "recibido" (DISTINCT ON)
     supabase.rpc("contar_ordenes_lab_estado", {
       p_tenant_id: perfil.tenant_id,
@@ -245,7 +245,7 @@ export default async function DashboardPage() {
                   {p.nombre.charAt(0).toUpperCase()}
                 </div>
                 <span className="text-sm flex-1" style={{ color: "var(--text-primary)" }}>{p.nombre}</span>
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>{fmtFecha(p.created_at)}</span>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>{fmtFecha(p.updated_at)}</span>
               </Link>
             ))}
           </div>
