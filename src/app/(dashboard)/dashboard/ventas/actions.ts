@@ -915,7 +915,7 @@ export async function actualizarPago(pagoId: string, ordenId: string, monto: num
     .select("monto")
     .eq("orden_id", ordenId)
     .eq("tenant_id", tenant_id)
-    .neq("id", pagoId);
+    .not("id", "eq", pagoId);
 
   const totalOtrosPagos = (otrosPagos ?? []).reduce((s, p) => s + Number(p.monto), 0);
   const saldoDisponible = Number(orden.total) - totalOtrosPagos;
