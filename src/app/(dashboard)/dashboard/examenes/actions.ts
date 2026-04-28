@@ -58,6 +58,7 @@ export async function crearExamen(formData: FormData) {
     fecha_examen: new Date().toISOString(),
     // Datos base
     motivo_consulta: parseStr("motivo_consulta"),
+    etiquetas_medicas: parseStr("etiquetas_medicas"),
     lente_uso: parseStr("lente_uso"),
     av_od_sin_lentes: parseStr("av_od_sin_lentes"),
     av_oi_sin_lentes: parseStr("av_oi_sin_lentes"),
@@ -433,6 +434,7 @@ export async function actualizarExamen(formData: FormData) {
     .update({
       optometrista_nombre: parseStr("optometrista_nombre"),
       motivo_consulta: parseStr("motivo_consulta"),
+      etiquetas_medicas: parseStr("etiquetas_medicas"),
       lente_uso: parseStr("lente_uso"),
       av_od_sin_lentes: parseStr("av_od_sin_lentes"),
       av_oi_sin_lentes: parseStr("av_oi_sin_lentes"),
