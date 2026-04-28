@@ -341,8 +341,15 @@ export default function ExamenFormClient({
   const inputCls = "w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base sm:text-sm";
   const inputMonoCls = `${inputCls} text-center font-mono`;
 
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    (document.getElementById("anamnesis_ext_input") as HTMLInputElement).value = buildAnamnesisJson();
+    (document.getElementById("exploracion_externa_input") as HTMLInputElement).value = buildExploracionJson();
+    (document.getElementById("binocularidad_input") as HTMLInputElement).value = buildBinoJson();
+    (document.getElementById("proceso_refractivo_input") as HTMLInputElement).value = buildProcesoJson();
+  };
+
   return (
-    <form className="space-y-6" method="POST">
+    <form className="space-y-6" method="POST" onSubmit={handleFormSubmit}>
       {/* Campos ocultos */}
       {isEditMode && <input type="hidden" name="examen_id" value={examenInicial?.id} />}
       <input type="hidden" name="paciente_id" value={pacienteId} />
@@ -865,12 +872,6 @@ export default function ExamenFormClient({
           type="submit"
           formAction={isEditMode ? actualizarExamen : crearExamen}
           disabled={isPending}
-          onClick={() => {
-            (document.getElementById("anamnesis_ext_input") as HTMLInputElement).value = buildAnamnesisJson();
-            (document.getElementById("exploracion_externa_input") as HTMLInputElement).value = buildExploracionJson();
-            (document.getElementById("binocularidad_input") as HTMLInputElement).value = buildBinoJson();
-            (document.getElementById("proceso_refractivo_input") as HTMLInputElement).value = buildProcesoJson();
-          }}
           className="px-6 py-2.5 min-h-11 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-600/25 disabled:opacity-50 disabled:cursor-not-allowed">
           {isPending ? (isEditMode ? "Actualizando..." : "Guardando...") : (isEditMode ? "Actualizar examen" : "Guardar examen")}
         </button>
@@ -881,10 +882,6 @@ export default function ExamenFormClient({
             onClick={() => {
               const flag = document.getElementById("crear_venta_flag") as HTMLInputElement;
               if (flag) flag.value = "1";
-              (document.getElementById("anamnesis_ext_input") as HTMLInputElement).value = buildAnamnesisJson();
-              (document.getElementById("exploracion_externa_input") as HTMLInputElement).value = buildExploracionJson();
-              (document.getElementById("binocularidad_input") as HTMLInputElement).value = buildBinoJson();
-              (document.getElementById("proceso_refractivo_input") as HTMLInputElement).value = buildProcesoJson();
             }}
             formAction={crearExamen}
             className="px-6 py-2.5 min-h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-emerald-600/25 disabled:opacity-50 disabled:cursor-not-allowed">
