@@ -99,21 +99,26 @@ export default async function VentasPage({
     p_paciente_ids: pacienteIds && pacienteIds.length > 0 ? pacienteIds : pacienteIds !== null && pacienteIds.length === 0 ? ["00000000-0000-0000-0000-000000000000"] : null,
   };
 
-  const [{ data: ordenes, count }, { data: kpiRaw }, { data: pagosData }] = await Promise.all([
+  const [{ data: ordenes, count }, { data: kpiRaw }] = await Promise.all([
     query,
     supabase.rpc("kpi_ventas", kpiRpcParams).single(),
-    supabase
-      .from("pagos")
-      .select("orden_id, monto")
-      .eq("tenant_id", perfil.tenant_id),
   ]);
 
-  // Calcular abonado y saldo por orden
+  // Calcular abonado y saldo por orden (basado en órdenes filtradas)
   const pagosPorOrden: Record<string, number> = {};
-  (pagosData ?? []).forEach((pago) => {
-    if (!pagosPorOrden[pago.orden_id]) pagosPorOrden[pago.orden_id] = 0;
-    pagosPorOrden[pago.orden_id] += Number(pago.monto);
-  });
+  if (ordenes && ordenes.length > 0) {
+    const ordenIds = ordenes.map((o) => o.id);
+    const { data: pagosData } = await supabase
+      .from("pagos")
+      .select("orden_id, monto")
+      .eq("tenant_id", perfil.tenant_id)
+      .in("orden_id", ordenIds);
+
+    (pagosData ?? []).forEach((pago) => {
+      if (!pagosPorOrden[pago.orden_id]) pagosPorOrden[pago.orden_id] = 0;
+      pagosPorOrden[pago.orden_id] += Number(pago.monto);
+    });
+  }
 
   // Enriquecer órdenes con totalAbonado y saldoPendiente
   const filtered = (ordenes ?? []).map((o) => ({
@@ -139,9 +144,9 @@ export default async function VentasPage({
 
   // Calcular totales basados en los datos reales
   // Total vendido = suma de todos los totales de órdenes filtradas (RPC)
-  // Total abonado = suma de todos los pagos
+  // Total abonado = suma de todos los pagos de las órdenes filtradas
   // Saldo pendiente = total vendido - total abonado
-  const totalAbonado = (pagosData ?? []).reduce((sum, pago) => sum + Number(pago.monto), 0);
+  const totalAbonado = Object.values(pagosPorOrden).reduce((sum, monto) => sum + monto, 0);
   const totalVendidoReal = Number(kpi?.total_vendido ?? 0);
   const totalSaldoPendiente = totalVendidoReal - totalAbonado;
 
