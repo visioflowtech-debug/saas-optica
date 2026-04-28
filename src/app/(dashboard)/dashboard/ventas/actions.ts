@@ -856,12 +856,12 @@ export async function obtenerPagos(ordenId: string) {
 
 /* ── Eliminar Pago ─────────────────────────────────────── */
 export async function eliminarPago(pagoId: string, ordenId: string) {
-  const { supabase, tenant_id, sucursal_id } = await getUserContext();
+  const { supabase, tenant_id } = await getUserContext();
 
   // Verificar que el pago existe y pertenece a la orden
   const { data: pago } = await supabase
     .from("pagos")
-    .select("monto, referencia_tipo, referencia_id")
+    .select("id")
     .eq("id", pagoId)
     .eq("orden_id", ordenId)
     .eq("tenant_id", tenant_id)
