@@ -175,12 +175,13 @@ export default async function DashboardPage() {
           cxc > 0
             ? { icon: "🟡", label: `${formatUSD(cxc)} en saldo pendiente de cobro`, href: "/dashboard/ventas", color: "border-yellow-500/40 bg-a-amber-bg", badge: "bg-yellow-600" }
             : null,
-          alertStock && alertStock > 0
-            ? { icon: "🔴", label: `${alertStock} producto${alertStock !== 1 ? "s" : ""} sin stock`, href: "/dashboard/productos", color: "border-red-500/40 bg-a-red-bg", badge: "bg-red-600" }
-            : null,
-          alertRecetas && alertRecetas > 0
-            ? { icon: "📅", label: `${alertRecetas} examen${alertRecetas !== 1 ? "es" : ""} con receta >1 año`, href: "/dashboard/examenes?receta_vencida=1", color: "border-amber-500/40 bg-a-amber-bg", badge: "bg-amber-600" }
-            : null,
+          // Alertas deshabilitadas temporalmente
+          // alertStock && alertStock > 0
+          //   ? { icon: "🔴", label: `${alertStock} producto${alertStock !== 1 ? "s" : ""} sin stock`, href: "/dashboard/productos", color: "border-red-500/40 bg-a-red-bg", badge: "bg-red-600" }
+          //   : null,
+          // alertRecetas && alertRecetas > 0
+          //   ? { icon: "📅", label: `${alertRecetas} examen${alertRecetas !== 1 ? "es" : ""} con receta >1 año`, href: "/dashboard/examenes?receta_vencida=1", color: "border-amber-500/40 bg-a-amber-bg", badge: "bg-amber-600" }
+          //   : null,
         ].filter(Boolean);
 
         if (alertas.length === 0) return null;

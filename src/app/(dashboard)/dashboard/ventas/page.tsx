@@ -138,6 +138,10 @@ export default async function VentasPage({
   };
   const fmtMoney = (n: number) => new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(n);
 
+  // Calcular totales de abonado y saldo para KPI
+  const totalAbonado = (pagosData ?? []).reduce((sum, pago) => sum + Number(pago.monto), 0);
+  const totalSaldoPendiente = totalVendido - totalAbonado;
+
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
     if (params.filtro) p.set("filtro", params.filtro);
@@ -174,11 +178,28 @@ export default async function VentasPage({
       </div>
 
       {/* KPI card */}
-      <div className="p-5 bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Total Vendido</p>
-          <p className="text-3xl font-bold text-t-primary">{fmtMoney(totalVendido)}</p>
-          <p className="text-xs text-t-muted mt-1">{Number(kpi?.total_count ?? 0)} registro{Number(kpi?.total_count ?? 0) !== 1 ? "s" : ""}</p>
+      <div className="p-5 bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)]">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-4">
+          {/* Total Vendido */}
+          <div>
+            <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Total Vendido</p>
+            <p className="text-2xl font-bold text-t-primary">{fmtMoney(totalVendido)}</p>
+            <p className="text-xs text-t-muted mt-1">{Number(kpi?.total_count ?? 0)} registro{Number(kpi?.total_count ?? 0) !== 1 ? "s" : ""}</p>
+          </div>
+          {/* Total Abonado */}
+          <div>
+            <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Total Abonado</p>
+            <p className="text-2xl font-bold text-t-green">{fmtMoney(totalAbonado)}</p>
+            <p className="text-xs text-t-muted mt-1">Pagos registrados</p>
+          </div>
+          {/* Saldo Pendiente por Cobrar */}
+          <div>
+            <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Saldo Pendiente</p>
+            <p className="text-2xl font-bold" style={{ color: totalSaldoPendiente > 0 ? "var(--color-t-red)" : "var(--color-t-green)" }}>
+              {fmtMoney(Math.max(totalSaldoPendiente, 0))}
+            </p>
+            <p className="text-xs text-t-muted mt-1">Por cobrar</p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {totalProformas > 0 && (
