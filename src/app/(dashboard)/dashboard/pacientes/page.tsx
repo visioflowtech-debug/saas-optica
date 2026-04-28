@@ -39,7 +39,7 @@ export default async function PacientesPage({
 }) {
   const params = await searchParams;
   const pagina = Math.max(1, parseInt(params.pagina ?? "1") || 1);
-  const orden = params.orden === "reciente" ? "reciente" : "nombre";
+  const orden = params.orden === "nombre" ? "nombre" : "reciente";
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -84,7 +84,7 @@ export default async function PacientesPage({
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
     if (params.q?.trim()) p.set("q", params.q.trim());
-    if (orden !== "nombre") p.set("orden", orden);
+    if (orden !== "reciente") p.set("orden", orden);
     Object.entries(overrides).forEach(([k, v]) => {
       if (v === undefined) p.delete(k);
       else p.set(k, v);
@@ -122,16 +122,6 @@ export default async function PacientesPage({
         {/* Selector de orden */}
         <div className="flex items-center gap-2 shrink-0">
           <Link
-            href={buildUrl({ orden: undefined, pagina: undefined })}
-            className={`px-3 py-2 min-h-11 flex items-center text-sm rounded-lg border transition ${
-              orden === "nombre"
-                ? "bg-blue-600 text-white border-blue-600 font-medium"
-                : "bg-card border-b-default text-t-secondary hover:text-t-primary hover:bg-card-hover"
-            }`}
-          >
-            A–Z
-          </Link>
-          <Link
             href={buildUrl({ orden: "reciente", pagina: undefined })}
             className={`px-3 py-2 min-h-11 flex items-center text-sm rounded-lg border transition ${
               orden === "reciente"
@@ -140,6 +130,16 @@ export default async function PacientesPage({
             }`}
           >
             Recientes
+          </Link>
+          <Link
+            href={buildUrl({ orden: "nombre", pagina: undefined })}
+            className={`px-3 py-2 min-h-11 flex items-center text-sm rounded-lg border transition ${
+              orden === "nombre"
+                ? "bg-blue-600 text-white border-blue-600 font-medium"
+                : "bg-card border-b-default text-t-secondary hover:text-t-primary hover:bg-card-hover"
+            }`}
+          >
+            A–Z
           </Link>
         </div>
       </div>

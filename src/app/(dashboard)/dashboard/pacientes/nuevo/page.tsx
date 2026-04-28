@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import ProfesionCombobox from "@/components/profesion-combobox";
-import EtiquetasMedicasInput from "@/components/etiquetas-medicas-input";
 import DobEdadInput from "@/components/dob-edad-input";
 
 export default async function NuevoPacientePage({
@@ -124,18 +123,8 @@ export default async function NuevoPacientePage({
           <ProfesionCombobox profesionesList={profesionesList} />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-t-secondary mb-1.5">Etiquetas médicas</label>
-          <EtiquetasMedicasInput />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <input id="acepta_marketing" name="acepta_marketing" type="checkbox"
-            className="w-4 h-4 rounded border-b-default bg-input text-blue-600 focus:ring-blue-500 focus:ring-offset-0" />
-          <label htmlFor="acepta_marketing" className="text-sm text-t-secondary">
-            El paciente acepta recibir comunicaciones de marketing
-          </label>
-        </div>
+        {/* acepta_marketing siempre true por defecto — campo oculto al usuario */}
+        <input type="hidden" name="acepta_marketing" value="true" />
 
         <div className="flex gap-3 pt-2">
           <button formAction={crearPaciente}

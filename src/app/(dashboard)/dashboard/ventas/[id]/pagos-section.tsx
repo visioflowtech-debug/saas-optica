@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { registrarPago } from "../actions";
+import { registrarPago, eliminarPago, actualizarPago } from "../actions";
 import { fmtFechaCorta } from "@/lib/date-sv";
 
 interface Pago {
@@ -155,23 +155,16 @@ export default function PagosSection({ ordenId, totalOrden, pagos: initialPagos,
       {/* Payment history */}
       {initialPagos.length > 0 ? (
         <div className="divide-y divide-b-subtle">
-          {initialPagos.map((p) => {
-            const metodLabel = METODOS_PAGO.find(m => m.value === p.metodo_pago)?.label ?? p.metodo_pago;
-            return (
-              <div key={p.id} className="flex items-center justify-between py-2.5">
-                <div>
-                  <span className="text-sm text-t-primary font-medium">{fmtCurrency(Number(p.monto))}</span>
-                  <span className="text-xs text-t-muted ml-2">{metodLabel}</span>
-                  {p.referencia && <span className="text-xs text-t-muted ml-2">· {p.referencia}</span>}
-                </div>
-                <span className="text-xs text-t-muted">
-                  {fmtFechaCorta(p.created_at)}
-                  {" "}
-                  {new Date(p.created_at).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              </div>
-            );
-          })}
+          {initialPagos.map((p) => (
+            <PagoRow
+              key={p.id}
+              pago={p}
+              ordenId={ordenId}
+              fmtCurrency={fmtCurrency}
+              METODOS_PAGO={METODOS_PAGO}
+              cuentas={cuentas}
+            />
+          ))}
         </div>
       ) : (
         <p className="text-xs text-t-muted text-center py-2">No se han registrado pagos aún</p>
@@ -183,6 +176,104 @@ export default function PagosSection({ ordenId, totalOrden, pagos: initialPagos,
           <span className="text-xs font-medium text-t-green">✓ Pagado en su totalidad</span>
         </div>
       )}
+    </div>
+  );
+}
+
+function PagoRow({ pago, ordenId, fmtCurrency, METODOS_PAGO, cuentas }: { pago: Pago; ordenId: string; fmtCurrency: (v: number) => string; METODOS_PAGO: any[]; cuentas: any[] }) {
+  const [isPending, startTransition] = useTransition();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editMonto, setEditMonto] = useState(pago.monto.toString());
+  const [error, setError] = useState("");
+
+  const metodLabel = METODOS_PAGO.find(m => m.value === pago.metodo_pago)?.label ?? pago.metodo_pago;
+
+  const handleEliminar = () => {
+    if (!confirm("¿Eliminar este abono?")) return;
+    setError("");
+    startTransition(async () => {
+      try {
+        await eliminarPago(pago.id, ordenId);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Error al eliminar");
+      }
+    });
+  };
+
+  const handleGuardar = () => {
+    const montoNum = parseFloat(editMonto);
+    if (!montoNum || montoNum <= 0) { setError("Monto inválido"); return; }
+    setError("");
+    startTransition(async () => {
+      try {
+        await actualizarPago(pago.id, ordenId, montoNum);
+        setIsEditing(false);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Error al actualizar");
+      }
+    });
+  };
+
+  if (isEditing) {
+    return (
+      <div className="py-3 space-y-2">
+        <div className="flex gap-2">
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={editMonto}
+            onChange={(e) => setEditMonto(e.target.value)}
+            className="flex-1 px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <button
+            onClick={handleGuardar}
+            disabled={isPending}
+            className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition disabled:opacity-50"
+          >
+            {isPending ? "..." : "Guardar"}
+          </button>
+          <button
+            onClick={() => { setIsEditing(false); setError(""); }}
+            className="px-3 py-2 bg-card border border-b-default text-t-muted hover:text-t-primary text-xs rounded-lg transition"
+          >
+            Cancelar
+          </button>
+        </div>
+        {error && <p className="text-xs text-t-red">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between py-2.5">
+      <div>
+        <span className="text-sm text-t-primary font-medium">{fmtCurrency(Number(pago.monto))}</span>
+        <span className="text-xs text-t-muted ml-2">{metodLabel}</span>
+        {pago.referencia && <span className="text-xs text-t-muted ml-2">· {pago.referencia}</span>}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-t-muted">
+          {fmtFechaCorta(pago.created_at)}
+          {" "}
+          {new Date(pago.created_at).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit" })}
+        </span>
+        <button
+          onClick={() => setIsEditing(true)}
+          className="px-2 py-1 text-[10px] font-medium bg-blue-600/10 text-t-blue border border-blue-500/30 rounded hover:bg-blue-600/20 transition"
+          title="Editar abono"
+        >
+          ✎
+        </button>
+        <button
+          onClick={handleEliminar}
+          disabled={isPending}
+          className="px-2 py-1 text-[10px] font-medium bg-a-red-bg text-t-red border border-a-red-border rounded hover:opacity-80 transition disabled:opacity-50"
+          title="Eliminar abono"
+        >
+          ✕
+        </button>
+      </div>
     </div>
   );
 }

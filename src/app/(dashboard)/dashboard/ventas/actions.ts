@@ -218,9 +218,12 @@ export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
   const { data: orden } = await supabase
     .from("ordenes").select("campana_id").eq("id", ordenId).eq("tenant_id", tenant_id).single();
 
+  // Al confirmar una venta, cambiar directamente a facturada
+  const estadoFinal = nuevoEstado === "confirmada" ? "facturada" : nuevoEstado;
+
   const { error } = await supabase
     .from("ordenes")
-    .update({ estado: nuevoEstado, updated_at: new Date().toISOString() })
+    .update({ estado: estadoFinal, updated_at: new Date().toISOString() })
     .eq("id", ordenId)
     .eq("tenant_id", tenant_id);
 
@@ -849,4 +852,88 @@ export async function obtenerPagos(ordenId: string) {
     .order("created_at", { ascending: true });
 
   return pagos ?? [];
+}
+
+/* ── Eliminar Pago ─────────────────────────────────────── */
+export async function eliminarPago(pagoId: string, ordenId: string) {
+  const { supabase, tenant_id, sucursal_id } = await getUserContext();
+
+  // Verificar que el pago existe y pertenece a la orden
+  const { data: pago } = await supabase
+    .from("pagos")
+    .select("monto, referencia_tipo, referencia_id")
+    .eq("id", pagoId)
+    .eq("orden_id", ordenId)
+    .eq("tenant_id", tenant_id)
+    .single();
+
+  if (!pago) throw new Error("Pago no encontrado");
+
+  // Eliminar el pago
+  const { error } = await supabase
+    .from("pagos")
+    .delete()
+    .eq("id", pagoId)
+    .eq("tenant_id", tenant_id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/ventas/${ordenId}`);
+  revalidatePath("/dashboard/ventas");
+}
+
+/* ── Actualizar Pago ───────────────────────────────────── */
+export async function actualizarPago(pagoId: string, ordenId: string, monto: number, cuentaId?: string) {
+  const { supabase, tenant_id } = await getUserContext();
+
+  if (monto <= 0) throw new Error("El monto debe ser mayor a 0");
+
+  // Verificar que el pago existe
+  const { data: pago } = await supabase
+    .from("pagos")
+    .select("monto")
+    .eq("id", pagoId)
+    .eq("orden_id", ordenId)
+    .eq("tenant_id", tenant_id)
+    .single();
+
+  if (!pago) throw new Error("Pago no encontrado");
+
+  // Obtener la orden y calcular nuevo saldo
+  const { data: orden } = await supabase
+    .from("ordenes")
+    .select("total")
+    .eq("id", ordenId)
+    .eq("tenant_id", tenant_id)
+    .single();
+
+  if (!orden) throw new Error("Orden no encontrada");
+
+  // Obtener otros pagos para calcular el saldo disponible
+  const { data: otrosPagos } = await supabase
+    .from("pagos")
+    .select("monto")
+    .eq("orden_id", ordenId)
+    .eq("tenant_id", tenant_id)
+    .neq("id", pagoId);
+
+  const totalOtrosPagos = (otrosPagos ?? []).reduce((s, p) => s + Number(p.monto), 0);
+  const saldoDisponible = Number(orden.total) - totalOtrosPagos;
+
+  // Validar que el nuevo monto no exceda el saldo
+  if (monto > saldoDisponible + 0.01) {
+    throw new Error(`El monto ($${monto.toFixed(2)}) excede el saldo disponible ($${saldoDisponible.toFixed(2)})`);
+  }
+
+  // Actualizar el pago
+  const { error } = await supabase
+    .from("pagos")
+    .update({ monto, updated_at: new Date().toISOString() })
+    .eq("id", pagoId)
+    .eq("tenant_id", tenant_id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/ventas/${ordenId}`);
+  revalidatePath("/dashboard/ventas");
 }

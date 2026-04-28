@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useRef } from "react";
 import { crearExamen, actualizarExamen, obtenerUltimaRefraccion } from "../actions";
+import EtiquetasMedicasInput from "@/components/etiquetas-medicas-input";
 
 // v2: Campos AV/PIO ocultos, módulos clínicos colapsados por defecto
 
@@ -396,21 +397,7 @@ export default function ExamenFormClient({
         </div>
       </div>
 
-      {/* ── Optometrista ── */}
-      {optometristas.length > 0 && (
-        <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
-          <label className="block text-sm font-medium text-t-secondary mb-1.5">Optometrista</label>
-          <div className="flex flex-wrap gap-2">
-            {optometristas.filter((o) => o.activo).map((o) => (
-              <button key={o.id} type="button" onClick={() => setOptometristaNombre(o.nombre)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg border transition ${optometristaNombre === o.nombre ? "bg-blue-600 text-white border-blue-600" : "bg-card border-b-default text-t-secondary hover:text-t-primary"}`}>
-                {o.nombre}
-              </button>
-            ))}
-          </div>
-          {optometristaNombre && <p className="text-xs text-t-muted mt-2">Firmando como: <span className="font-medium text-t-primary">{optometristaNombre}</span></p>}
-        </div>
-      )}
+      {/* ── Optometrista (oculto) ── El optometrista se asigna automáticamente */}
 
       {/* ── Datos del Examen (base) ── */}
       <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
@@ -420,6 +407,11 @@ export default function ExamenFormClient({
           <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">Motivo de Consulta</label>
           <input name="motivo_consulta" value={motivo_consulta} onChange={(e) => setMotivoConsulta(e.target.value)}
             type="text" className={inputCls} placeholder="" />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-t-muted uppercase tracking-wider mb-1.5">Etiquetas médicas</label>
+          <EtiquetasMedicasInput defaultValue={examenInicial?.etiquetas_medicas ?? ""} />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
