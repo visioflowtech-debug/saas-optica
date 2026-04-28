@@ -342,7 +342,7 @@ export default function ExamenFormClient({
   const inputMonoCls = `${inputCls} text-center font-mono`;
 
   return (
-    <form className="space-y-6">
+    <form className="space-y-6" method="POST">
       {/* Campos ocultos */}
       {isEditMode && <input type="hidden" name="examen_id" value={examenInicial?.id} />}
       <input type="hidden" name="paciente_id" value={pacienteId} />

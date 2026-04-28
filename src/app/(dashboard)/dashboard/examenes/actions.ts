@@ -412,6 +412,11 @@ export async function actualizarExamen(formData: FormData) {
     return redirect("/dashboard/examenes");
   }
 
+  // Debug: Log FormData keys para verificar qué se está enviando
+  console.log("[actualizarExamen] FormData keys recibidas:", Array.from(formData.keys()));
+  console.log("[actualizarExamen] motivo_consulta:", formData.get("motivo_consulta"));
+  console.log("[actualizarExamen] rf_od_esfera:", formData.get("rf_od_esfera"));
+
   // Verificar que el examen existe y pertenece al tenant + sucursal
   const { data: ex } = await supabase
     .from("examenes_clinicos")
