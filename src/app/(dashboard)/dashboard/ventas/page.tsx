@@ -69,7 +69,7 @@ export default async function VentasPage({
   // Query paginada (tabla)
   let query = supabase
     .from("ordenes")
-    .select("id, tipo, estado, total, created_at, paciente:pacientes!ordenes_paciente_id_fkey(nombre), asesor:usuarios!ordenes_asesor_id_fkey(nombre)", { count: "exact" })
+    .select("id, tipo, estado, total, created_at, paciente:pacientes!ordenes_paciente_id_fkey(nombre)", { count: "exact" })
     .eq("tenant_id", perfil.tenant_id)
     .eq("sucursal_id", perfil.sucursal_id)
     .order("created_at", { ascending: orden === "antiguo" })
@@ -99,13 +99,30 @@ export default async function VentasPage({
     p_paciente_ids: pacienteIds && pacienteIds.length > 0 ? pacienteIds : pacienteIds !== null && pacienteIds.length === 0 ? ["00000000-0000-0000-0000-000000000000"] : null,
   };
 
-  const [{ data: ordenes, count }, { data: kpiRaw }] = await Promise.all([
+  const [{ data: ordenes, count }, { data: kpiRaw }, { data: pagosData }] = await Promise.all([
     query,
     supabase.rpc("kpi_ventas", kpiRpcParams).single(),
+    supabase
+      .from("pagos")
+      .select("orden_id, monto")
+      .eq("tenant_id", perfil.tenant_id),
   ]);
 
+  // Calcular abonado y saldo por orden
+  const pagosPorOrden: Record<string, number> = {};
+  (pagosData ?? []).forEach((pago) => {
+    if (!pagosPorOrden[pago.orden_id]) pagosPorOrden[pago.orden_id] = 0;
+    pagosPorOrden[pago.orden_id] += Number(pago.monto);
+  });
+
+  // Enriquecer órdenes con totalAbonado y saldoPendiente
+  const filtered = (ordenes ?? []).map((o) => ({
+    ...o,
+    totalAbonado: pagosPorOrden[o.id] ?? 0,
+    saldoPendiente: Number(o.total) - (pagosPorOrden[o.id] ?? 0),
+  }));
+
   const totalPages = Math.ceil((count ?? 0) / PER_PAGE);
-  const filtered = ordenes ?? [];
   const currentFilter = params.filtro ?? "todas";
 
   // KPI totales desde RPC
@@ -284,8 +301,9 @@ export default async function VentasPage({
                 <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Tipo</th>
                 <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Estado</th>
                 <th scope="col" className="text-right px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider">Total</th>
-                <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider hidden md:table-cell">Asesor</th>
-                <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider hidden sm:table-cell">Fecha</th>
+                <th scope="col" className="text-right px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider hidden sm:table-cell">Abonado</th>
+                <th scope="col" className="text-right px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider hidden sm:table-cell">Saldo</th>
+                <th scope="col" className="text-left px-5 py-3 text-xs font-medium text-t-muted uppercase tracking-wider hidden md:table-cell">Fecha</th>
                 <th scope="col" className="px-5 py-3"></th>
               </tr>
             </thead>
@@ -302,8 +320,13 @@ export default async function VentasPage({
                   <td className="px-5 py-3 text-right text-t-primary font-mono font-medium">
                     {new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(Number(o.total))}
                   </td>
-                  <td className="px-5 py-3 text-t-secondary hidden md:table-cell">{getNested(o.asesor)}</td>
-                  <td className="px-5 py-3 text-t-muted text-xs hidden sm:table-cell">
+                  <td className="px-5 py-3 text-right text-t-primary font-mono text-sm hidden sm:table-cell">
+                    {new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(o.totalAbonado)}
+                  </td>
+                  <td className="px-5 py-3 text-right font-mono text-sm hidden sm:table-cell" style={{ color: o.saldoPendiente > 0 ? "var(--color-t-red)" : "var(--color-t-green)" }}>
+                    {new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(Math.max(o.saldoPendiente, 0))}
+                  </td>
+                  <td className="px-5 py-3 text-t-muted text-xs hidden md:table-cell">
                     {fmtFecha(o.created_at)}
                   </td>
                   <td className="px-5 py-3">

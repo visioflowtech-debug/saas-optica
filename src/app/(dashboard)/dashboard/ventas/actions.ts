@@ -486,25 +486,9 @@ export async function obtenerDatosTicket(ordenId: string) {
 
   const { data: empresa } = await supabase
     .from("empresas")
-    .select("nombre, nit, logo_url, email")
+    .select("nombre, nit, logo_data, email")
     .eq("id", tenant_id)
     .single();
-
-  // Si logo_url es null, intentar obtener automáticamente desde Storage
-  let finalLogoUrl = empresa?.logo_url || null;
-  if (!finalLogoUrl) {
-    try {
-      const { data: files } = await supabase.storage.from("logos").list(tenant_id, { limit: 1, sortBy: { column: "created_at", order: "desc" } });
-      if (files && files.length > 0) {
-        const logoFile = files[0];
-        const { data: { publicUrl } } = supabase.storage.from("logos").getPublicUrl(`${tenant_id}/${logoFile.name}`);
-        finalLogoUrl = publicUrl;
-        console.log("[obtenerDatosTicket] Logo encontrado en Storage:", logoFile.name);
-      }
-    } catch (e) {
-      console.warn("[obtenerDatosTicket] No se pudo obtener logo de Storage:", e instanceof Error ? e.message : String(e));
-    }
-  }
 
   const { data: sucursal } = await supabase
     .from("sucursales")
@@ -512,7 +496,6 @@ export async function obtenerDatosTicket(ordenId: string) {
     .eq("id", sucursal_id)
     .single();
 
-  // Fetch pagos for ticket
   const { data: pagos } = await supabase
     .from("pagos")
     .select("monto, metodo_pago, created_at")
@@ -525,7 +508,7 @@ export async function obtenerDatosTicket(ordenId: string) {
   return {
     orden,
     detalles: detalles ?? [],
-    empresa: empresa ? { ...empresa, logo_url: finalLogoUrl } : null,
+    empresa,
     sucursal,
     pagos: pagos ?? [],
     totalAbonado,

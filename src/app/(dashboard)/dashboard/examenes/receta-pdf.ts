@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import { imprimirPDF } from "@/lib/print-pdf";
 
 interface RecetaData {
-  empresa: { nombre: string; nit: string | null; logo_url: string | null; email: string | null } | null;
+  empresa: { nombre: string; nit: string | null; logo_data: string | null; email: string | null } | null;
   sucursal: { nombre: string; direccion: string | null; telefono: string | null } | null;
   numero_junta?: string | null;
   examen: {
@@ -42,23 +42,6 @@ function fmtNum(val: number | null): string {
 }
 
 export async function generarRecetaPDF(data: RecetaData) {
-  const loadImage = (url: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL("image/png"));
-      };
-      img.onerror = reject;
-      img.src = url;
-    });
-  };
-
   // Half-page: letter width (215.9mm) × half height (~139.7mm)
   const pageWidth = 215.9;
   const pageHeight = 139.7;
@@ -76,16 +59,15 @@ export async function generarRecetaPDF(data: RecetaData) {
   // ── Header bar ──────────────────────────────────────────
   let hasLogo = false;
   let logoY = 4;
-  
-  if (data.empresa?.logo_url) {
+
+  if (data.empresa?.logo_data) {
     try {
-      const base64Logo = await loadImage(data.empresa.logo_url);
       const logoWidth = 24;
       const logoHeight = 24;
-      doc.addImage(base64Logo, 'PNG', margin, logoY, logoWidth, logoHeight);
+      doc.addImage(data.empresa.logo_data, 'PNG', margin, logoY, logoWidth, logoHeight);
       hasLogo = true;
     } catch (e) {
-      console.warn("Could not load logo image for PDF", e);
+      console.warn("Could not render logo in PDF", e);
     }
   }
 

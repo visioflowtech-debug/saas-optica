@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import { imprimirPDF } from "@/lib/print-pdf";
 
 interface TicketData {
-  empresa: { nombre: string; nit: string | null; logo_url: string | null; email: string | null } | null;
+  empresa: { nombre: string; nit: string | null; logo_data: string | null; email: string | null } | null;
   sucursal: { nombre: string; direccion: string | null; telefono: string | null } | null;
   orden: {
     id: string;
@@ -79,24 +79,6 @@ function numeroALetras(num: number): string {
 }
 
 export async function generarTicketPDF(data: TicketData) {
-  // Helper to load image URL into base64 for jsPDF
-  const loadImage = (url: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL("image/png"));
-      };
-      img.onerror = reject;
-      img.src = url;
-    });
-  };
-
   // 80mm thermal printer width ≈ 80mm, we use a long roll height
   const ticketWidth = 80;
   // Estimate height based on content (with improved spacing)
@@ -108,7 +90,7 @@ export async function generarTicketPDF(data: TicketData) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [ticketWidth, ticketHeight] });
   const margin = 3;
   const contentWidth = ticketWidth - margin * 2;
-  let y = margin; // reduced from margin + 1 to eliminate top margin
+  let y = margin;
 
   const paciente = getNestedPat(data.orden.paciente);
   const empresaNombre = data.empresa?.nombre ?? "Óptica";
@@ -119,22 +101,16 @@ export async function generarTicketPDF(data: TicketData) {
   const tipoLabel = data.orden.tipo === "proforma" ? "VENTA" : "ORDEN DE TRABAJO";
 
   // ── Header ──────────────────────────────────────────────
-  console.log("[ticket-pdf] Logo URL:", data.empresa?.logo_url ? "presente" : "NULL/undefined");
-  if (data.empresa?.logo_url) {
+  if (data.empresa?.logo_data) {
     try {
-      console.log("[ticket-pdf] Intentando cargar logo desde:", data.empresa.logo_url);
-      const base64Logo = await loadImage(data.empresa.logo_url);
-      const logoWidth = 32; // increased from 24
-      const logoHeight = 32; // increased from 24
+      const logoWidth = 32;
+      const logoHeight = 32;
       const logoX = (ticketWidth - logoWidth) / 2;
-      doc.addImage(base64Logo, 'PNG', logoX, y, logoWidth, logoHeight);
+      doc.addImage(data.empresa.logo_data, 'PNG', logoX, y, logoWidth, logoHeight);
       y += logoHeight + 5;
-      console.log("[ticket-pdf] ✓ Logo cargado exitosamente");
     } catch (e) {
-      console.warn("[ticket-pdf] ✗ No se pudo cargar el logo:", e instanceof Error ? e.message : String(e));
+      console.warn("[ticket-pdf] Logo no se pudo renderizar:", e instanceof Error ? e.message : String(e));
     }
-  } else {
-    console.warn("[ticket-pdf] ⚠ Logo URL no configurado en empresas.logo_url");
   }
 
   doc.setFontSize(14); // increased from 12
