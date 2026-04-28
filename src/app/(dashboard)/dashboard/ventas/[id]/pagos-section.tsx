@@ -118,38 +118,18 @@ export default function PagosSection({ ordenId, totalOrden, pagos: initialPagos,
                 className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
-            <div>
-              <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Método</label>
-              <select
-                value={metodo}
-                onChange={(e) => setMetodo(e.target.value)}
-                className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              >
-                {METODOS_PAGO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-            </div>
-          </div>
-          {cuentas.length > 0 && (
-            <div>
-              <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Cuenta destino</label>
-              <select
-                value={cuentaId}
-                onChange={(e) => setCuentaId(e.target.value)}
-                className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              >
-                {cuentas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
-            </div>
-          )}
-          <div>
-            <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Referencia (opcional)</label>
-            <input
-              type="text"
-              value={referencia}
-              onChange={(e) => setReferencia(e.target.value)}
-              placeholder="N° recibo, transferencia, etc."
-              className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-            />
+            {cuentas.length > 0 && (
+              <div>
+                <label className="block text-[10px] font-medium text-t-muted uppercase tracking-wider mb-1">Cuenta destino *</label>
+                <select
+                  value={cuentaId}
+                  onChange={(e) => setCuentaId(e.target.value)}
+                  className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                >
+                  {cuentas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+              </div>
+            )}
           </div>
           {error && <p className="text-xs text-t-red">{error}</p>}
           <div className="flex gap-2">
