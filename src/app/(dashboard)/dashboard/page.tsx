@@ -110,6 +110,38 @@ export default async function DashboardPage() {
         <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Resumen general de tu óptica</p>
       </div>
 
+      {/* Centro de alertas — PRIMERO */}
+      {(() => {
+        const alertas = [
+          alertLentes > 0
+            ? { icon: "🔵", label: `${alertLentes} lente${alertLentes !== 1 ? "s" : ""} listo${alertLentes !== 1 ? "s" : ""} para entregar`, href: "/dashboard/laboratorio", color: "border-blue-500/40 bg-a-blue-bg", badge: "bg-blue-600" }
+            : null,
+          cxc > 0
+            ? { icon: "🟡", label: `${formatUSD(cxc)} en saldo pendiente de cobro`, href: "/dashboard/ventas", color: "border-yellow-500/40 bg-a-amber-bg", badge: "bg-yellow-600" }
+            : null,
+        ].filter(Boolean);
+
+        if (alertas.length === 0) return null;
+        return (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Alertas</h2>
+              <span className="px-2 py-0.5 text-xs font-bold text-white rounded-full bg-red-500">{alertas.length}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {alertas.map((a) => a && (
+                <Link key={a.href + a.label} href={a.href}
+                  className={`flex items-center gap-3 p-4 rounded-xl border transition-all hover:opacity-90 ${a.color}`}>
+                  <span className="text-xl shrink-0">{a.icon}</span>
+                  <span className="text-sm font-medium flex-1" style={{ color: "var(--text-primary)" }}>{a.label}</span>
+                  <span className="text-[10px] text-t-muted shrink-0">Ver →</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Cards financieras — solo administrador */}
       {esAdmin && cuentasConfiguradas && (
         <div>
@@ -166,45 +198,6 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Centro de alertas */}
-      {(() => {
-        const alertas = [
-          alertLentes > 0
-            ? { icon: "🔵", label: `${alertLentes} lente${alertLentes !== 1 ? "s" : ""} listo${alertLentes !== 1 ? "s" : ""} para entregar`, href: "/dashboard/laboratorio", color: "border-blue-500/40 bg-a-blue-bg", badge: "bg-blue-600" }
-            : null,
-          cxc > 0
-            ? { icon: "🟡", label: `${formatUSD(cxc)} en saldo pendiente de cobro`, href: "/dashboard/ventas", color: "border-yellow-500/40 bg-a-amber-bg", badge: "bg-yellow-600" }
-            : null,
-          // Alertas deshabilitadas temporalmente
-          // alertStock && alertStock > 0
-          //   ? { icon: "🔴", label: `${alertStock} producto${alertStock !== 1 ? "s" : ""} sin stock`, href: "/dashboard/productos", color: "border-red-500/40 bg-a-red-bg", badge: "bg-red-600" }
-          //   : null,
-          // alertRecetas && alertRecetas > 0
-          //   ? { icon: "📅", label: `${alertRecetas} examen${alertRecetas !== 1 ? "es" : ""} con receta >1 año`, href: "/dashboard/examenes?receta_vencida=1", color: "border-amber-500/40 bg-a-amber-bg", badge: "bg-amber-600" }
-          //   : null,
-        ].filter(Boolean);
-
-        if (alertas.length === 0) return null;
-        return (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Alertas</h2>
-              <span className="px-2 py-0.5 text-xs font-bold text-white rounded-full bg-red-500">{alertas.length}</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {alertas.map((a) => a && (
-                <Link key={a.href + a.label} href={a.href}
-                  className={`flex items-center gap-3 p-4 rounded-xl border transition-all hover:opacity-90 ${a.color}`}>
-                  <span className="text-xl shrink-0">{a.icon}</span>
-                  <span className="text-sm font-medium flex-1" style={{ color: "var(--text-primary)" }}>{a.label}</span>
-                  <span className="text-[10px] text-t-muted shrink-0">Ver →</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-
       {esAdmin && !cuentasConfiguradas && (
         <Link href="/dashboard/cuentas"
           className="flex items-center gap-3 p-4 rounded-xl border border-dashed text-sm transition-colors hover:border-blue-400"
@@ -214,20 +207,25 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      {/* Stats grid */}
+      {/* Stats grid — Actividad */}
       <div>
         <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Actividad</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {stats.map((s) => (
-            <div key={s.label} className="p-6 rounded-xl"
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: "Pacientes", value: totalPacientes ?? 0, icon: "👥", color: "from-blue-500 to-blue-600", href: "/dashboard/pacientes" },
+            { label: "Exámenes", value: totalExamenes ?? 0, icon: "🔬", color: "from-purple-500 to-purple-600", href: "/dashboard/examenes" },
+            { label: "Órdenes", value: totalOrdenes ?? 0, icon: "📋", color: "from-emerald-500 to-emerald-600", href: "/dashboard/ventas" },
+          ].map((s) => (
+            <Link key={s.label} href={s.href}
+              className="p-5 rounded-xl border transition-colors hover:border-blue-500/50"
               style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-card)" }}>
               <div className="flex items-center justify-between">
-                <span className="text-3xl">{s.icon}</span>
+                <span className="text-2xl">{s.icon}</span>
                 <span className={`px-3 py-1 text-xs font-bold bg-gradient-to-r ${s.color} text-white rounded-full`}>{s.value}</span>
               </div>
               <p className="font-semibold mt-3" style={{ color: "var(--text-primary)" }}>{s.label}</p>
               <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>Total registrados</p>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

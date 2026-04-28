@@ -127,7 +127,6 @@ export default async function VentasPage({
 
   // KPI totales desde RPC
   const kpi = kpiRaw as { total_vendido: number; total_count: number; proformas: number; ordenes_trabajo: number; confirmadas: number; facturadas: number; borradores: number; canceladas: number } | null;
-  const totalVendido = Number(kpi?.total_vendido ?? 0);
   const totalProformas = Number(kpi?.proformas ?? 0);
   const totalOrdenesTrabajo = Number(kpi?.ordenes_trabajo ?? 0);
   const porEstado: Record<string, number> = {
@@ -138,9 +137,13 @@ export default async function VentasPage({
   };
   const fmtMoney = (n: number) => new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(n);
 
-  // Calcular totales de abonado y saldo para KPI
+  // Calcular totales basados en los datos reales
+  // Total vendido = suma de todos los totales de órdenes filtradas (RPC)
+  // Total abonado = suma de todos los pagos
+  // Saldo pendiente = total vendido - total abonado
   const totalAbonado = (pagosData ?? []).reduce((sum, pago) => sum + Number(pago.monto), 0);
-  const totalSaldoPendiente = totalVendido - totalAbonado;
+  const totalVendidoReal = Number(kpi?.total_vendido ?? 0);
+  const totalSaldoPendiente = totalVendidoReal - totalAbonado;
 
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
@@ -183,7 +186,7 @@ export default async function VentasPage({
           {/* Total Vendido */}
           <div>
             <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Total Vendido</p>
-            <p className="text-2xl font-bold text-t-primary">{fmtMoney(totalVendido)}</p>
+            <p className="text-2xl font-bold text-t-primary">{fmtMoney(totalVendidoReal)}</p>
             <p className="text-xs text-t-muted mt-1">{Number(kpi?.total_count ?? 0)} registro{Number(kpi?.total_count ?? 0) !== 1 ? "s" : ""}</p>
           </div>
           {/* Total Abonado */}
