@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const ETIQUETAS_COMUNES = [
   "Diabetes", "Hipertensión", "Glaucoma", "Cataratas",
@@ -10,6 +10,11 @@ const ETIQUETAS_COMUNES = [
 
 export default function EtiquetasMedicasInput({ defaultValue = "" }: { defaultValue?: string }) {
   const [value, setValue] = useState(defaultValue);
+
+  // Actualizar el valor cuando defaultValue cambia (ej. cargando otro examen en edición)
+  useEffect(() => {
+    setValue(defaultValue);
+  }, [defaultValue]);
 
   const parseTags = (v: string) => v.split(",").map((t) => t.trim()).filter(Boolean);
 

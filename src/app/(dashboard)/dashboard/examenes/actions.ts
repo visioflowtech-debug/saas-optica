@@ -417,6 +417,7 @@ export async function actualizarExamen(formData: FormData) {
   console.log("[actualizarExamen] Muestra de valores:");
   console.log("  motivo_consulta:", formData.get("motivo_consulta"));
   console.log("  rf_od_esfera:", formData.get("rf_od_esfera"));
+  console.log("  etiquetas_medicas:", formData.get("etiquetas_medicas"));
   const anamnesisVal = formData.get("anamnesis_ext");
   const exploracionVal = formData.get("exploracion_externa");
   console.log("  anamnesis_ext:", typeof anamnesisVal === "string" ? anamnesisVal.substring(0, 50) : "(vacío)");
