@@ -106,8 +106,16 @@ export async function crearExamen(formData: FormData) {
     return redirect("/dashboard/examenes/nuevo?error=Error+al+guardar+el+examen.+Intenta+de+nuevo.");
   }
 
+  // Actualizar fecha de modificación del paciente para que aparezca en "recientes"
+  await supabase
+    .from("pacientes")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", paciente_id)
+    .eq("tenant_id", tenant_id);
+
   revalidatePath("/dashboard/examenes");
   revalidatePath(`/dashboard/pacientes/${paciente_id}`);
+  revalidatePath("/dashboard/pacientes");
   if (campana_id) revalidatePath(`/dashboard/campanas/${campana_id}`);
 
   if (crearVenta) {

@@ -74,7 +74,7 @@ export default async function PacientesPage({
   }
 
   query = orden === "reciente"
-    ? query.order("created_at", { ascending: false })
+    ? query.order("updated_at", { ascending: false })
     : query.order("nombre", { ascending: true });
 
   const { data: pacientes, count } = await query;
