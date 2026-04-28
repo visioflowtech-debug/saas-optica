@@ -342,14 +342,33 @@ export default function ExamenFormClient({
   const inputMonoCls = `${inputCls} text-center font-mono`;
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    (document.getElementById("anamnesis_ext_input") as HTMLInputElement).value = buildAnamnesisJson();
-    (document.getElementById("exploracion_externa_input") as HTMLInputElement).value = buildExploracionJson();
-    (document.getElementById("binocularidad_input") as HTMLInputElement).value = buildBinoJson();
-    (document.getElementById("proceso_refractivo_input") as HTMLInputElement).value = buildProcesoJson();
+    // Serializar módulos JSON ANTES de que el form se envíe
+    const anamnesisJson = buildAnamnesisJson();
+    const exploracionJson = buildExploracionJson();
+    const binoJson = buildBinoJson();
+    const procesoJson = buildProcesoJson();
+
+    // Rellenar los hidden inputs
+    const anamnesisInput = e.currentTarget.querySelector('input[name="anamnesis_ext"]') as HTMLInputElement;
+    const exploracionInput = e.currentTarget.querySelector('input[name="exploracion_externa"]') as HTMLInputElement;
+    const binocularidadInput = e.currentTarget.querySelector('input[name="binocularidad"]') as HTMLInputElement;
+    const procesoInput = e.currentTarget.querySelector('input[name="proceso_refractivo"]') as HTMLInputElement;
+
+    if (anamnesisInput) anamnesisInput.value = anamnesisJson;
+    if (exploracionInput) exploracionInput.value = exploracionJson;
+    if (binocularidadInput) binocularidadInput.value = binoJson;
+    if (procesoInput) procesoInput.value = procesoJson;
+
+    console.log("[handleFormSubmit] JSON fields preparados (mod.", {
+      anamnesis_ext: anamnesisJson.substring(0, 50),
+      exploracion_externa: exploracionJson.substring(0, 50),
+      binocularidad: binoJson.substring(0, 50),
+      proceso_refractivo: procesoJson.substring(0, 50),
+    });
   };
 
   return (
-    <form className="space-y-6" method="POST" onSubmit={handleFormSubmit}>
+    <form className="space-y-6" onSubmit={handleFormSubmit}>
       {/* Campos ocultos */}
       {isEditMode && <input type="hidden" name="examen_id" value={examenInicial?.id} />}
       <input type="hidden" name="paciente_id" value={pacienteId} />
@@ -357,11 +376,11 @@ export default function ExamenFormClient({
       {campanaId && <input type="hidden" name="campana_id" value={campanaId} />}
       <input type="hidden" id="crear_venta_flag" name="crear_venta" value="" />
 
-      {/* Inputs ocultos para módulos opcionales (se llenan antes de submit) */}
-      <input type="hidden" name="anamnesis_ext" id="anamnesis_ext_input" />
-      <input type="hidden" name="exploracion_externa" id="exploracion_externa_input" />
-      <input type="hidden" name="binocularidad" id="binocularidad_input" />
-      <input type="hidden" name="proceso_refractivo" id="proceso_refractivo_input" />
+      {/* Inputs ocultos para módulos opcionales (se llenan en handleFormSubmit) */}
+      <input type="hidden" name="anamnesis_ext" defaultValue="" />
+      <input type="hidden" name="exploracion_externa" defaultValue="" />
+      <input type="hidden" name="binocularidad" defaultValue="" />
+      <input type="hidden" name="proceso_refractivo" defaultValue="" />
 
       {/* ── Paciente ── */}
       <div className="p-6 bg-card border border-b-default rounded-2xl shadow-[var(--shadow-card)]">
