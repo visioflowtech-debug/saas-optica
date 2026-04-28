@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { signout } from "@/app/(auth)/actions";
 import { SucursalSwitcher } from "@/components/sucursal-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
+import QuickActionsNav from "@/components/quick-actions-nav";
 
 interface NavItem {
   href: string;
@@ -192,6 +193,9 @@ export default function MobileNav({ navItems, nombre, rol, sucursalNombre, sucur
             );
           })}
         </nav>
+
+        {/* Quick Actions */}
+        <QuickActionsNav />
 
         {/* User footer */}
         <div

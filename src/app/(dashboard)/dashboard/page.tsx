@@ -121,47 +121,22 @@ export default async function DashboardPage() {
             : null,
         ].filter(Boolean);
 
-        const acciones = [
-          { label: "Nuevo paciente", href: "/dashboard/pacientes/nuevo", icon: "👤" },
-          { label: "Nuevo examen", href: "/dashboard/examenes/nuevo", icon: "🔬" },
-          { label: "Nueva venta", href: "/dashboard/ventas/nueva", icon: "💰" },
-          { label: "Laboratorio", href: "/dashboard/laboratorio", icon: "⚙️" },
-        ];
-
+        if (alertas.length === 0) return null;
         return (
-          <div className="space-y-3">
-            {alertas.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Alertas</h2>
-                  <span className="px-2 py-0.5 text-xs font-bold text-white rounded-full bg-red-500">{alertas.length}</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {alertas.map((a) => a && (
-                    <Link key={a.href + a.label} href={a.href}
-                      className={`flex items-center gap-3 p-4 rounded-xl border transition-all hover:opacity-90 ${a.color}`}>
-                      <span className="text-xl shrink-0">{a.icon}</span>
-                      <span className="text-sm font-medium flex-1" style={{ color: "var(--text-primary)" }}>{a.label}</span>
-                      <span className="text-[10px] text-t-muted shrink-0">Ver →</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Quick actions — compactas */}
-            <div>
-              <h2 className="text-lg font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Acciones rápidas</h2>
-              <div className="flex flex-wrap gap-2">
-                {acciones.map((a) => (
-                  <Link key={a.href} href={a.href}
-                    className="flex items-center justify-center w-12 h-12 rounded-lg border transition-all hover:bg-input"
-                    title={a.label}
-                    style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)" }}>
-                    <span className="text-2xl">{a.icon}</span>
-                  </Link>
-                ))}
-              </div>
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Alertas</h2>
+              <span className="px-2 py-0.5 text-xs font-bold text-white rounded-full bg-red-500">{alertas.length}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {alertas.map((a) => a && (
+                <Link key={a.href + a.label} href={a.href}
+                  className={`flex items-center gap-3 p-4 rounded-xl border transition-all hover:opacity-90 ${a.color}`}>
+                  <span className="text-xl shrink-0">{a.icon}</span>
+                  <span className="text-sm font-medium flex-1" style={{ color: "var(--text-primary)" }}>{a.label}</span>
+                  <span className="text-[10px] text-t-muted shrink-0">Ver →</span>
+                </Link>
+              ))}
             </div>
           </div>
         );

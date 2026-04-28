@@ -5,6 +5,7 @@ import { signout } from "@/app/(auth)/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SucursalSwitcher } from "@/components/sucursal-switcher";
 import MobileNav from "@/components/mobile-nav";
+import QuickActionsNav from "@/components/quick-actions-nav";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -154,6 +155,10 @@ export default async function DashboardLayout({
             </a>
           ))}
         </nav>
+
+        {/* Quick Actions */}
+        <QuickActionsNav />
+
         <div
           className="p-4"
           style={{ borderTop: "1px solid var(--border-default)" }}
