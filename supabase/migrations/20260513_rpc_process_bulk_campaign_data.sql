@@ -79,11 +79,13 @@ BEGIN
     )
     VALUES (
       v_tenant_id, v_sucursal_id, v_paciente_id, v_campana_id,
-      NULLIF(fila->>'rf_od_esfera',    '')::NUMERIC,
+      CASE WHEN trim(fila->>'rf_od_esfera') ~ '^[+-]?[0-9]+\.?[0-9]*$'
+           THEN trim(fila->>'rf_od_esfera')::NUMERIC ELSE NULL END,
       NULLIF(fila->>'rf_od_cilindro',  '')::NUMERIC,
       NULLIF(fila->>'rf_od_eje',       '')::INTEGER,
       NULLIF(fila->>'rf_od_adicion',   '')::NUMERIC,
-      NULLIF(fila->>'rf_oi_esfera',    '')::NUMERIC,
+      CASE WHEN trim(fila->>'rf_oi_esfera') ~ '^[+-]?[0-9]+\.?[0-9]*$'
+           THEN trim(fila->>'rf_oi_esfera')::NUMERIC ELSE NULL END,
       NULLIF(fila->>'rf_oi_cilindro',  '')::NUMERIC,
       NULLIF(fila->>'rf_oi_eje',       '')::INTEGER,
       NULLIF(fila->>'rf_oi_adicion',   '')::NUMERIC,

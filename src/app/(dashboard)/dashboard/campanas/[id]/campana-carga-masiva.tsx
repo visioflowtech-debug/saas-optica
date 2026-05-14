@@ -61,10 +61,10 @@ function validarFila(fila: Record<string, string>, idx: number): ErrorFila[] {
 
   req("paciente_nombre", "Nombre del paciente");
 
-  num("rf_od_esfera",   "RF OD Esfera",   { min: -30, max: 30 });
+  req("rf_od_esfera",   "RF OD Esfera");
   num("rf_od_cilindro", "RF OD Cilindro", { min: -10, max: 10 });
   num("rf_od_eje",      "RF OD Eje",      { min: 0,   max: 180, entero: true });
-  num("rf_oi_esfera",   "RF OI Esfera",   { min: -30, max: 30 });
+  req("rf_oi_esfera",   "RF OI Esfera");
   num("rf_oi_cilindro", "RF OI Cilindro", { min: -10, max: 10 });
   num("rf_oi_eje",      "RF OI Eje",      { min: 0,   max: 180, entero: true });
 
