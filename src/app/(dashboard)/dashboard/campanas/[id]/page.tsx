@@ -3,6 +3,7 @@ import { CATEGORIAS_GASTO } from "../../gastos/types";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import CampanaGastosTabla from "./campana-gastos-tabla";
+import CampanaCargaMasiva from "./campana-carga-masiva";
 import { fmtFecha } from "@/lib/date-sv";
 import { createClient } from "@/lib/supabase/server";
 
@@ -140,6 +141,7 @@ export default async function CampanaDetallePage({
           )}
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
+          {campana.activa && <CampanaCargaMasiva campanaId={id} />}
           <form>
             <button
               formAction={async () => {

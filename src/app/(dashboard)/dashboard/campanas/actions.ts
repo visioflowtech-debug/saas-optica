@@ -323,3 +323,46 @@ export async function obtenerCampanasActivasDeSucursal() {
 
   return data || [];
 }
+
+export interface FilaCargaMasiva {
+  paciente_nombre: string;
+  paciente_telefono: string;
+  rf_od_esfera: string;
+  rf_od_cilindro: string;
+  rf_od_eje: string;
+  rf_od_adicion: string;
+  rf_oi_esfera: string;
+  rf_oi_cilindro: string;
+  rf_oi_eje: string;
+  rf_oi_adicion: string;
+  examen_observaciones: string;
+  producto_id: string;
+  cantidad: string;
+  metodo_pago_id: string;
+  monto_pagado: string;
+}
+
+export async function procesarCargaMasiva(
+  campanaId: string,
+  filas: FilaCargaMasiva[]
+): Promise<{ data?: { insertados: number }; error?: string }> {
+  const { supabase, userId, tenant_id, sucursal_id } = await getUserContext();
+
+  if (filas.length === 0) return { error: "No hay filas para procesar" };
+  if (filas.length > 500) return { error: "Máximo 500 filas por carga" };
+
+  const { data, error } = await supabase.rpc("process_bulk_campaign_data", {
+    payload: {
+      campana_id: campanaId,
+      tenant_id,
+      sucursal_id,
+      asesor_id: userId,
+      filas,
+    },
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/dashboard/campanas/${campanaId}`);
+  return { data: { insertados: (data as any)?.insertados ?? filas.length } };
+}
