@@ -16,13 +16,10 @@ const COLUMNAS_REQUERIDAS = [
   "rf_oi_esfera",
   "rf_oi_cilindro",
   "rf_oi_eje",
-  "producto_id",
+  "producto_referencia",
   "cantidad",
-  "metodo_pago_id",
   "monto_pagado",
 ] as const;
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Tipos locales ─────────────────────────────────────────────────────────────
 
@@ -79,17 +76,14 @@ function validarFila(fila: Record<string, string>, idx: number): ErrorFila[] {
     }
   });
 
-  // producto_id debe ser UUID
-  const pid = fila["producto_id"]?.trim();
-  if (!pid) {
-    errores.push({ fila: n, campo: "producto_id", mensaje: "producto_id es requerido" });
-  } else if (!UUID_RE.test(pid)) {
-    errores.push({ fila: n, campo: "producto_id", mensaje: `producto_id no es un UUID válido: "${pid}"` });
+  // producto_referencia: texto no vacío (la resolución UUID ocurre en el RPC)
+  const ref = fila["producto_referencia"]?.trim();
+  if (!ref) {
+    errores.push({ fila: n, campo: "producto_referencia", mensaje: "Referencia de producto es requerida (ej: ARO OPTIC — SKU 42B55163)" });
   }
 
   num("cantidad",    "Cantidad",    { min: 1, entero: true });
   num("monto_pagado","Monto pagado",{ min: 0 });
-  req("metodo_pago_id", "Método de pago");
 
   return errores;
 }
@@ -161,7 +155,24 @@ export default function CampanaCargaMasiva({ campanaId }: { campanaId: string })
           if (errs.length > 0) {
             todosErrores.push(...errs);
           } else {
-            filasValidas.push(fila as unknown as FilaCargaMasiva);
+            // Normalizar todos los strings antes de enviar al servidor
+            const filaLimpia: FilaCargaMasiva = {
+              paciente_nombre:      fila.paciente_nombre?.trim() ?? "",
+              paciente_telefono:    fila.paciente_telefono?.trim() ?? "",
+              rf_od_esfera:         fila.rf_od_esfera?.trim() ?? "",
+              rf_od_cilindro:       fila.rf_od_cilindro?.trim() ?? "",
+              rf_od_eje:            fila.rf_od_eje?.trim() ?? "",
+              rf_od_adicion:        fila.rf_od_adicion?.trim() ?? "",
+              rf_oi_esfera:         fila.rf_oi_esfera?.trim() ?? "",
+              rf_oi_cilindro:       fila.rf_oi_cilindro?.trim() ?? "",
+              rf_oi_eje:            fila.rf_oi_eje?.trim() ?? "",
+              rf_oi_adicion:        fila.rf_oi_adicion?.trim() ?? "",
+              examen_observaciones: fila.examen_observaciones?.trim() ?? "",
+              producto_referencia:  fila.producto_referencia?.trim() ?? "",
+              cantidad:             fila.cantidad?.trim() ?? "",
+              monto_pagado:         fila.monto_pagado?.trim() ?? "",
+            };
+            filasValidas.push(filaLimpia);
           }
         });
 
@@ -275,7 +286,7 @@ export default function CampanaCargaMasiva({ campanaId }: { campanaId: string })
                         "rf_od_esfera","rf_od_cilindro","rf_od_eje","rf_od_adicion",
                         "rf_oi_esfera","rf_oi_cilindro","rf_oi_eje","rf_oi_adicion",
                         "examen_observaciones",
-                        "producto_id","cantidad","metodo_pago_id","monto_pagado",
+                        "producto_referencia","cantidad","monto_pagado",
                       ].map((col) => (
                         <span key={col} className={`text-[10px] px-2 py-0.5 rounded font-mono ${
                           (COLUMNAS_REQUERIDAS as readonly string[]).includes(col)
@@ -343,7 +354,7 @@ export default function CampanaCargaMasiva({ campanaId }: { campanaId: string })
                         <table className="w-full text-[10px]">
                           <thead>
                             <tr className="bg-empty border-b border-b-subtle">
-                              {["#","Paciente","Teléfono","OD Esf/Cil/Eje","OI Esf/Cil/Eje","Monto","Método"].map((h) => (
+                              {["#","Paciente","Teléfono","OD Esf/Cil/Eje","OI Esf/Cil/Eje","Producto","Monto"].map((h) => (
                                 <th key={h} className="px-3 py-2 text-left font-semibold text-t-muted whitespace-nowrap">
                                   {h}
                                 </th>
@@ -364,10 +375,12 @@ export default function CampanaCargaMasiva({ campanaId }: { campanaId: string })
                                 <td className="px-3 py-2 text-t-secondary font-mono whitespace-nowrap">
                                   {f.rf_oi_esfera}/{f.rf_oi_cilindro}/{f.rf_oi_eje}
                                 </td>
+                                <td className="px-3 py-2 text-t-muted max-w-[140px] truncate" title={f.producto_referencia}>
+                                  {f.producto_referencia}
+                                </td>
                                 <td className="px-3 py-2 text-green-400 font-semibold">
                                   ${parseFloat(f.monto_pagado).toFixed(2)}
                                 </td>
-                                <td className="px-3 py-2 text-t-muted">{f.metodo_pago_id}</td>
                               </tr>
                             ))}
                           </tbody>

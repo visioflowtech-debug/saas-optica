@@ -9,20 +9,24 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_campana_id  UUID;
-  v_tenant_id   UUID;
-  v_sucursal_id UUID;
-  v_asesor_id   UUID;
-  fila          JSONB;
-  v_paciente_id UUID;
-  v_examen_id   UUID;
-  v_orden_id    UUID;
-  v_cantidad    INTEGER;
-  v_monto       NUMERIC;
-  v_precio_unit NUMERIC;
-  v_caller_tid  UUID;
-  fila_idx      INTEGER := 0;
-  resultados    JSONB   := '[]'::JSONB;
+  v_campana_id    UUID;
+  v_tenant_id     UUID;
+  v_sucursal_id   UUID;
+  v_asesor_id     UUID;
+  fila            JSONB;
+  v_paciente_id   UUID;
+  v_examen_id     UUID;
+  v_orden_id      UUID;
+  v_producto_id   UUID;
+  v_tipo_producto TEXT;
+  v_ref_producto  TEXT;
+  v_sku_extraido  TEXT;
+  v_cantidad      INTEGER;
+  v_monto         NUMERIC;
+  v_precio_unit   NUMERIC;
+  v_caller_tid    UUID;
+  fila_idx        INTEGER := 0;
+  resultados      JSONB   := '[]'::JSONB;
 BEGIN
   v_campana_id  := (payload->>'campana_id')::UUID;
   v_tenant_id   := (payload->>'tenant_id')::UUID;
@@ -87,12 +91,56 @@ BEGIN
     )
     RETURNING id INTO v_examen_id;
 
-    -- 3. Calcular montos
+    -- 3. Resolver producto_referencia → producto_id
+    v_ref_producto  := trim(fila->>'producto_referencia');
+    v_producto_id   := NULL;
+    v_tipo_producto := 'lente';
+
+    -- Intento 1: extraer SKU si la referencia contiene "SKU " y buscar por sku
+    IF v_ref_producto ILIKE '%SKU %' THEN
+      v_sku_extraido := trim(split_part(v_ref_producto, 'SKU ', 2));
+      SELECT id, categoria
+        INTO v_producto_id, v_tipo_producto
+        FROM productos
+       WHERE tenant_id = v_tenant_id
+         AND sku       = v_sku_extraido
+         AND activo    = true
+       LIMIT 1;
+    END IF;
+
+    -- Intento 2: buscar por nombre exacto (case-insensitive, trim)
+    IF v_producto_id IS NULL THEN
+      SELECT id, categoria
+        INTO v_producto_id, v_tipo_producto
+        FROM productos
+       WHERE tenant_id          = v_tenant_id
+         AND lower(trim(nombre)) = lower(v_ref_producto)
+         AND activo              = true
+       LIMIT 1;
+    END IF;
+
+    IF v_producto_id IS NULL THEN
+      RAISE EXCEPTION
+        'Fila %: producto_referencia "%" no existe en el catálogo. Verifica el nombre o SKU.',
+        fila_idx, v_ref_producto;
+    END IF;
+
+    -- Normalizar categoria → tipo_producto válido para orden_detalle
+    v_tipo_producto := CASE
+      WHEN v_tipo_producto ILIKE 'aro%'    THEN 'aro'
+      WHEN v_tipo_producto ILIKE 'lente%'  THEN 'lente'
+      WHEN v_tipo_producto = 'tratamiento' THEN 'tratamiento'
+      WHEN v_tipo_producto = 'accesorio'   THEN 'accesorio'
+      WHEN v_tipo_producto = 'servicio'    THEN 'servicio'
+      ELSE 'otro'
+    END;
+
+    -- 4. Calcular montos
     v_monto       := (fila->>'monto_pagado')::NUMERIC;
     v_cantidad    := GREATEST(1, (fila->>'cantidad')::INTEGER);
     v_precio_unit := ROUND(v_monto / v_cantidad, 4);
 
-    -- 4. Insertar orden (confirmada desde bulk)
+    -- 5. Insertar orden (confirmada desde bulk)
     INSERT INTO ordenes (
       tenant_id, sucursal_id, paciente_id, examen_id, campana_id, asesor_id,
       idempotency_key, tipo, estado,
@@ -107,7 +155,7 @@ BEGIN
     )
     RETURNING id INTO v_orden_id;
 
-    -- 5. Insertar línea de detalle
+    -- 6. Insertar línea de detalle (usa v_producto_id y v_tipo_producto resueltos arriba)
     INSERT INTO orden_detalle (
       orden_id, tenant_id,
       producto_id, tipo_producto,
@@ -115,14 +163,14 @@ BEGIN
     )
     VALUES (
       v_orden_id, v_tenant_id,
-      (fila->>'producto_id')::UUID,
-      'lente',
+      v_producto_id,
+      v_tipo_producto,
       v_cantidad,
       v_precio_unit,
       v_monto
     );
 
-    -- 6. Registrar pago
+    -- 7. Registrar pago
     INSERT INTO pagos (
       orden_id, tenant_id,
       monto, metodo_pago
@@ -130,7 +178,7 @@ BEGIN
     VALUES (
       v_orden_id, v_tenant_id,
       v_monto,
-      fila->>'metodo_pago_id'
+      'efectivo'
     );
 
     resultados := resultados || jsonb_build_array(

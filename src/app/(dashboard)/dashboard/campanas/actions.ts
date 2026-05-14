@@ -336,9 +336,8 @@ export interface FilaCargaMasiva {
   rf_oi_eje: string;
   rf_oi_adicion: string;
   examen_observaciones: string;
-  producto_id: string;
+  producto_referencia: string;
   cantidad: string;
-  metodo_pago_id: string;
   monto_pagado: string;
 }
 
