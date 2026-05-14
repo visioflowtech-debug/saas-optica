@@ -48,9 +48,9 @@ function validarFila(fila: Record<string, string>, idx: number): ErrorFila[] {
     }
   };
 
-  const num = (campo: string, label: string, opts?: { min?: number; max?: number; entero?: boolean }) => {
+  const num = (campo: string, label: string, opts?: { min?: number; max?: number; entero?: boolean; opcional?: boolean }) => {
     const v = fila[campo]?.trim();
-    if (!v) { errores.push({ fila: n, campo, mensaje: `${label} es requerido` }); return; }
+    if (!v) { if (!opts?.opcional) errores.push({ fila: n, campo, mensaje: `${label} es requerido` }); return; }
     const parsed = opts?.entero ? parseInt(v, 10) : parseFloat(v);
     if (isNaN(parsed)) {
       errores.push({ fila: n, campo, mensaje: `${label} debe ser numérico (recibido: "${v}")` });
@@ -66,14 +66,14 @@ function validarFila(fila: Record<string, string>, idx: number): ErrorFila[] {
 
   req("paciente_nombre", "Nombre del paciente");
 
-  req("rf_od_esfera",   "RF OD Esfera");
-  num("rf_od_cilindro", "RF OD Cilindro", { min: -10, max: 10 });
-  num("rf_od_eje",      "RF OD Eje",      { min: 0,   max: 180, entero: true });
-  req("rf_oi_esfera",   "RF OI Esfera");
-  num("rf_oi_cilindro", "RF OI Cilindro", { min: -10, max: 10 });
-  num("rf_oi_eje",      "RF OI Eje",      { min: 0,   max: 180, entero: true });
+  // Graduaciones: todas opcionales. Vacío → NULL en DB. "PL"/"PLANO" → manejado por el RPC.
+  // Cilindros y ejes: si tienen valor, se valida rango numérico.
+  num("rf_od_cilindro", "RF OD Cilindro", { min: -10, max: 10,  opcional: true });
+  num("rf_od_eje",      "RF OD Eje",      { min: 0,   max: 180, entero: true, opcional: true });
+  num("rf_oi_cilindro", "RF OI Cilindro", { min: -10, max: 10,  opcional: true });
+  num("rf_oi_eje",      "RF OI Eje",      { min: 0,   max: 180, entero: true, opcional: true });
 
-  // Adición es opcional pero si tiene valor debe ser numérico
+  // Adición es opcional — si tiene valor debe ser numérico
   ["rf_od_adicion", "rf_oi_adicion"].forEach((campo) => {
     const v = fila[campo]?.trim();
     if (v && isNaN(parseFloat(v))) {
