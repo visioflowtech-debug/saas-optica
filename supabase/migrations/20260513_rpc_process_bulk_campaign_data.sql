@@ -131,17 +131,6 @@ BEGIN
       v_monto
     );
 
-    -- 7. Registrar pago
-    INSERT INTO pagos (
-      orden_id, tenant_id,
-      monto, metodo_pago
-    )
-    VALUES (
-      v_orden_id, v_tenant_id,
-      v_monto,
-      'efectivo'
-    );
-
     resultados := resultados || jsonb_build_array(
       jsonb_build_object(
         'fila',        fila_idx,
