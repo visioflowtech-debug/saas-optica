@@ -19,8 +19,6 @@ DECLARE
   v_orden_id      UUID;
   v_producto_id   UUID;
   v_tipo_producto TEXT;
-  v_ref_producto  TEXT;
-  v_sku_extraido  TEXT;
   v_cantidad      INTEGER;
   v_monto         NUMERIC;
   v_precio_unit   NUMERIC;
@@ -93,54 +91,14 @@ BEGIN
     )
     RETURNING id INTO v_examen_id;
 
-    -- 3. Resolver producto_referencia → producto_id
-    v_ref_producto  := trim(fila->>'producto_referencia');
-    v_producto_id   := NULL;
-    v_tipo_producto := 'lente';
+    -- 3. Extraer producto directamente del CSV (el cliente ya validó UUID y tipo)
+    v_producto_id   := (fila->>'producto_id')::UUID;
+    v_tipo_producto := fila->>'tipo_producto';
 
-    -- Intento 1: extraer SKU si la referencia contiene "SKU " y buscar por sku
-    IF v_ref_producto ILIKE '%SKU %' THEN
-      v_sku_extraido := trim(split_part(v_ref_producto, 'SKU ', 2));
-      SELECT id, categoria
-        INTO v_producto_id, v_tipo_producto
-        FROM productos
-       WHERE tenant_id = v_tenant_id
-         AND sku       = v_sku_extraido
-         AND activo    = true
-       LIMIT 1;
-    END IF;
-
-    -- Intento 2: buscar por nombre exacto (case-insensitive, trim)
-    IF v_producto_id IS NULL THEN
-      SELECT id, categoria
-        INTO v_producto_id, v_tipo_producto
-        FROM productos
-       WHERE tenant_id          = v_tenant_id
-         AND lower(trim(nombre)) = lower(v_ref_producto)
-         AND activo              = true
-       LIMIT 1;
-    END IF;
-
-    IF v_producto_id IS NULL THEN
-      RAISE EXCEPTION
-        'Fila %: producto_referencia "%" no existe en el catálogo. Verifica el nombre o SKU.',
-        fila_idx, v_ref_producto;
-    END IF;
-
-    -- Normalizar categoria → tipo_producto válido para orden_detalle
-    v_tipo_producto := CASE
-      WHEN v_tipo_producto ILIKE 'aro%'    THEN 'aro'
-      WHEN v_tipo_producto ILIKE 'lente%'  THEN 'lente'
-      WHEN v_tipo_producto = 'tratamiento' THEN 'tratamiento'
-      WHEN v_tipo_producto = 'accesorio'   THEN 'accesorio'
-      WHEN v_tipo_producto = 'servicio'    THEN 'servicio'
-      ELSE 'otro'
-    END;
-
-    -- 4. Calcular montos
+    -- 4. Calcular montos (cantidad = 1 por fila de CSV)
     v_monto       := (fila->>'monto_pagado')::NUMERIC;
-    v_cantidad    := GREATEST(1, (fila->>'cantidad')::INTEGER);
-    v_precio_unit := ROUND(v_monto / v_cantidad, 4);
+    v_cantidad    := 1;
+    v_precio_unit := v_monto;
 
     -- 5. Insertar orden (confirmada desde bulk)
     INSERT INTO ordenes (
@@ -157,16 +115,17 @@ BEGIN
     )
     RETURNING id INTO v_orden_id;
 
-    -- 6. Insertar línea de detalle (usa v_producto_id y v_tipo_producto resueltos arriba)
+    -- 6. Insertar línea de detalle
     INSERT INTO orden_detalle (
       orden_id, tenant_id,
-      producto_id, tipo_producto,
+      producto_id, tipo_producto, descripcion,
       cantidad, precio_unitario, subtotal
     )
     VALUES (
       v_orden_id, v_tenant_id,
       v_producto_id,
       v_tipo_producto,
+      NULLIF(trim(fila->>'producto_descripcion'), ''),
       v_cantidad,
       v_precio_unit,
       v_monto
