@@ -861,23 +861,13 @@ export async function eliminarPago(pagoId: string, ordenId: string) {
   // Verificar que el pago existe y pertenece a la orden
   const { data: pago } = await supabase
     .from("pagos")
-    .select("id, monto")
+    .select("id")
     .eq("id", pagoId)
     .eq("orden_id", ordenId)
     .eq("tenant_id", tenant_id)
     .single();
 
   if (!pago) throw new Error("Pago no encontrado");
-
-  // Buscar el movimiento ingreso que se creó cuando se registró el pago
-  const { data: movimiento } = await supabase
-    .from("movimientos_cuenta")
-    .select("cuenta_id, monto")
-    .eq("referencia_id", pagoId)
-    .eq("referencia_tipo", "pago")
-    .eq("tenant_id", tenant_id)
-    .limit(1)
-    .maybeSingle();
 
   // Eliminar el pago
   const { error } = await supabase
@@ -887,20 +877,6 @@ export async function eliminarPago(pagoId: string, ordenId: string) {
     .eq("tenant_id", tenant_id);
 
   if (error) throw new Error(error.message);
-
-  // Revertir el ingreso en la cuenta (best-effort — el trigger actualiza saldo_actual)
-  if (movimiento) {
-    try {
-      await supabase.from("movimientos_cuenta").insert({
-        cuenta_id: movimiento.cuenta_id,
-        tenant_id,
-        tipo: "egreso",
-        monto: Number(pago.monto),
-        descripcion: "Reversión — pago eliminado",
-        referencia_tipo: "ajuste",
-      });
-    } catch { /* fail-soft: la reversión no debe bloquear la eliminación */ }
-  }
 
   revalidatePath(`/dashboard/ventas/${ordenId}`);
   revalidatePath("/dashboard/ventas");
