@@ -66,12 +66,12 @@ function validarFila(fila: Record<string, string>, idx: number): ErrorFila[] {
 
   req("paciente_nombre", "Nombre del paciente");
 
-  req("rf_od_esfera", "RF OD Esfera");
+  req("rf_od_esfera",   "RF OD Esfera");
   num("rf_od_cilindro", "RF OD Cilindro", { min: -10, max: 10 });
-  num("rf_od_eje", "RF OD Eje", { min: 0, max: 180, entero: true });
-  req("rf_oi_esfera", "RF OI Esfera");
+  num("rf_od_eje",      "RF OD Eje",      { min: 0,   max: 180, entero: true });
+  req("rf_oi_esfera",   "RF OI Esfera");
   num("rf_oi_cilindro", "RF OI Cilindro", { min: -10, max: 10 });
-  num("rf_oi_eje", "RF OI Eje", { min: 0, max: 180, entero: true });
+  num("rf_oi_eje",      "RF OI Eje",      { min: 0,   max: 180, entero: true });
 
   // Adición es opcional pero si tiene valor debe ser numérico
   ["rf_od_adicion", "rf_oi_adicion"].forEach((campo) => {
@@ -97,7 +97,7 @@ function validarFila(fila: Record<string, string>, idx: number): ErrorFila[] {
     errores.push({ fila: n, campo: "tipo_producto", mensaje: `tipo_producto inválido: "${tipo}". Valores: ${TIPOS_PRODUCTO_VALIDOS.join(", ")}` });
   }
 
-  num("monto_pagado", "Monto pagado", { min: 0 });
+  num("monto_pagado","Monto pagado",{ min: 0 });
 
   return errores;
 }
@@ -171,21 +171,21 @@ export default function CampanaCargaMasiva({ campanaId }: { campanaId: string })
           } else {
             // Normalizar todos los strings antes de enviar al servidor
             const filaLimpia: FilaCargaMasiva = {
-              paciente_nombre: fila.paciente_nombre?.trim() ?? "",
-              paciente_telefono: fila.paciente_telefono?.trim() ?? "",
-              rf_od_esfera: fila.rf_od_esfera?.trim() ?? "",
-              rf_od_cilindro: fila.rf_od_cilindro?.trim() ?? "",
-              rf_od_eje: fila.rf_od_eje?.trim() ?? "",
-              rf_od_adicion: fila.rf_od_adicion?.trim() ?? "",
-              rf_oi_esfera: fila.rf_oi_esfera?.trim() ?? "",
-              rf_oi_cilindro: fila.rf_oi_cilindro?.trim() ?? "",
-              rf_oi_eje: fila.rf_oi_eje?.trim() ?? "",
-              rf_oi_adicion: fila.rf_oi_adicion?.trim() ?? "",
+              paciente_nombre:      fila.paciente_nombre?.trim() ?? "",
+              paciente_telefono:    fila.paciente_telefono?.trim() ?? "",
+              rf_od_esfera:         fila.rf_od_esfera?.trim() ?? "",
+              rf_od_cilindro:       fila.rf_od_cilindro?.trim() ?? "",
+              rf_od_eje:            fila.rf_od_eje?.trim() ?? "",
+              rf_od_adicion:        fila.rf_od_adicion?.trim() ?? "",
+              rf_oi_esfera:         fila.rf_oi_esfera?.trim() ?? "",
+              rf_oi_cilindro:       fila.rf_oi_cilindro?.trim() ?? "",
+              rf_oi_eje:            fila.rf_oi_eje?.trim() ?? "",
+              rf_oi_adicion:        fila.rf_oi_adicion?.trim() ?? "",
               examen_observaciones: fila.examen_observaciones?.trim() ?? "",
-              producto_id: fila.producto_id?.trim() ?? "",
-              tipo_producto: fila.tipo_producto?.trim() ?? "",
+              producto_id:          fila.producto_id?.trim() ?? "",
+              tipo_producto:        fila.tipo_producto?.trim() ?? "",
               producto_descripcion: fila.producto_descripcion?.trim() ?? "",
-              monto_pagado: fila.monto_pagado?.trim() ?? "",
+              monto_pagado:         fila.monto_pagado?.trim() ?? "",
             };
             filasValidas.push(filaLimpia);
           }
@@ -234,7 +234,7 @@ export default function CampanaCargaMasiva({ campanaId }: { campanaId: string })
         onClick={() => setAbierto(true)}
         className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition"
       >
-        Carga Masiva archivo CSV
+        Carga Masiva CSV
       </button>
 
       {/* Overlay modal */}
@@ -297,16 +297,17 @@ export default function CampanaCargaMasiva({ campanaId }: { campanaId: string })
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {[
-                        "paciente_nombre", "paciente_telefono",
-                        "rf_od_esfera", "rf_od_cilindro", "rf_od_eje", "rf_od_adicion",
-                        "rf_oi_esfera", "rf_oi_cilindro", "rf_oi_eje", "rf_oi_adicion",
+                        "paciente_nombre","paciente_telefono",
+                        "rf_od_esfera","rf_od_cilindro","rf_od_eje","rf_od_adicion",
+                        "rf_oi_esfera","rf_oi_cilindro","rf_oi_eje","rf_oi_adicion",
                         "examen_observaciones",
-                        "producto_id", "tipo_producto", "producto_descripcion", "monto_pagado",
+                        "producto_id","tipo_producto","producto_descripcion","monto_pagado",
                       ].map((col) => (
-                        <span key={col} className={`text-[10px] px-2 py-0.5 rounded font-mono ${(COLUMNAS_REQUERIDAS as readonly string[]).includes(col)
+                        <span key={col} className={`text-[10px] px-2 py-0.5 rounded font-mono ${
+                          (COLUMNAS_REQUERIDAS as readonly string[]).includes(col)
                             ? "bg-blue-500/10 text-blue-400"
                             : "bg-empty text-t-muted"
-                          }`}>
+                        }`}>
                           {col}
                         </span>
                       ))}
@@ -368,7 +369,7 @@ export default function CampanaCargaMasiva({ campanaId }: { campanaId: string })
                         <table className="w-full text-[10px]">
                           <thead>
                             <tr className="bg-empty border-b border-b-subtle">
-                              {["#", "Paciente", "Teléfono", "OD Esf/Cil/Eje", "OI Esf/Cil/Eje", "Tipo", "Descripción", "Monto"].map((h) => (
+                              {["#","Paciente","Teléfono","OD Esf/Cil/Eje","OI Esf/Cil/Eje","Tipo","Descripción","Monto"].map((h) => (
                                 <th key={h} className="px-3 py-2 text-left font-semibold text-t-muted whitespace-nowrap">
                                   {h}
                                 </th>
