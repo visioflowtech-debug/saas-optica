@@ -58,7 +58,8 @@ export default async function CampanaDetallePage({
   const totalVentas      = ventasActivas.reduce((s, v) => s + Number(v.total || 0), 0);
   const totalGastos      = gastos.reduce((s, g) => s + Number(g.monto || 0), 0);
   const cuentasPorCobrar = Math.max(0, totalVentas - totalIngresos);
-  const utilidad         = totalIngresos - totalGastos;
+  // Base devengada: ventas confirmadas − gastos (independiente de lo cobrado)
+  const utilidad         = totalVentas - totalGastos;
 
   const pacientesConVenta = new Set(ventasActivas.map((v) => v.paciente_id)).size;
   const ticketPromedio    = ventasActivas.length > 0 ? totalVentas / ventasActivas.length : 0;
@@ -87,7 +88,10 @@ export default async function CampanaDetallePage({
   };
 
   const fmt = (d: string) => fmtFecha(d);
-  const fmtMoney = (n: number) => `$${n.toLocaleString("es-SV", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtMoney = (n: number) => {
+    const abs = Math.abs(n).toLocaleString("es-SV", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return n < 0 ? `-$${abs}` : `$${abs}`;
+  };
 
   const estadoBadge: Record<string, { label: string; cls: string }> = {
     borrador:   { label: "Borrador",   cls: "bg-gray-500/15 text-t-muted" },
@@ -290,7 +294,7 @@ export default async function CampanaDetallePage({
           </div>
         </div>
 
-        {/* Utilidad = Ingresos − Gastos */}
+        {/* Utilidad = Ventas confirmadas − Gastos (base devengada) */}
         <div className={`p-5 border rounded-xl shadow-[var(--shadow-card)] ${
           stats.utilidad >= 0
             ? "bg-green-500/10 border-green-500/30"
@@ -302,8 +306,8 @@ export default async function CampanaDetallePage({
           </p>
           <div className="mt-4 space-y-2 text-sm">
             <div className="flex justify-between text-t-secondary">
-              <span>Ingresos cobrados</span>
-              <span className="font-semibold text-green-400">+{fmtMoney(stats.totalIngresos)}</span>
+              <span>Ventas confirmadas</span>
+              <span className="font-semibold text-blue-400">+{fmtMoney(stats.totalVentas)}</span>
             </div>
             <div className="flex justify-between text-t-secondary">
               <span>Gastos campaña</span>
@@ -316,8 +320,8 @@ export default async function CampanaDetallePage({
               </span>
             </div>
             {stats.cuentasPorCobrar > 0 && (
-              <p className="text-[10px] text-yellow-400 mt-2">
-                ⚠ Potencial si se cobra todo: {fmtMoney(stats.totalVentas - stats.totalGastos)}
+              <p className="text-[10px] text-t-muted mt-2">
+                Cobrado: {fmtMoney(stats.totalIngresos)} · Por cobrar: {fmtMoney(stats.cuentasPorCobrar)}
               </p>
             )}
           </div>
