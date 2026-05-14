@@ -46,8 +46,10 @@ export default async function DashboardPage() {
     supabase.from("ordenes").select("*", { count: "exact", head: true })
       .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id),
     esAdmin
-      ? supabase.from("cuentas").select("tipo, nombre, saldo_actual")
-          .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id)
+      ? supabase.rpc("get_saldo_cuentas_computed", {
+          p_tenant_id: perfil.tenant_id,
+          p_sucursal_id: perfil.sucursal_id,
+        })
       : Promise.resolve({ data: null }),
     esAdmin
       ? supabase.from("v_cuentas_cobrar").select("saldo_pendiente")
@@ -80,11 +82,12 @@ export default async function DashboardPage() {
       .eq("anulado", false).lt("fecha_examen", haceUnAnioISO),
   ]);
 
-  const todasLasCuentas = (cuentasData.data ?? []) as { tipo: string; nombre: string; saldo_actual: number }[];
+  // saldo_computed es calculado live desde movimientos_cuenta (no usa saldo_actual cacheado)
+  const todasLasCuentas = (cuentasData.data ?? []) as { id: string; tipo: string; nombre: string; saldo_computed: number }[];
   const efectivoCuenta = todasLasCuentas.find((c) => c.tipo === "efectivo");
-  const efectivo = efectivoCuenta ? Number(efectivoCuenta.saldo_actual) : null;
+  const efectivo = efectivoCuenta ? Number(efectivoCuenta.saldo_computed) : null;
   const bancoCuenta = todasLasCuentas.find((c) => c.tipo === "banco");
-  const banco = bancoCuenta ? Number(bancoCuenta.saldo_actual) : null;
+  const banco = bancoCuenta ? Number(bancoCuenta.saldo_computed) : null;
   // Cuentas adicionales (tipo distinto a efectivo/banco)
   const cuentasExtra = todasLasCuentas.filter((c) => c.tipo !== "efectivo" && c.tipo !== "banco");
   const cxc = Number((cxcData as { data: { saldo_pendiente?: number } | null }).data?.saldo_pendiente ?? 0);
@@ -191,7 +194,7 @@ export default async function DashboardPage() {
                 className="p-5 rounded-xl border transition-colors hover:border-purple-500/50"
                 style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-card)" }}>
                 <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide mb-2">{c.nombre}</p>
-                <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{formatUSD(Number(c.saldo_actual))}</p>
+                <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{formatUSD(Number(c.saldo_computed))}</p>
               </Link>
             ))}
           </div>
