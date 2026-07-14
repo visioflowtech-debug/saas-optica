@@ -44,10 +44,14 @@ export async function obtenerCuentas(): Promise<CuentaInfo[]> {
     .from("cuentas")
     .select("id, nombre, tipo, saldo_actual, saldo_inicial")
     .eq("tenant_id", tenant_id)
-    .eq("sucursal_id", sucursal_id)
-    .order("tipo");
+    .eq("sucursal_id", sucursal_id);
 
-  return (data ?? []) as CuentaInfo[];
+  // Efectivo primero (es el método más común y el default en selects),
+  // luego banco, luego el resto por nombre
+  const prioridad = (tipo: string) => (tipo === "efectivo" ? 0 : tipo === "banco" ? 1 : 2);
+  return ((data ?? []) as CuentaInfo[]).sort(
+    (a, b) => prioridad(a.tipo) - prioridad(b.tipo) || a.nombre.localeCompare(b.nombre)
+  );
 }
 
 // ── Crear cuenta nueva (tipo libre) ────────────────────────
