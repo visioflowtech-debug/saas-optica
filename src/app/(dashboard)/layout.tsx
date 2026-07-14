@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SucursalSwitcher } from "@/components/sucursal-switcher";
 import MobileNav from "@/components/mobile-nav";
 import QuickActionsNav from "@/components/quick-actions-nav";
+import NumberInputGuard from "@/components/number-input-guard";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -105,6 +106,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex flex-col app-layout" style={{ background: "var(--bg-body)", height: "100dvh" }}>
+      <NumberInputGuard />
       {/* Mobile top bar + drawer */}
       <MobileNav
         navItems={navItems}

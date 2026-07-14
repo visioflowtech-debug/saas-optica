@@ -208,18 +208,88 @@ export async function crearProforma(formData: FormData) {
 
 const ORDEN_ESTADOS_VALIDOS = ["borrador", "confirmada", "facturada", "cancelada"] as const;
 
+// Productos que requieren trabajo de laboratorio → la orden entra al kanban
+const TIPOS_PRODUCTO_LAB = ["aro", "lente", "tratamiento"];
+
+/* ── Descontar stock de una orden (valida antes, RPC atómico) ── */
+async function descontarStockOrden(
+  supabase: Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>>,
+  tenant_id: string,
+  items: { producto_id: string | null; cantidad: number | null }[]
+) {
+  const productoIds = items.map(i => i.producto_id).filter(Boolean) as string[];
+  if (productoIds.length === 0) return;
+
+  const { data: productos } = await supabase
+    .from("productos")
+    .select("id, maneja_stock, stock, nombre, marca, sku")
+    .in("id", productoIds)
+    .eq("tenant_id", tenant_id);
+
+  if (!productos || productos.length === 0) return;
+
+  const stockMap = new Map(productos.map(p => [p.id, p]));
+  const itemsConStock = items.filter(
+    item => item.producto_id && stockMap.get(item.producto_id)?.maneja_stock
+  );
+
+  // Validar stock suficiente ANTES de descontar
+  for (const item of itemsConStock) {
+    const prod = stockMap.get(item.producto_id!)!;
+    if ((prod.stock ?? 0) < (item.cantidad ?? 0)) {
+      const nombre = [prod.nombre, prod.marca].filter(Boolean).join(" ") || (prod.sku ? `SKU ${prod.sku}` : item.producto_id);
+      throw new Error(`Stock insuficiente para ${nombre} (disponible: ${prod.stock ?? 0})`);
+    }
+  }
+
+  // Descontar stock atómicamente (evita race conditions)
+  await Promise.all(
+    itemsConStock.map(item =>
+      supabase.rpc("ajustar_stock_atomico", {
+        p_producto_id: item.producto_id,
+        p_delta: -(item.cantidad ?? 0),
+        p_tenant_id: tenant_id,
+      })
+    )
+  );
+}
+
 /* ── Update Status ──────────────────────────────────────── */
-export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
+export async function actualizarEstado(ordenId: string, nuevoEstado: string): Promise<{ labRegistrada: boolean }> {
   if (!(ORDEN_ESTADOS_VALIDOS as readonly string[]).includes(nuevoEstado)) {
     throw new Error("Estado de orden inválido");
   }
   const { supabase, tenant_id, zohoEnabled } = await getUserContext();
 
   const { data: orden } = await supabase
-    .from("ordenes").select("campana_id").eq("id", ordenId).eq("tenant_id", tenant_id).single();
+    .from("ordenes").select("tipo, estado, campana_id").eq("id", ordenId).eq("tenant_id", tenant_id).single();
+
+  if (!orden) throw new Error("Orden no encontrada");
 
   // Al confirmar una venta, cambiar directamente a facturada
   const estadoFinal = nuevoEstado === "confirmada" ? "facturada" : nuevoEstado;
+
+  // Confirmación de una proforma en borrador: descontar stock y registrar
+  // en laboratorio si lleva productos que requieren trabajo de lab.
+  // (Antes esto lo hacía convertirAOrden, pero al saltar borrador→facturada
+  // ese paso ya no ocurría y las órdenes nunca llegaban al kanban.)
+  const esConfirmacionProforma =
+    nuevoEstado === "confirmada" && orden.tipo === "proforma" && orden.estado === "borrador";
+
+  let seraOrdenTrabajo = false;
+  if (esConfirmacionProforma) {
+    const { data } = await supabase
+      .from("orden_detalle")
+      .select("producto_id, cantidad, tipo_producto")
+      .eq("orden_id", ordenId);
+    const detalles = data ?? [];
+    seraOrdenTrabajo = detalles.some(d => TIPOS_PRODUCTO_LAB.includes(d.tipo_producto));
+    // Solo las órdenes de trabajo descuentan stock (anularOrden lo restituye bajo esa misma regla).
+    // Valida y descuenta ANTES de cambiar estado: si falta stock, la confirmación no procede.
+    if (seraOrdenTrabajo) {
+      await descontarStockOrden(supabase, tenant_id, detalles);
+    }
+  }
 
   const { error } = await supabase
     .from("ordenes")
@@ -228,6 +298,20 @@ export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
     .eq("tenant_id", tenant_id);
 
   if (error) throw new Error(error.message);
+
+  let labRegistrada = false;
+  if (seraOrdenTrabajo) {
+    await supabase.from("ordenes")
+      .update({ tipo: "orden_trabajo" })
+      .eq("id", ordenId)
+      .eq("tenant_id", tenant_id);
+    await supabase.from("laboratorio_estados").insert({
+      orden_id: ordenId,
+      tenant_id,
+      estado: "pendiente",
+    });
+    labRegistrada = true;
+  }
 
   // Zoho Books — crear factura al confirmar (best-effort, solo si sync habilitado)
   if (zohoEnabled && nuevoEstado === "confirmada") {
@@ -244,7 +328,9 @@ export async function actualizarEstado(ordenId: string, nuevoEstado: string) {
 
   revalidatePath("/dashboard/ventas");
   revalidatePath(`/dashboard/ventas/${ordenId}`);
+  if (labRegistrada) revalidatePath("/dashboard/laboratorio");
   if (orden?.campana_id) revalidatePath(`/dashboard/campanas/${orden.campana_id}`);
+  return { labRegistrada };
 }
 
 /* ── Convert Proforma → Orden de Trabajo ────────────────── */
@@ -272,40 +358,7 @@ export async function convertirAOrden(ordenId: string) {
     .eq("orden_id", ordenId);
 
   if (items && items.length > 0) {
-    const productoIds = items.map(i => i.producto_id).filter(Boolean) as string[];
-    if (productoIds.length > 0) {
-      const { data: productos } = await supabase
-        .from("productos")
-        .select("id, maneja_stock, stock")
-        .in("id", productoIds)
-        .eq("tenant_id", tenant_id);
-
-      if (productos && productos.length > 0) {
-        const stockMap = new Map(productos.map(p => [p.id, p]));
-        const itemsConStock = items.filter(
-          item => item.producto_id && stockMap.get(item.producto_id)?.maneja_stock
-        );
-
-        // 2a. Validar stock suficiente ANTES de descontar
-        for (const item of itemsConStock) {
-          const prod = stockMap.get(item.producto_id!)!;
-          if ((prod.stock ?? 0) < (item.cantidad ?? 0)) {
-            throw new Error(`Stock insuficiente para el producto ${item.producto_id}`);
-          }
-        }
-
-        // 2b. Descontar stock atómicamente (evita race conditions)
-        await Promise.all(
-          itemsConStock.map(item =>
-            supabase.rpc("ajustar_stock_atomico", {
-              p_producto_id: item.producto_id,
-              p_delta: -(item.cantidad ?? 0),
-              p_tenant_id: tenant_id,
-            })
-          )
-        );
-      }
-    }
+    await descontarStockOrden(supabase, tenant_id, items);
   }
 
   // 3. Update order type and status
@@ -869,6 +922,14 @@ export async function eliminarPago(pagoId: string, ordenId: string) {
 
   if (!pago) throw new Error("Pago no encontrado");
 
+  // Movimientos de cuenta ligados a este abono (ingreso original + ajustes por edición)
+  const { data: movs } = await supabase
+    .from("movimientos_cuenta")
+    .select("cuenta_id, tipo, monto")
+    .eq("tenant_id", tenant_id)
+    .eq("referencia_tipo", "pago")
+    .eq("referencia_id", pagoId);
+
   // Eliminar el pago
   const { error } = await supabase
     .from("pagos")
@@ -878,8 +939,35 @@ export async function eliminarPago(pagoId: string, ordenId: string) {
 
   if (error) throw new Error(error.message);
 
+  // Revertir el neto por cuenta para que la caja no quede descuadrada
+  try {
+    const netoPorCuenta = new Map<string, number>();
+    for (const m of movs ?? []) {
+      const delta = m.tipo === "ingreso" ? Number(m.monto) : -Number(m.monto);
+      netoPorCuenta.set(m.cuenta_id, (netoPorCuenta.get(m.cuenta_id) ?? 0) + delta);
+    }
+    const reversos = [...netoPorCuenta.entries()]
+      .map(([cuenta_id, neto]) => ({ cuenta_id, neto: Math.round(neto * 100) / 100 }))
+      .filter(({ neto }) => neto !== 0)
+      .map(({ cuenta_id, neto }) => ({
+        cuenta_id,
+        tenant_id,
+        tipo: neto > 0 ? "egreso" : "ingreso",
+        monto: Math.abs(neto),
+        descripcion: "Reverso — abono eliminado",
+        referencia_tipo: "ajuste",
+        referencia_id: pagoId,
+      }));
+    if (reversos.length > 0) {
+      await supabase.from("movimientos_cuenta").insert(reversos);
+    }
+  } catch (e) {
+    console.error("[eliminarPago] Error al revertir movimiento de cuenta:", e);
+  }
+
   revalidatePath(`/dashboard/ventas/${ordenId}`);
   revalidatePath("/dashboard/ventas");
+  revalidatePath("/dashboard/cuentas");
 }
 
 /* ── Actualizar Pago ───────────────────────────────────── */
@@ -934,6 +1022,36 @@ export async function actualizarPago(pagoId: string, ordenId: string, monto: num
 
   if (error) throw new Error(error.message);
 
+  // Ajustar la cuenta por la diferencia para que la caja siga cuadrando
+  const diff = Math.round((monto - Number(pago.monto)) * 100) / 100;
+  if (diff !== 0) try {
+    const { data: mov } = await supabase
+      .from("movimientos_cuenta")
+      .select("cuenta_id")
+      .eq("tenant_id", tenant_id)
+      .eq("referencia_tipo", "pago")
+      .eq("referencia_id", pagoId)
+      .eq("tipo", "ingreso")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (mov) {
+      await supabase.from("movimientos_cuenta").insert({
+        cuenta_id: mov.cuenta_id,
+        tenant_id,
+        tipo: diff > 0 ? "ingreso" : "egreso",
+        monto: Math.abs(diff),
+        descripcion: "Ajuste — abono editado",
+        referencia_tipo: "pago",
+        referencia_id: pagoId,
+      });
+    }
+  } catch (e) {
+    console.error("[actualizarPago] Error al ajustar movimiento de cuenta:", e);
+  }
+
   revalidatePath(`/dashboard/ventas/${ordenId}`);
   revalidatePath("/dashboard/ventas");
+  revalidatePath("/dashboard/cuentas");
 }

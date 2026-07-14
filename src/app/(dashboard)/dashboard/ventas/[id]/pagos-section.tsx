@@ -37,8 +37,11 @@ export default function PagosSection({ ordenId, totalOrden, pagos: initialPagos,
   const [isPending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
   const [monto, setMonto] = useState("");
-  const [metodo, setMetodo] = useState("efectivo");
-  const [cuentaId, setCuentaId] = useState(cuentas[0]?.id ?? "");
+  // Efectivo primero: es el método más común, y evita registrar abonos en banco por error
+  const cuentasOrdenadas = [...cuentas].sort((a, b) =>
+    (a.tipo === "efectivo" ? 0 : 1) - (b.tipo === "efectivo" ? 0 : 1)
+  );
+  const [cuentaId, setCuentaId] = useState(cuentasOrdenadas[0]?.id ?? "");
   const [referencia, setReferencia] = useState("");
   const [notas, setNotas] = useState("");
   const [error, setError] = useState("");
@@ -56,6 +59,9 @@ export default function PagosSection({ ordenId, totalOrden, pagos: initialPagos,
     if (montoNum > saldo + 0.01) { setError("El monto excede el saldo pendiente"); return; }
 
     setError("");
+    // El método de pago se deriva de la cuenta destino seleccionada
+    const cuentaSel = cuentas.find((c) => c.id === cuentaId);
+    const metodo = cuentaSel?.tipo === "banco" ? "transferencia" : "efectivo";
     startTransition(async () => {
       try {
         await registrarPago(ordenId, montoNum, metodo, referencia || undefined, notas || undefined, cuentaId || undefined);
@@ -126,7 +132,7 @@ export default function PagosSection({ ordenId, totalOrden, pagos: initialPagos,
                   onChange={(e) => setCuentaId(e.target.value)}
                   className="w-full px-3 py-2 bg-input border border-b-default rounded-lg text-t-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                 >
-                  {cuentas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  {cuentasOrdenadas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
               </div>
             )}

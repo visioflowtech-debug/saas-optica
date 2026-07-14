@@ -14,6 +14,46 @@ async function getUserContext() {
   return { supabase, userId: user.id, ...perfil };
 }
 
+/* Revierte en cuentas el neto de los movimientos ligados a pagos que van a
+   eliminarse — sin esto la caja queda descuadrada al borrar órdenes/pacientes. */
+async function revertirMovimientosDePagos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tenant_id: string,
+  pagoIds: string[]
+) {
+  if (pagoIds.length === 0) return;
+  try {
+    const { data: movs } = await supabase
+      .from("movimientos_cuenta")
+      .select("cuenta_id, tipo, monto")
+      .eq("tenant_id", tenant_id)
+      .eq("referencia_tipo", "pago")
+      .in("referencia_id", pagoIds);
+
+    const netoPorCuenta = new Map<string, number>();
+    for (const m of movs ?? []) {
+      const delta = m.tipo === "ingreso" ? Number(m.monto) : m.tipo === "egreso" ? -Number(m.monto) : 0;
+      netoPorCuenta.set(m.cuenta_id, (netoPorCuenta.get(m.cuenta_id) ?? 0) + delta);
+    }
+    const reversos = [...netoPorCuenta.entries()]
+      .map(([cuenta_id, neto]) => ({ cuenta_id, neto: Math.round(neto * 100) / 100 }))
+      .filter(({ neto }) => neto !== 0)
+      .map(({ cuenta_id, neto }) => ({
+        cuenta_id,
+        tenant_id,
+        tipo: neto > 0 ? "egreso" : "ingreso",
+        monto: Math.abs(neto),
+        descripcion: "Reverso — abonos de orden eliminada",
+        referencia_tipo: "ajuste",
+      }));
+    if (reversos.length > 0) {
+      await supabase.from("movimientos_cuenta").insert(reversos);
+    }
+  } catch (e) {
+    console.error("[revertirMovimientosDePagos]", e);
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────
    ELIMINAR ORDEN (con toda su jerarquía)
    Orden: laboratorio_estados → pagos → orden_laboratorio_datos
@@ -43,6 +83,11 @@ export async function eliminarOrdenCompleta(ordenId: string) {
       }
     }
   }
+
+  // Revertir movimientos de cuenta de los abonos antes de borrarlos
+  const { data: pagosOrden } = await supabase
+    .from("pagos").select("id").eq("orden_id", ordenId).eq("tenant_id", tenant_id);
+  await revertirMovimientosDePagos(supabase, tenant_id, (pagosOrden ?? []).map((p) => p.id));
 
   // Eliminar en orden correcto (tenant_id en tablas que lo tienen)
   await supabase.from("laboratorio_estados").delete().eq("orden_id", ordenId).eq("tenant_id", tenant_id);
@@ -128,6 +173,11 @@ export async function eliminarPaciente(pacienteId: string) {
         }
       }
     }
+    // Revertir movimientos de cuenta de los abonos antes de borrarlos
+    const { data: pagosPaciente } = await supabase
+      .from("pagos").select("id").in("orden_id", ordenIds).eq("tenant_id", tenant_id);
+    await revertirMovimientosDePagos(supabase, tenant_id, (pagosPaciente ?? []).map((p) => p.id));
+
     await supabase.from("laboratorio_estados").delete().in("orden_id", ordenIds).eq("tenant_id", tenant_id);
     await supabase.from("pagos").delete().in("orden_id", ordenIds).eq("tenant_id", tenant_id);
     await supabase.from("orden_laboratorio_datos").delete().in("orden_id", ordenIds).eq("tenant_id", tenant_id);

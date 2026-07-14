@@ -24,7 +24,14 @@ export default function OrdenAcciones({ ordenId, tipo, estado }: Props) {
 
   const handleEstado = (nuevoEstado: string) => {
     startTransition(async () => {
-      await actualizarEstado(ordenId, nuevoEstado);
+      try {
+        const res = await actualizarEstado(ordenId, nuevoEstado);
+        router.refresh();
+        // Si la venta entró a laboratorio, capturar los datos del sobre de una vez
+        if (res?.labRegistrada) setShowLabModal(true);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "Error al actualizar la orden");
+      }
     });
   };
 

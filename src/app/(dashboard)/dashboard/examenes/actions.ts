@@ -206,16 +206,63 @@ export async function generarInformeIA(examenId: string): Promise<{ informe: str
   const fmtAdd = (v: number | null) => (v == null || v === 0) ? "SIN ADICIÓN" : (v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2));
   const paciente = examen.paciente as { nombre: string; fecha_nacimiento: string | null; edad: number | null } | null;
 
-  // Calcular edad aproximada
+  // Calcular edad exacta (ajustando por mes/día)
   let edadTexto = "desconocida";
   if (paciente?.fecha_nacimiento) {
     const hoy = new Date();
     const nac = new Date(paciente.fecha_nacimiento);
-    const edadCalc = hoy.getFullYear() - nac.getFullYear();
+    let edadCalc = hoy.getFullYear() - nac.getFullYear();
+    const m = hoy.getMonth() - nac.getMonth();
+    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edadCalc--;
     edadTexto = `${edadCalc} años`;
   } else if (paciente?.edad != null) {
     edadTexto = `${paciente.edad} años`;
   }
+
+  // ── Hechos clínicos calculados de forma determinística ──
+  // La IA solo redacta alrededor de estas conclusiones; no clasifica por su cuenta.
+  const clasificarOjo = (esf: number | null, cil: number | null, add: number | null): string => {
+    if (esf == null && cil == null && add == null) return "Sin datos de refracción final registrados";
+    const partes: string[] = [];
+    if (esf != null && esf < 0) partes.push("Miopía");
+    if (esf != null && esf > 0) partes.push("Hipermetropía");
+    if (cil != null && cil !== 0) partes.push("Astigmatismo");
+    if (add != null && add > 0) partes.push("Presbicia");
+    return partes.length > 0 ? partes.join(" + ") : "Emetropía (sin ametropía significativa)";
+  };
+
+  const estadoPIO = (v: number | null): string => {
+    if (v == null) return "no registrada";
+    if (v < 10) return `${v} mmHg — POR DEBAJO del rango normal (10–21 mmHg)`;
+    if (v > 21) return `${v} mmHg — ELEVADA respecto al rango normal (10–21 mmHg)`;
+    return `${v} mmHg — dentro del rango normal (10–21 mmHg)`;
+  };
+
+  const clasifOD = clasificarOjo(examen.rf_od_esfera, examen.rf_od_cilindro, examen.rf_od_adicion);
+  const clasifOI = clasificarOjo(examen.rf_oi_esfera, examen.rf_oi_cilindro, examen.rf_oi_adicion);
+
+  const tieneAdicion = (examen.rf_od_adicion ?? 0) > 0 || (examen.rf_oi_adicion ?? 0) > 0;
+  const sinRF = examen.rf_od_esfera == null && examen.rf_od_cilindro == null
+    && examen.rf_oi_esfera == null && examen.rf_oi_cilindro == null;
+  const lenteIndicado = sinRF
+    ? "Sin prescripción final registrada — no corresponde indicar lente"
+    : tieneAdicion
+      ? "Lentes multifocales (bifocales o progresivos) — la prescripción incluye adición"
+      : "Lentes monofocales — la prescripción no incluye adición";
+
+  // Cambio de prescripción RA→RF por equivalente esférico (esfera + cilindro/2)
+  const eqEsf = (esf: number | null, cil: number | null): number | null =>
+    esf == null && cil == null ? null : (esf ?? 0) + (cil ?? 0) / 2;
+  const cambioOjo = (raE: number | null, raC: number | null, rfE: number | null, rfC: number | null): string => {
+    const ra = eqEsf(raE, raC);
+    const rf = eqEsf(rfE, rfC);
+    if (ra == null || rf == null) return "no comparable (falta RA o RF)";
+    const delta = Math.round((rf - ra) * 100) / 100;
+    const signo = delta > 0 ? "+" : "";
+    return `Δ ${signo}${delta.toFixed(2)} D en equivalente esférico${Math.abs(delta) >= 0.5 ? " — CAMBIO SIGNIFICATIVO de prescripción" : " — sin cambio significativo"}`;
+  };
+  const cambioOD = cambioOjo(examen.ra_od_esfera, examen.ra_od_cilindro, examen.rf_od_esfera, examen.rf_od_cilindro);
+  const cambioOI = cambioOjo(examen.ra_oi_esfera, examen.ra_oi_cilindro, examen.rf_oi_esfera, examen.rf_oi_cilindro);
 
   // ── Construir secciones opcionales para el prompt ──
   const truncate = (s: unknown, max = 300) => typeof s === "string" ? s.slice(0, max) : "";
@@ -320,22 +367,32 @@ OBSERVACIONES DEL OPTOMETRISTA: ${truncate(examen.observaciones?.trim(), 500) ||
 ${seccionPlan}
 
 ═══════════════════════════════════════════
+HECHOS CLÍNICOS CALCULADOS POR EL SISTEMA (FUENTE DE VERDAD)
+═══════════════════════════════════════════
+Estas conclusiones fueron calculadas de forma determinística a partir de los datos.
+Tu informe DEBE usarlas tal cual — no las recalcules, no las contradigas, no añadas otras.
+
+CLASIFICACIÓN REFRACTIVA OD: ${clasifOD}
+CLASIFICACIÓN REFRACTIVA OI: ${clasifOI}
+PIO OD: ${estadoPIO(examen.pio_od)}
+PIO OI: ${estadoPIO(examen.pio_oi)}
+TIPO DE LENTE INDICADO: ${lenteIndicado}
+CAMBIO DE PRESCRIPCIÓN OD (RA→RF): ${cambioOD}
+CAMBIO DE PRESCRIPCIÓN OI (RA→RF): ${cambioOI}
+
+═══════════════════════════════════════════
 REGLAS OBLIGATORIAS (NO NEGOCIABLES)
 ═══════════════════════════════════════════
 1. SOLO interpreta datos presentes. Si un campo dice "no registrado" o "—", indícalo como tal; NO inferas ni supongas su valor.
-2. USA SIEMPRE la escala métrica: agudeza visual en notación de 6 metros (6/6, 6/9, 6/12, etc.), distancias en mm/cm, nunca en pies ni 20/20.
-3. No diagnostiques condiciones (glaucoma, catarata, retinopatía, etc.) si no hay datos que las soporten directamente.
-4. No recomiendes medicamentos, marcas comerciales ni tratamientos quirúrgicos.
-5. Si la PIO está fuera del rango normal (10–21 mmHg), menciónalo con precisión indicando el valor exacto registrado.
-6. La ametropía se clasifica solo a partir de los valores de refracción final (RF). Usa estos criterios:
-   - Esfera negativa → Miopía
-   - Esfera positiva → Hipermetropía
-   - Cilindro presente → Astigmatismo (combinado si coexiste con miopía/hipermetropía)
-   - Adición con valor NUMÉRICO POSITIVO → Presbicia (indica que el paciente requiere corrección para visión cercana)
-   - Si la adición dice "SIN ADICIÓN": NO diagnosticar Presbicia bajo ninguna circunstancia
-7. Si la refracción actual (RA) y la final (RF) difieren significativamente, menciónalo como "cambio de prescripción".
-8. El tono debe ser profesional y clínico, comprensible para el paciente sin ser coloquial.
-9. NO especules sobre causas no documentadas, antecedentes familiares ni condiciones sistémicas.
+2. NO escribas ningún valor numérico que no aparezca literalmente en los datos o en los hechos calculados. Prohibido inventar cifras, porcentajes o rangos.
+3. El diagnóstico de la sección 3 debe coincidir EXACTAMENTE con la CLASIFICACIÓN REFRACTIVA calculada por el sistema para cada ojo. No añadas ni quites diagnósticos.
+4. USA SIEMPRE la escala métrica: agudeza visual en notación de 6 metros (6/6, 6/9, 6/12, etc.), distancias en mm/cm, nunca en pies ni 20/20.
+5. No diagnostiques condiciones (glaucoma, catarata, retinopatía, etc.) si no hay datos que las soporten directamente. Una PIO elevada se reporta como "PIO elevada, se recomienda evaluación complementaria" — nunca como diagnóstico de glaucoma.
+6. No recomiendes medicamentos, marcas comerciales ni tratamientos quirúrgicos.
+7. Sobre la PIO y el cambio de prescripción, usa exactamente el estado indicado en los hechos calculados (valor y comparación con el rango 10–21 mmHg).
+8. El tipo de corrección óptica de la sección 4 debe ser el TIPO DE LENTE INDICADO calculado; no propongas otro.
+9. El tono debe ser profesional y clínico, comprensible para el paciente sin ser coloquial.
+10. NO especules sobre causas no documentadas, antecedentes familiares ni condiciones sistémicas. Los antecedentes familiares registrados en la anamnesis solo pueden mencionarse como factores de riesgo a vigilar, nunca como diagnóstico.
 
 ═══════════════════════════════════════════
 ESTRUCTURA DEL INFORME (usa exactamente estas secciones)
@@ -347,27 +404,26 @@ Describe brevemente quién es el paciente, su edad y motivo de consulta. Solo co
 Interpreta la agudeza visual (con y sin corrección), la refracción y la PIO. Indica si los valores son normales o alterados según los criterios establecidos. Si un dato no fue registrado, dilo explícitamente.
 
 **3. Diagnóstico / Impresión Clínica**
-Clasifica la ametropía según los criterios de la Regla 6. Si no hay datos suficientes para diagnosticar, indícalo. No añadas diagnósticos adicionales sin respaldo en los datos.
+Reproduce la CLASIFICACIÓN REFRACTIVA calculada por el sistema para OD y OI, explicándola en lenguaje claro. Si no hay datos suficientes, indícalo. No añadas diagnósticos adicionales.
 
 **4. Plan y Recomendaciones**
-Indica el tipo de corrección óptica prescrita (lentes monofocales, bifocales, progresivos, según la presencia de adición). Recomendaciones de seguimiento basadas solo en los hallazgos presentes. Máximo 4 puntos concretos.
+Indica el TIPO DE LENTE INDICADO calculado por el sistema y las recomendaciones de seguimiento basadas solo en los hallazgos presentes. Máximo 4 puntos concretos.
 
 **5. Notas Adicionales**
 Incluye únicamente las observaciones registradas por el optometrista. Si no hay observaciones, escribe "Sin observaciones adicionales registradas."
 `;
 
   try {
-    console.log("[generarInformeIA] Iniciando con modelo gemini-2.5-flash...");
-    console.log("[generarInformeIA] Tamaño del prompt:", prompt.length, "caracteres");
-    console.log("[generarInformeIA] API Key presente:", apiKey ? "sí (primeros 10 chars: " + apiKey.slice(0, 10) + "...)" : "NO");
-
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    console.log("[generarInformeIA] Modelo cargado, enviando prompt...");
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      // Temperatura baja: informe clínico determinístico, mínima creatividad
+      generationConfig: { temperature: 0.2 },
+    });
 
     const result = await model.generateContent(prompt);
     const informe = result.response.text();
-    console.log("[generarInformeIA] ✓ Informe generado exitosamente, tamaño:", informe.length, "caracteres");
+    console.log("[generarInformeIA] ✓ Informe generado:", informe.length, "caracteres");
 
     // Guardar en la base de datos
     await supabase
