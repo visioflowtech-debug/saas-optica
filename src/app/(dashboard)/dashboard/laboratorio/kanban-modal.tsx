@@ -13,6 +13,7 @@ interface Props {
 export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Props) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [isSaving, startTransition] = useTransition();
 
   const [labs, setLabs] = useState<{ id: string; nombre: string }[]>([]);
@@ -29,6 +30,7 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
   }, []);
 
   useEffect(() => {
+    setErrorMsg("");
     if (isOpen && ordenId) {
       setLoading(true);
       obtenerDatosParaModalLab(ordenId)
@@ -73,13 +75,18 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ordenId) return;
+    setErrorMsg("");
     startTransition(async () => {
       try {
-        await guardarDatosLaboratorio(ordenId, formData);
+        const res = await guardarDatosLaboratorio(ordenId, formData);
+        if (res && "error" in res && res.error) {
+          setErrorMsg(res.error);
+          return;
+        }
         if (onSuccess) onSuccess();
         onClose();
-      } catch (err) {
-        alert("Error al guardar datos de laboratorio: " + (err instanceof Error ? err.message : "Desconocido"));
+      } catch {
+        setErrorMsg("No se pudieron guardar los datos de laboratorio. Intenta de nuevo.");
       }
     });
   };
@@ -213,7 +220,12 @@ export default function KanbanModal({ isOpen, onClose, ordenId, onSuccess }: Pro
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-b-default bg-card flex justify-end gap-3 rounded-b-2xl">
+        <div className="p-4 border-t border-b-default bg-card flex items-center justify-end gap-3 rounded-b-2xl">
+          {errorMsg && (
+            <p className="flex-1 text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+              {errorMsg}
+            </p>
+          )}
           <button onClick={onClose} type="button" className="px-4 py-2.5 min-h-11 text-sm font-medium text-t-secondary hover:text-t-primary transition">
             Cancelar
           </button>

@@ -110,13 +110,21 @@ export default function OrdenAcciones({ ordenId, tipo, estado }: Props) {
 
         {/* Print Envelope (Only for Orden de Trabajo) */}
         {!isProforma && (
-          <button
-            onClick={handlePrintSobre}
-            disabled={printing}
-            className="px-4 py-2 bg-a-blue-bg text-t-blue border border-[var(--accent-blue)] text-sm font-medium rounded-lg hover:opacity-80 transition disabled:opacity-50"
-          >
-            {printing ? "..." : "🖨️ Imprimir Sobre Lab"}
-          </button>
+          <>
+            <button
+              onClick={handlePrintSobre}
+              disabled={printing}
+              className="px-4 py-2 bg-a-blue-bg text-t-blue border border-[var(--accent-blue)] text-sm font-medium rounded-lg hover:opacity-80 transition disabled:opacity-50"
+            >
+              {printing ? "..." : "🖨️ Imprimir Sobre Lab"}
+            </button>
+            <button
+              onClick={() => setShowLabModal(true)}
+              className="px-4 py-2 bg-a-blue-bg text-t-blue border border-[var(--accent-blue)] text-sm font-medium rounded-lg hover:opacity-80 transition"
+            >
+              🔬 Editar Datos Lab
+            </button>
+          </>
         )}
 
         {/* Confirm (borrador → confirmada) */}
@@ -177,13 +185,13 @@ export default function OrdenAcciones({ ordenId, tipo, estado }: Props) {
         />
       </div>
 
-      {/* Lab details capture on conversion */}
+      {/* Lab details capture on conversion / edición posterior */}
       {showLabModal && (
-        <KanbanModal 
-          isOpen={showLabModal} 
-          onClose={() => setShowLabModal(false)} 
+        <KanbanModal
+          isOpen={showLabModal}
+          onClose={() => setShowLabModal(false)}
           ordenId={ordenId}
-          onSuccess={() => setShowLabModal(false)}
+          onSuccess={() => { setShowLabModal(false); router.refresh(); }}
         />
       )}
     </div>

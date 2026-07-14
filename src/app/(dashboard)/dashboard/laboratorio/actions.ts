@@ -238,39 +238,51 @@ export async function guardarDatosLaboratorio(ordenId: string, datos: any) {
     .single();
   if (!ordenCheck) throw new Error("Orden no encontrada");
 
-  // Whitelist campos permitidos — nunca spread directo de datos externos
+  // Whitelist campos permitidos — nunca spread directo de datos externos.
+  // Campos vacíos ("") se normalizan a null: la columna laboratorio_id es UUID
+  // y Postgres rechaza "" con un error críptico.
+  const limpiar = (v: unknown): string | null => {
+    if (typeof v !== "string") return null;
+    const s = v.trim();
+    return s === "" ? null : s;
+  };
+
   const payload = {
     orden_id: ordenId,
     tenant_id: usuario.tenant_id,
-    tipo_lente:        datos.tipo_lente        ?? null,
-    material_lente:    datos.material_lente    ?? null,
-    tratamiento_lente: datos.tratamiento_lente ?? null,
-    color_lente:       datos.color_lente       ?? null,
-    tipo_aro:          datos.tipo_aro          ?? null,
-    marca_aro:         datos.marca_aro         ?? null,
-    color_aro:         datos.color_aro         ?? null,
-    tamano_aro:        datos.tamano_aro        ?? null,
-    horizontal_aro:    datos.horizontal_aro    ?? null,
-    vertical_aro:      datos.vertical_aro      ?? null,
-    diagonal_aro:      datos.diagonal_aro      ?? null,
-    puente_aro:        datos.puente_aro        ?? null,
-    varilla_aro:       datos.varilla_aro       ?? null,
-    dp_od:             datos.dp_od             ?? null,
-    dp_oi:             datos.dp_oi             ?? null,
-    dp:                datos.dp                ?? null,
-    altura:            datos.altura            ?? null,
-    observaciones:     datos.observaciones     ?? null,
-    laboratorio_id:    datos.laboratorio_id    ?? null,
+    tipo_lente:        limpiar(datos.tipo_lente),
+    material_lente:    limpiar(datos.material_lente),
+    tratamiento_lente: limpiar(datos.tratamiento_lente),
+    color_lente:       limpiar(datos.color_lente),
+    tipo_aro:          limpiar(datos.tipo_aro),
+    marca_aro:         limpiar(datos.marca_aro),
+    color_aro:         limpiar(datos.color_aro),
+    tamano_aro:        limpiar(datos.tamano_aro),
+    horizontal_aro:    limpiar(datos.horizontal_aro),
+    vertical_aro:      limpiar(datos.vertical_aro),
+    diagonal_aro:      limpiar(datos.diagonal_aro),
+    puente_aro:        limpiar(datos.puente_aro),
+    varilla_aro:       limpiar(datos.varilla_aro),
+    dp_od:             limpiar(datos.dp_od),
+    dp_oi:             limpiar(datos.dp_oi),
+    dp:                limpiar(datos.dp),
+    altura:            limpiar(datos.altura),
+    observaciones:     limpiar(datos.observaciones),
+    laboratorio_id:    limpiar(datos.laboratorio_id),
   };
 
   const { error } = await supabase
     .from("orden_laboratorio_datos")
     .upsert(payload, { onConflict: "orden_id" });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("[guardarDatosLaboratorio]", error.message);
+    return { error: "No se pudieron guardar los datos de laboratorio. Revisa los campos e intenta de nuevo." };
+  }
 
   revalidatePath("/dashboard/laboratorio");
   revalidatePath(`/dashboard/ventas/${ordenId}`);
+  return { success: true };
 }
 
 /* ── Laboratorios activos para selección ───────────────── */
