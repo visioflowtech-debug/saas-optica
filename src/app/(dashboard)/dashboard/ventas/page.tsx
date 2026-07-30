@@ -102,29 +102,28 @@ export default async function VentasPage({
     else query = query.in("paciente_id", pacienteIds);
   }
 
-  // KPI via RPC — agregación en Postgres, sin cargar filas
-  const kpiRpcParams: Record<string, unknown> = {
-    p_tenant_id: perfil.tenant_id,
-    p_sucursal_id: perfil.sucursal_id,
-    p_tipo: null,
-    p_campana_id: campanaFiltro || null,
-    p_paciente_ids: pacienteIds && pacienteIds.length > 0 ? pacienteIds : pacienteIds !== null && pacienteIds.length === 0 ? ["00000000-0000-0000-0000-000000000000"] : null,
-  };
-
   // Ventas Hoy / Ventas Mes — siempre del tenant completo, sin filtros de búsqueda
   const svNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/El_Salvador" }));
   const hoyStr = `${svNow.getFullYear()}-${String(svNow.getMonth() + 1).padStart(2, "0")}-${String(svNow.getDate()).padStart(2, "0")}`;
   const inicioMesStr = `${svNow.getFullYear()}-${String(svNow.getMonth() + 1).padStart(2, "0")}-01`;
 
-  const [{ data: ordenes, count }, { data: kpiRaw }, { data: ventasPeriodoRaw }] = await Promise.all([
+  const [{ data: ordenes, count }, { data: ventasPeriodoRaw }, { data: cxcData }] = await Promise.all([
     query,
-    supabase.rpc("kpi_ventas", kpiRpcParams).single(),
     supabase.rpc("kpi_ventas_periodo", {
       p_tenant_id: perfil.tenant_id,
       p_sucursal_id: perfil.sucursal_id,
       p_inicio_hoy: svFechaInicioUTC(hoyStr),
       p_inicio_mes: svFechaInicioUTC(inicioMesStr),
     }).single(),
+    // Saldo real que deben los clientes: confirmada/facturada, sin filtrar
+    // por fecha ni por los filtros de búsqueda/campaña de esta página —
+    // mismo criterio que el filtro "Saldo Pendiente" y el KPI del dashboard.
+    supabase
+      .from("v_cuentas_cobrar")
+      .select("saldo_pendiente")
+      .eq("tenant_id", perfil.tenant_id)
+      .eq("sucursal_id", perfil.sucursal_id)
+      .maybeSingle(),
   ]);
 
   // Calcular abonado y saldo por orden (basado en órdenes filtradas)
@@ -154,19 +153,15 @@ export default async function VentasPage({
   const currentFilter = params.filtro ?? "todas";
 
   // KPI totales desde RPC
-  const kpi = kpiRaw as { total_vendido: number } | null;
   const ventasPeriodo = ventasPeriodoRaw as { ventas_hoy: number; ventas_mes: number } | null;
   const ventasHoy = Number(ventasPeriodo?.ventas_hoy ?? 0);
   const ventasMes = Number(ventasPeriodo?.ventas_mes ?? 0);
   const fmtMoney = (n: number) => new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(n);
 
-  // Calcular totales basados en los datos reales
-  // Total vendido = suma de todos los totales de órdenes filtradas (RPC)
-  // Total abonado = suma de todos los pagos de las órdenes filtradas
-  // Saldo pendiente = total vendido - total abonado
-  const totalAbonado = Object.values(pagosPorOrden).reduce((sum, monto) => sum + monto, 0);
-  const totalVendidoReal = Number(kpi?.total_vendido ?? 0);
-  const totalSaldoPendiente = totalVendidoReal - totalAbonado;
+  // Saldo pendiente real: lo que deben los clientes (confirmada/facturada),
+  // sin importar fecha ni filtros de esta página — coincide con la columna
+  // Saldo de la tabla y con el filtro "Saldo Pendiente".
+  const totalSaldoPendiente = Number((cxcData as { saldo_pendiente?: number } | null)?.saldo_pendiente ?? 0);
 
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
@@ -204,7 +199,7 @@ export default async function VentasPage({
 
       {/* KPI card */}
       <div className="p-5 bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)]">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {/* Ventas Hoy */}
           <div>
             <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Ventas Hoy</p>
@@ -214,12 +209,6 @@ export default async function VentasPage({
           <div>
             <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Ventas Mes</p>
             <p className="text-2xl font-bold text-t-primary">{fmtMoney(ventasMes)}</p>
-          </div>
-          {/* Total Abonado */}
-          <div>
-            <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Total Abonado</p>
-            <p className="text-2xl font-bold text-t-green">{fmtMoney(totalAbonado)}</p>
-            <p className="text-xs text-t-muted mt-1">Pagos registrados</p>
           </div>
           {/* Saldo Pendiente por Cobrar */}
           <div>
