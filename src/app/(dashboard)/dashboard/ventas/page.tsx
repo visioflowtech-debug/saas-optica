@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { fmtFecha } from "@/lib/date-sv";
+import { fmtFecha, svFechaInicioUTC } from "@/lib/date-sv";
 import { puedeAcceder } from "@/lib/acceso";
 
 export default async function VentasPage({
@@ -99,9 +99,20 @@ export default async function VentasPage({
     p_paciente_ids: pacienteIds && pacienteIds.length > 0 ? pacienteIds : pacienteIds !== null && pacienteIds.length === 0 ? ["00000000-0000-0000-0000-000000000000"] : null,
   };
 
-  const [{ data: ordenes, count }, { data: kpiRaw }] = await Promise.all([
+  // Ventas Hoy / Ventas Mes — siempre del tenant completo, sin filtros de búsqueda
+  const svNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/El_Salvador" }));
+  const hoyStr = `${svNow.getFullYear()}-${String(svNow.getMonth() + 1).padStart(2, "0")}-${String(svNow.getDate()).padStart(2, "0")}`;
+  const inicioMesStr = `${svNow.getFullYear()}-${String(svNow.getMonth() + 1).padStart(2, "0")}-01`;
+
+  const [{ data: ordenes, count }, { data: kpiRaw }, { data: ventasPeriodoRaw }] = await Promise.all([
     query,
     supabase.rpc("kpi_ventas", kpiRpcParams).single(),
+    supabase.rpc("kpi_ventas_periodo", {
+      p_tenant_id: perfil.tenant_id,
+      p_sucursal_id: perfil.sucursal_id,
+      p_inicio_hoy: svFechaInicioUTC(hoyStr),
+      p_inicio_mes: svFechaInicioUTC(inicioMesStr),
+    }).single(),
   ]);
 
   // Calcular abonado y saldo por orden (basado en órdenes filtradas)
@@ -131,15 +142,10 @@ export default async function VentasPage({
   const currentFilter = params.filtro ?? "todas";
 
   // KPI totales desde RPC
-  const kpi = kpiRaw as { total_vendido: number; total_count: number; proformas: number; ordenes_trabajo: number; confirmadas: number; facturadas: number; borradores: number; canceladas: number } | null;
-  const totalProformas = Number(kpi?.proformas ?? 0);
-  const totalOrdenesTrabajo = Number(kpi?.ordenes_trabajo ?? 0);
-  const porEstado: Record<string, number> = {
-    confirmada: Number(kpi?.confirmadas ?? 0),
-    facturada: Number(kpi?.facturadas ?? 0),
-    borrador: Number(kpi?.borradores ?? 0),
-    cancelada: Number(kpi?.canceladas ?? 0),
-  };
+  const kpi = kpiRaw as { total_vendido: number } | null;
+  const ventasPeriodo = ventasPeriodoRaw as { ventas_hoy: number; ventas_mes: number } | null;
+  const ventasHoy = Number(ventasPeriodo?.ventas_hoy ?? 0);
+  const ventasMes = Number(ventasPeriodo?.ventas_mes ?? 0);
   const fmtMoney = (n: number) => new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(n);
 
   // Calcular totales basados en los datos reales
@@ -187,12 +193,16 @@ export default async function VentasPage({
 
       {/* KPI card */}
       <div className="p-5 bg-card border border-b-default rounded-xl shadow-[var(--shadow-card)]">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-4">
-          {/* Total Vendido */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Ventas Hoy */}
           <div>
-            <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Total Vendido</p>
-            <p className="text-2xl font-bold text-t-primary">{fmtMoney(totalVendidoReal)}</p>
-            <p className="text-xs text-t-muted mt-1">{Number(kpi?.total_count ?? 0)} registro{Number(kpi?.total_count ?? 0) !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Ventas Hoy</p>
+            <p className="text-2xl font-bold text-t-green">{fmtMoney(ventasHoy)}</p>
+          </div>
+          {/* Ventas Mes */}
+          <div>
+            <p className="text-xs text-t-muted uppercase tracking-wider mb-1">Ventas Mes</p>
+            <p className="text-2xl font-bold text-t-primary">{fmtMoney(ventasMes)}</p>
           </div>
           {/* Total Abonado */}
           <div>
@@ -208,34 +218,6 @@ export default async function VentasPage({
             </p>
             <p className="text-xs text-t-muted mt-1">Por cobrar</p>
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {totalProformas > 0 && (
-            <span className="px-3 py-1 text-xs bg-a-amber-bg text-t-amber rounded-full font-medium">
-              Ventas: {totalProformas}
-            </span>
-          )}
-          {totalOrdenesTrabajo > 0 && (
-            <span className="px-3 py-1 text-xs bg-a-blue-bg text-t-blue rounded-full font-medium">
-              Órdenes: {totalOrdenesTrabajo}
-            </span>
-          )}
-          {Object.entries(porEstado).map(([estado, monto]) => {
-            const colorMap: Record<string, string> = {
-              borrador: "bg-badge-bg text-t-muted",
-              confirmada: "bg-a-blue-bg text-t-blue",
-              facturada: "bg-a-green-bg text-t-green",
-              cancelada: "bg-a-red-bg text-t-red",
-            };
-            const labelMap: Record<string, string> = {
-              borrador: "Borrador", confirmada: "Confirmada", facturada: "Facturada", cancelada: "Cancelada",
-            };
-            return (
-              <span key={estado} className={`px-3 py-1 text-xs rounded-full font-medium ${colorMap[estado] ?? "bg-badge-bg text-t-muted"}`}>
-                {labelMap[estado] ?? estado}: {fmtMoney(monto)}
-              </span>
-            );
-          })}
         </div>
       </div>
 

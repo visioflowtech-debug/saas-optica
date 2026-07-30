@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { fmtFecha } from "@/lib/date-sv";
+import { fmtFecha, svFechaInicioUTC } from "@/lib/date-sv";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -26,11 +26,14 @@ export default async function DashboardPage() {
   haceUnAnio.setFullYear(haceUnAnio.getFullYear() - 1);
   const haceUnAnioISO = haceUnAnio.toISOString();
 
+  // Límites de fecha (hora SV) para las tarjetas de ventas hoy / mes en curso
+  const hoyStr = `${svNow.getFullYear()}-${String(svNow.getMonth() + 1).padStart(2, "0")}-${String(svNow.getDate()).padStart(2, "0")}`;
+  const inicioHoyUTC = svFechaInicioUTC(hoyStr);
+  const inicioMesUTC = svFechaInicioUTC(fechaInicioMes);
+
   // Fetch en paralelo — KPIs básicos siempre, financieros solo para admin
   const [
-    { count: totalPacientes },
-    { count: totalExamenes },
-    { count: totalOrdenes },
+    ventasPeriodoRes,
     cuentasData,
     cxcData,
     gastosData,
@@ -39,12 +42,12 @@ export default async function DashboardPage() {
     { count: alertStock },
     { count: alertRecetas },
   ] = await Promise.all([
-    supabase.from("pacientes").select("*", { count: "exact", head: true })
-      .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id),
-    supabase.from("examenes_clinicos").select("*", { count: "exact", head: true })
-      .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id),
-    supabase.from("ordenes").select("*", { count: "exact", head: true })
-      .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id),
+    supabase.rpc("kpi_ventas_periodo", {
+      p_tenant_id: perfil.tenant_id,
+      p_sucursal_id: perfil.sucursal_id,
+      p_inicio_hoy: inicioHoyUTC,
+      p_inicio_mes: inicioMesUTC,
+    }).single(),
     esAdmin
       ? supabase.from("cuentas").select("tipo, nombre, saldo_actual")
           .eq("tenant_id", perfil.tenant_id).eq("sucursal_id", perfil.sucursal_id)
@@ -90,12 +93,9 @@ export default async function DashboardPage() {
   const cxc = Number((cxcData as { data: { saldo_pendiente?: number } | null }).data?.saldo_pendiente ?? 0);
   const gastosMes = Number(gastosData.data ?? 0);
   const alertLentes = Number(alertLentesRes.data ?? 0);
-
-  const stats = [
-    { label: "Pacientes", value: totalPacientes ?? 0, icon: "👥", color: "from-blue-500 to-blue-600" },
-    { label: "Exámenes", value: totalExamenes ?? 0, icon: "🔬", color: "from-purple-500 to-purple-600" },
-    { label: "Órdenes", value: totalOrdenes ?? 0, icon: "📋", color: "from-emerald-500 to-emerald-600" },
-  ];
+  const ventasPeriodo = ventasPeriodoRes.data as { ventas_hoy: number; ventas_mes: number } | null;
+  const ventasHoy = Number(ventasPeriodo?.ventas_hoy ?? 0);
+  const ventasMes = Number(ventasPeriodo?.ventas_mes ?? 0);
 
   function formatUSD(n: number) {
     return n.toLocaleString("es-SV", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
@@ -207,26 +207,22 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      {/* Stats grid — Actividad */}
+      {/* Actividad — ventas del período */}
       <div>
         <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Actividad</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { label: "Pacientes", value: totalPacientes ?? 0, icon: "👥", color: "from-blue-500 to-blue-600", href: "/dashboard/pacientes" },
-            { label: "Exámenes", value: totalExamenes ?? 0, icon: "🔬", color: "from-purple-500 to-purple-600", href: "/dashboard/examenes" },
-            { label: "Órdenes", value: totalOrdenes ?? 0, icon: "📋", color: "from-emerald-500 to-emerald-600", href: "/dashboard/ventas" },
-          ].map((s) => (
-            <Link key={s.label} href={s.href}
-              className="p-5 rounded-xl border transition-colors hover:border-blue-500/50"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-card)" }}>
-              <div className="flex items-center justify-between">
-                <span className="text-2xl">{s.icon}</span>
-                <span className={`px-3 py-1 text-xs font-bold bg-gradient-to-r ${s.color} text-white rounded-full`}>{s.value}</span>
-              </div>
-              <p className="font-semibold mt-3" style={{ color: "var(--text-primary)" }}>{s.label}</p>
-              <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>Total registrados</p>
-            </Link>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Link href="/dashboard/ventas"
+            className="p-5 rounded-xl border transition-colors hover:border-green-500/50"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-card)" }}>
+            <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide mb-2">Ventas Hoy</p>
+            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{formatUSD(ventasHoy)}</p>
+          </Link>
+          <Link href="/dashboard/ventas"
+            className="p-5 rounded-xl border transition-colors hover:border-blue-500/50"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-card)" }}>
+            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-2">Ventas del Mes</p>
+            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{formatUSD(ventasMes)}</p>
+          </Link>
         </div>
       </div>
 
