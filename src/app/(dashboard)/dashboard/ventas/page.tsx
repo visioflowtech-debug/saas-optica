@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { fmtFecha, svFechaInicioUTC } from "@/lib/date-sv";
 import { puedeAcceder } from "@/lib/acceso";
+import VentasMensualChart from "./ventas-mensual-chart";
 
 export default async function VentasPage({
   searchParams,
@@ -107,7 +108,7 @@ export default async function VentasPage({
   const hoyStr = `${svNow.getFullYear()}-${String(svNow.getMonth() + 1).padStart(2, "0")}-${String(svNow.getDate()).padStart(2, "0")}`;
   const inicioMesStr = `${svNow.getFullYear()}-${String(svNow.getMonth() + 1).padStart(2, "0")}-01`;
 
-  const [{ data: ordenes, count }, { data: ventasPeriodoRaw }, { data: cxcData }] = await Promise.all([
+  const [{ data: ordenes, count }, { data: ventasPeriodoRaw }, { data: cxcData }, { data: ventasMensualRaw }] = await Promise.all([
     query,
     supabase.rpc("kpi_ventas_periodo", {
       p_tenant_id: perfil.tenant_id,
@@ -124,6 +125,12 @@ export default async function VentasPage({
       .eq("tenant_id", perfil.tenant_id)
       .eq("sucursal_id", perfil.sucursal_id)
       .maybeSingle(),
+    // Ventas mensuales (pagado vs pendiente) para el gráfico — últimos 6 meses
+    supabase.rpc("kpi_ventas_mensual", {
+      p_tenant_id: perfil.tenant_id,
+      p_sucursal_id: perfil.sucursal_id,
+      p_meses: 6,
+    }),
   ]);
 
   // Calcular abonado y saldo por orden (basado en órdenes filtradas)
@@ -162,6 +169,8 @@ export default async function VentasPage({
   // sin importar fecha ni filtros de esta página — coincide con la columna
   // Saldo de la tabla y con el filtro "Saldo Pendiente".
   const totalSaldoPendiente = Number((cxcData as { saldo_pendiente?: number } | null)?.saldo_pendiente ?? 0);
+
+  const ventasMensual = (ventasMensualRaw ?? []) as { mes: string; total_ventas: number; total_pagado: number; total_pendiente: number }[];
 
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
@@ -220,6 +229,9 @@ export default async function VentasPage({
           </div>
         </div>
       </div>
+
+      {/* Gráfico de ventas mensuales — pagado vs pendiente */}
+      <VentasMensualChart datos={ventasMensual} />
 
       {/* Search */}
       <form className="flex gap-3">
