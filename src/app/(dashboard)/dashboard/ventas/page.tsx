@@ -66,6 +66,17 @@ export default async function VentasPage({
     pacienteIds = (pacs ?? []).map((p) => p.id);
   }
 
+  // Filtro "Saldo Pendiente": resolver ids de órdenes con saldo > 0 vía RPC
+  // (necesario antes de armar la query paginada, para poder aplicar .in())
+  let saldoPendienteIds: string[] | null = null;
+  if (params.filtro === "saldo_pendiente") {
+    const { data: idsData } = await supabase.rpc("ids_ordenes_saldo_pendiente", {
+      p_tenant_id: perfil.tenant_id,
+      p_sucursal_id: perfil.sucursal_id,
+    });
+    saldoPendienteIds = ((idsData ?? []) as { id: string }[]).map((r) => r.id);
+  }
+
   // Query paginada (tabla)
   let query = supabase
     .from("ordenes")
@@ -76,8 +87,9 @@ export default async function VentasPage({
     .range(from, to);
 
   // Aplicar filtros a la query paginada
-  if (params.filtro === "proforma") query = query.eq("tipo", "proforma");
-  if (params.filtro === "orden_trabajo") query = query.eq("tipo", "orden_trabajo");
+  if (params.filtro === "saldo_pendiente") {
+    query = query.in("id", saldoPendienteIds && saldoPendienteIds.length > 0 ? saldoPendienteIds : ["00000000-0000-0000-0000-000000000000"]);
+  }
   if (campanaFiltro) {
     if (!campanaPatientIds || campanaPatientIds.length === 0) {
       query = query.eq("campana_id", campanaFiltro);
@@ -94,7 +106,7 @@ export default async function VentasPage({
   const kpiRpcParams: Record<string, unknown> = {
     p_tenant_id: perfil.tenant_id,
     p_sucursal_id: perfil.sucursal_id,
-    p_tipo: params.filtro === "proforma" || params.filtro === "orden_trabajo" ? params.filtro : null,
+    p_tipo: null,
     p_campana_id: campanaFiltro || null,
     p_paciente_ids: pacienteIds && pacienteIds.length > 0 ? pacienteIds : pacienteIds !== null && pacienteIds.length === 0 ? ["00000000-0000-0000-0000-000000000000"] : null,
   };
@@ -172,8 +184,7 @@ export default async function VentasPage({
 
   const filterTabs = [
     { key: "todas", label: "Todas" },
-    { key: "proforma", label: "Ventas" },
-    { key: "orden_trabajo", label: "Órdenes de Trabajo" },
+    { key: "saldo_pendiente", label: "Saldo Pendiente" },
   ];
 
   return (
